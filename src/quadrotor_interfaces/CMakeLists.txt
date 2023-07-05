@@ -13,8 +13,10 @@ find_package(geometry_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
-  "msg/QuadrotorState.msg"
-  "msg/QuadrotorCommand.msg"
+  "msg/State.msg"
+  "msg/RotorCommand.msg"
+  "msg/PathWayPoints.msg"
+  "msg/OccupancyGrid3D.msg"
 DEPENDENCIES geometry_msgs
 )
 
