@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
+from rclpy.time import Time
+
 from ament_index_python.packages import get_package_share_directory
 from quadrotor_interfaces.msg import RotorCommand, State
 
@@ -16,7 +18,7 @@ import numpy as np
 
 class QuadrotorPybullet(Node):
     def __init__(self):
-        super().__init__('simulator_node')
+        super().__init__('quadrotor_pybullet_node')
 
         self.start_time = self.get_clock().now()  # For logging purposes
 
@@ -61,7 +63,7 @@ class QuadrotorPybullet(Node):
 
 
     def initialize_urdf(self):
-        '''Read the xacro file and convert it to a urdf file that can be read by pybullet'''
+        """Read the xacro file and convert it to a urdf file that can be read by pybullet."""
         description_folder = os.path.join(
             get_package_share_directory('quadrotor_description'), 'description')
 
@@ -136,6 +138,7 @@ class QuadrotorPybullet(Node):
         twist.angular = Vector3(x=quad_w[0], y=quad_w[1], z=quad_w[2])
 
         msg = State()
+        msg.header.stamp =Time(nanoseconds = self.get_clock().now().nanoseconds - self.start_time.nanoseconds).to_msg()
         msg.pose = pose
         msg.twist = twist
 
