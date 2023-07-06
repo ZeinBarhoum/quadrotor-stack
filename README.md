@@ -2,15 +2,25 @@
 
 ## Overview
 
-A Ros2-based system for to facilitate research and development of quadrotor trajectory planning, optimization and tracking.
+A Ros2-based modular system for to facilitate research and development of quadrotor trajectory planning, optimization and tracking.
 
-There are multiple packages in this repository intended to be built togehter as they are dependent on each other, these include:
+There are multiple packages in this repository, each representing a module in the system, this includes simulation, path planning, trajectory generation, trajectory tracking and vision-based mapping.
 
-1. quad_description
-2. quad_bringup
-3. quad_msgs
-4. quad_plan
-5. quad_control
+The modules interact with each other using ROS2 topics in a non-synchronous way, each module in the system can run in a unique rate which simulates the real-life case.
 
-## System 
+The system modules and their interactions are shown in the following graph:
 
+![alt text](/media/system.svg)
+
+## Implemented Modules and Functionalities
+
+- [ ] Simulation: quadrotor_simulation
+  - [x] Pybullet: quadrotor_pybullet
+  - [ ] ??
+- [ ] Tracking: quadrotor_control
+  - [x] PID: quadrotor_pid
+  - [ ] MPC
+  - [ ] DFBC
+- [ ] Mapping
+- [ ] Path Planning
+- [ ] Trajectory Generation
