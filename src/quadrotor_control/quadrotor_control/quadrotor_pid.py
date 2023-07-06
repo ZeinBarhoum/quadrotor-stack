@@ -9,7 +9,6 @@ import pybullet as p
 from scipy.spatial.transform import Rotation
 
 import math
-import numpy as np
 
 class QuadrotorPID(Node):
     def __init__(self):
@@ -63,10 +62,9 @@ class QuadrotorPID(Node):
     def receive_reference_callback(self, msg):
         self.get_logger().info('Received state reference')
 
-        #edit the code to use des_ prefix
         self.desired_pos = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z])
         self.desired_quat = np.array([msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w])
-        self.desired_rot = p.getEulerFromQuaternion(self.des_quat)
+        self.desired_rot = p.getEulerFromQuaternion(self.desired_quat)
         self.desired_vel = np.array([msg.twist.linear.x, msg.twist.linear.y, msg.twist.linear.z])
         self.desired_w = np.array([msg.twist.angular.x, msg.twist.angular.y, msg.twist.angular.z])
 
