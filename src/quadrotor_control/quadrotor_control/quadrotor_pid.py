@@ -50,7 +50,7 @@ class QuadrotorPID(Node):
         self.get_logger().info('PID node initialized')
 
     def receive_state_callback(self, msg):
-        self.get_logger().info('Received state feedback')
+        # self.get_logger().info('Received state feedback')
 
         self.pos = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z])
         self.quat = np.array([msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w])
@@ -60,7 +60,7 @@ class QuadrotorPID(Node):
         self.w = np.array([msg.twist.angular.x, msg.twist.angular.y, msg.twist.angular.z])
 
     def receive_reference_callback(self, msg):
-        self.get_logger().info('Received state reference')
+        # self.get_logger().info('Received state reference')
 
         self.desired_pos = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z])
         self.desired_quat = np.array([msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w])
@@ -70,7 +70,7 @@ class QuadrotorPID(Node):
 
     def publish_command(self):
         rpm = self.calculate_command()
-        self.get_logger().info(f'Publishing rotor commands{rpm}')
+        # self.get_logger().info(f'Publishing rotor commands{rpm}')
         msg = RotorCommand()
         msg.rotor_speeds = np.array(rpm, dtype= np.float32)
         self.publisher.publish(msg)

@@ -1,0 +1,66 @@
+import rclpy
+from rclpy.node import Node
+from quadrotor_interfaces.msg import PolynomialTrajectory, State
+import numpy as np
+
+class QuadrotorReferencePublisher(Node):
+    def __init__(self):
+        super().__init__('quadrotor_reference_publisher')
+
+
+        self.subscriber_poly = self.create_subscription(
+            PolynomialTrajectory,
+            'quadrotor_polynomial_trajectory',
+            self.receive_poly_trajectory_callback,
+            10  # Queue size
+        )
+
+        self.publisher_ref = self.create_publisher(
+            State,
+            'quadrotor_reference',
+            10  # Queue size
+        )
+
+        self.poly_x = np.array([1])
+        self.poly_y = np.array([1])
+        self.poly_z = np.array([1])
+        self.t_clip = -1
+
+        self.current_time = 0.0
+
+        # Control the publishing rate
+        self.publish_rate = 100  # Hz
+        self.DT = 1.0 / self.publish_rate  # seconds
+        self.timer = self.create_timer(self.DT, self.publish_reference)
+
+        self.get_logger().info('Reference publisher node initialized')
+
+    def publish_reference(self):
+        msg = State()
+        msg.pose.position.x = np.polyval(self.poly_x, self.current_time)
+        msg.pose.position.y = np.polyval(self.poly_y, self.current_time)
+        msg.pose.position.z = np.polyval(self.poly_z, self.current_time)
+        self.publisher_ref.publish(msg)
+
+        self.current_time += self.DT
+
+        if(self.t_clip > 0 and self.current_time > self.t_clip):
+            self.current_time = 0.0
+
+    def receive_poly_trajectory_callback(self, msg):
+        self.poly_x = np.array(msg.poly_x)
+        self.poly_y = np.array(msg.poly_y)
+        self.poly_z = np.array(msg.poly_z)
+        self.t_clip = msg.t_clip
+        self.current_time = 0.0
+
+def main():
+    rclpy.init()
+    node = QuadrotorReferencePublisher()
+    rclpy.spin(node)
+
+    node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()

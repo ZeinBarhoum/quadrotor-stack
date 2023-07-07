@@ -93,7 +93,7 @@ class QuadrotorPybullet(Node):
     def receive_commands_callback(self, msg):
         # Process the received RotorCommand message here (e.g., extract rotor speeds)
         # Perform the simulation step and publish the updated state
-        self.get_logger().info(f'I recived the commands {msg}')
+        # self.get_logger().info(f'I recived the commands {msg}')
         self.rotor_speeds = np.array(msg.rotor_speeds)
 
     def get_F_T(self):
@@ -106,8 +106,8 @@ class QuadrotorPybullet(Node):
     def simulation_step(self):
         # Perform the simulation step here
         # Publish the updated state
-        self.get_logger().info(
-            f'Simulation step at {self.get_clock().now().seconds_nanoseconds()}')
+        # self.get_logger().info(
+            # f'Simulation step at {self.get_clock().now().seconds_nanoseconds()}')
         F, T = self.get_F_T()
 
         for i in range(4):

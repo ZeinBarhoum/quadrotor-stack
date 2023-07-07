@@ -65,10 +65,16 @@ ros2 run quadrotor_simulation quadrotor_pybullet
 
 This node listens to the `/quadrotor_rotor_speeds` topic and publishes to `/quadrotor_state` topic.
 
-To launch a simulation with PID controller, use the following command.
+To launch a simulation with PID controller and simple reference publisher, use the following command.
 
 ```bash
 ros2 launch quadrotor_bringup quadrotor_simulation.launch.py controller:=quadrotor_pid
+```
+
+To command the quadrotor to follow a circle, the following command publishes the polynomial trajectory approximation of a circle to the `/quadrotor_polynomial_trajectory`. The node `quadrotor_reference_publisher` publishes the reference state to `/quadrotor_reference` topic in fixed rate following the polynomial function.
+
+```bash
+ros2 topic pub --once /quadrotor_polynomial_trajectory quadrotor_interfaces/msg/PolynomialTrajectory "{header: {}, poly_x: [1.51383985371781e-07, -7.14571397410070e-06, 0.000130239969470174, -0.00109778199648815, 0.00371446637221780, -0.000980038295903419, 0.0134900091914051, -0.176415378615748, 0.00200274735664833, 1.00066799320626, -0.000130544080559754], poly_y: [2.21841764793139e-07, -6.96929094200916e-06, 7.42738645341275e-05, -0.000215896450055789, -0.000777698773923802, -0.00112904042577661, 0.0429934777291669,  -0.000934805450807571, -0.499647157157789, -5.69214830909161e-05, 1.00000216767309], poly_z: [2.0], t_clip: 6.28}"
 ```
 
 Each node in this repository can be run in a stand-alone fashion as long as there is data published to the relevant topics. For example, the quadrotor_pid node can be used for other projects as long as someone is publishing to the `/quadrotor_state` and `/quadrotor_reference` topics.

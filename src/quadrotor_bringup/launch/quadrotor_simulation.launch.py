@@ -29,8 +29,15 @@ def generate_launch_description():
         output='screen'
     )
 
+    reference_publisher_node = Node(
+        package= 'quadrotor_trajectory_generation',
+        executable= 'quadrotor_reference_publisher',
+        output= 'screen'
+    )
+
     return LaunchDescription(
         decalred_arguments+[
             simulation_node,
             controller_node,
+            reference_publisher_node,
         ])
