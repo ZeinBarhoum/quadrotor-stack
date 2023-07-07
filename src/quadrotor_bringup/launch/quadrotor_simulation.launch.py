@@ -12,7 +12,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             name='controller',
             default_value='quadrotor_pid',
-            description='Controller to use (default: pid)'
+            description='Controller to use (default: quadrotor_pid)'
         )
     )
     simulation_node = Node(
