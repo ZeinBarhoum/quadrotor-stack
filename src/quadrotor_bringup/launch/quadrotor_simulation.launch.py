@@ -35,9 +35,16 @@ def generate_launch_description():
         output= 'screen'
     )
 
+    trajectory_poly_optimizer_node = Node(
+        package = 'quadrotor_trajectory_generation',
+        executable = 'quadrotor_poly_optimizer',
+        output = 'screen'
+    )
+
     return LaunchDescription(
         decalred_arguments+[
             simulation_node,
             controller_node,
             reference_publisher_node,
+            trajectory_poly_optimizer_node
         ])

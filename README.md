@@ -77,4 +77,14 @@ To command the quadrotor to follow a circle, the following command publishes the
 ros2 topic pub --once /quadrotor_polynomial_trajectory quadrotor_interfaces/msg/PolynomialTrajectory "{header: {}, poly_x: [1.51383985371781e-07, -7.14571397410070e-06, 0.000130239969470174, -0.00109778199648815, 0.00371446637221780, -0.000980038295903419, 0.0134900091914051, -0.176415378615748, 0.00200274735664833, 1.00066799320626, -0.000130544080559754], poly_y: [2.21841764793139e-07, -6.96929094200916e-06, 7.42738645341275e-05, -0.000215896450055789, -0.000777698773923802, -0.00112904042577661, 0.0429934777291669,  -0.000934805450807571, -0.499647157157789, -5.69214830909161e-05, 1.00000216767309], poly_z: [2.0], t_clip: 6.28}"
 ```
 
+To command the quadrotor to follow a sequence of waypoints, the node quadrotor_poly_optimizer is responsible to publish to the `/quadrotor_polynomial_trajectory` after receiving a sequence of waypoints on the topic `quadrotor_waypoints`. For now, it's not much an optimization task as it's a trajectory generation task with fixed 1 seconds between each two waypoints,
+
+An example of commanding the quadrotor to follow a triangle is:
+
+```bash
+ros2 topic pub --once /quadrotor_waypoints quadrotor_interfaces/msg/PathWayPoints "{waypoints: [{x: 1, y: 1, z: 1}, {x: 2, y: 2, z: 2}, {x: 1, y: 1, z: 2}]}"
+```
+
+Note: The waypoints are considered circular, which means after completing the last one, it returns to the first.
+
 Each node in this repository can be run in a stand-alone fashion as long as there is data published to the relevant topics. For example, the quadrotor_pid node can be used for other projects as long as someone is publishing to the `/quadrotor_state` and `/quadrotor_reference` topics.
