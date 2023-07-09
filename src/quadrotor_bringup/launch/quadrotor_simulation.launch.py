@@ -41,10 +41,23 @@ def generate_launch_description():
         output = 'screen'
     )
 
+    mapping_node = Node(
+        package = 'quadrotor_mapping',
+        executable = 'quadrotor_default_map',
+        output = 'screen'
+    )
+    path_finding_node = Node(
+        package = 'quadrotor_path_finding',
+        executable= 'quadrotor_rrt',
+        output = 'screen'
+    )
+
     return LaunchDescription(
         decalred_arguments+[
             simulation_node,
             controller_node,
             reference_publisher_node,
-            trajectory_poly_optimizer_node
+            trajectory_poly_optimizer_node,
+            mapping_node,
+            path_finding_node,
         ])
