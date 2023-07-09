@@ -19,14 +19,23 @@ In real life, the simulation node would be replaced with multiple nodes, namely 
 
 - [ ] Simulation: quadrotor_simulation
   - [x] Pybullet: quadrotor_pybullet
-  - [ ] ??
+  - [ ] AirSim??
 - [ ] Tracking: quadrotor_control
   - [x] PID: quadrotor_pid
   - [ ] MPC
   - [ ] DFBC
 - [ ] Mapping
-- [ ] Path Planning
-- [ ] Trajectory Generation
+- [ ] Path Planning : quadrotor_path_finding
+  - [x] RRT : quadrotor_rrt
+  - [ ] RRT-star
+  - [ ] A*
+  - [ ] ??
+- [ ] Trajectory Generation : quadrotor_trajectory_generation
+  - [x] 3rd order polynomials (no optimization) - quadrotor_poly_optimizer
+  - [ ] Higher order polynomials (with optimization)
+  - [ ] B-splines
+  - [ ] Bézier
+  - [ ] ??
 
 ## Installation
 
@@ -44,7 +53,7 @@ Next, navigate to your preferable folder and download the repository
 
 ```bash
 cd /path/to/work/folder
-mkdir quadrotor_ws
+mkdir quadrotor_ws && cd quadrotor_ws
 git clone https://github.com/ZeinBarhoum/quadrotor-plan-control.git
 ```
 
@@ -86,5 +95,15 @@ ros2 topic pub --once /quadrotor_waypoints quadrotor_interfaces/msg/PathWayPoint
 ```
 
 Note: The waypoints are considered circular, which means after completing the last one, it returns to the first.
+
+To plan a collision free path from the current position (retrieved from the `/quadrotor_state` topic) to a target position published to the `/quadrotor_plan_command`, we can use the RRT planner node `quadrotor_rrt` from the `quadrotor_path_finding` package as follows:
+
+```bash
+ros2 topic pub /quadrotor_plan_command geometry_msgs/msg/Point "{x : 5.0, y : 5.0, z : 5.0}" --once
+```
+
+The planner make use of the OccupancyMap published to the `/quadrotor_map` topic.
+
+## Modularity
 
 Each node in this repository can be run in a stand-alone fashion as long as there is data published to the relevant topics. For example, the quadrotor_pid node can be used for other projects as long as someone is publishing to the `/quadrotor_state` and `/quadrotor_reference` topics.
