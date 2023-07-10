@@ -15,6 +15,11 @@ import os
 
 import numpy as np
 
+import cv2
+
+from cv_bridge import CvBridge
+
+from sensor_msgs.msg import Image
 
 class QuadrotorPybullet(Node):
     def __init__(self):
@@ -37,10 +42,19 @@ class QuadrotorPybullet(Node):
             10  # Queue size
         )
 
+        self.image_publisher = self.create_publisher(Image, '/quadrotor_img', 10)
+
+
         # Control the simulation frequency
         self.simulation_frequency = 240  # Hz
         self.timer_period = 1.0 / self.simulation_frequency  # seconds
-        self.timer = self.create_timer(self.timer_period, self.simulation_step)
+        self.state_timer = self.create_timer(self.timer_period, self.simulation_step)
+
+        self.image_publishing_frequency = 24  # Change this value as desired
+        self.image_publishing_period = 1.0 / self.image_publishing_frequency  # seconds
+        self.camera_timer = self.create_timer(self.image_publishing_period, self.publish_image)
+
+
 
         # initialize the constants, the urdf file and the pybullet client
         self.initialize_urdf()
@@ -60,7 +74,6 @@ class QuadrotorPybullet(Node):
         self.M = 0.027  # kg
         self.W = self.M*self.G  # N
         self.HOVER_RPM = np.sqrt(self.W/(4*self.KF))  # rpm
-
 
     def initialize_urdf(self):
         """Read the xacro file and convert it to a urdf file that can be read by pybullet."""
@@ -89,6 +102,8 @@ class QuadrotorPybullet(Node):
         self.planeId = p.loadURDF("plane.urdf")
 
         self.quadrotor_id = p.loadURDF(self.urdf_file, [0, 0, 0.25])
+
+        p.loadURDF("samurai.urdf")
 
     def receive_commands_callback(self, msg):
         # Process the received RotorCommand message here (e.g., extract rotor speeds)
@@ -125,6 +140,8 @@ class QuadrotorPybullet(Node):
     def publish_state(self):
         quad_pos, quad_quat = p.getBasePositionAndOrientation(
             self.quadrotor_id)
+        self.quad_pos = quad_pos
+        self.quad_quat = quad_quat
 
         quad_v, quad_w = p.getBaseVelocity(self.quadrotor_id)
 
@@ -144,6 +161,48 @@ class QuadrotorPybullet(Node):
 
         #publish the message
         self.publisher.publish(msg)
+
+    def publish_image(self):
+        # Publish the image here
+        # Capture the POV image
+        bridge = CvBridge()
+        # fov, aspect, nearplane, farplane = 60, 1.0, 0.01, 100
+        # projection_matrix = p.computeProjectionMatrixFOV(fov, aspect, nearplane, farplane)
+
+        quad_pos, quad_quat = self.quad_pos, self.quad_quat
+        rot_matrix = p.getMatrixFromQuaternion(quad_quat)
+        rot_matrix = np.array(rot_matrix).reshape(3, 3)
+        # Initial vectors
+        init_camera_vector = (1, 0, 0) # z-axis
+        init_up_vector = (0, 0, 1) # y-axis
+        # # Rotated vectors
+        camera_vector = rot_matrix.dot(init_camera_vector)
+        up_vector = rot_matrix.dot(init_up_vector)
+
+        view_matrix = p.computeViewMatrix(quad_pos, quad_pos + 0.1 * camera_vector, up_vector)
+
+        projection_matrix = p.computeProjectionMatrixFOV(
+            fov=60, aspect=float(800) / 600, nearVal=0.1, farVal=1000.0
+        )
+
+        _, _, px, _, _ = p.getCameraImage(
+            width=800,
+            height=600,
+            viewMatrix=view_matrix,
+            projectionMatrix=projection_matrix,
+            flags= p.ER_NO_SEGMENTATION_MASK,
+            shadow=1,
+            renderer=p.ER_BULLET_HARDWARE_OPENGL,
+        )
+
+        # Convert the image to ROS format
+        image_rgb = np.array(px, dtype=np.uint8)
+        image_rgb = np.reshape(image_rgb, (600, 800, 4))
+        image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGBA2BGR)
+        ros_image = bridge.cv2_to_imgmsg(image_bgr, encoding="bgr8")
+
+        # Publish the image
+        self.image_publisher.publish(ros_image)
 
 def main(args=None):
     rclpy.init(args=args)
