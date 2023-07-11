@@ -173,10 +173,10 @@ class QuadrotorPID(Node):
         self.MAX_TORQUE_Z = 2*self.KM*self.MAX_RPM**2
 
 
-        self.KP_Force = np.array([.4, .4, 1.25])
+        self.KP_Force = np.array([.3, .3, 1.25])
         self.KI_Force = np.array([.05, .05, .05])
         self.KD_Force = np.array([.2, .2, .5])
-        self.KP_Torque = np.array([50000., 50000., 30000.])
+        self.KP_Torque = np.array([40000., 40000., 30000.])
         self.KI_Torque = np.array([.0, .0, 500.])
         self.KD_Torque = np.array([20000., 20000., 12000.])
 
