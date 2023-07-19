@@ -27,9 +27,16 @@ def generate_launch_description():
         output = 'screen'
     )
 
+    path_visualizer_node = Node(
+        package = 'quadrotor_dashboard',
+        executable= 'quadrotor_path_visualizer',
+        output = 'screen'
+    )
+
     return LaunchDescription([
         reference_publisher_node,
         trajectory_poly_optimizer_node,
         mapping_node,
         path_finding_node,
+        path_visualizer_node
     ])

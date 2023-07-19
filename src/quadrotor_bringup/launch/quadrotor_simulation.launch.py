@@ -51,6 +51,11 @@ def generate_launch_description():
         executable= 'quadrotor_rrt',
         output = 'screen'
     )
+    path_visualizer_node = Node(
+        package = 'quadrotor_dashboard',
+        executable= 'quadrotor_path_visualizer',
+        output = 'screen'
+    )
 
     return LaunchDescription(
         decalred_arguments+[
@@ -60,4 +65,5 @@ def generate_launch_description():
             trajectory_poly_optimizer_node,
             mapping_node,
             path_finding_node,
+            path_visualizer_node
         ])
