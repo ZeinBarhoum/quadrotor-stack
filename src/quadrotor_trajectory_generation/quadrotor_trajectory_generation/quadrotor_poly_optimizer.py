@@ -46,7 +46,7 @@ class QuadrotorPolyOptimizer(Node):
 
     def _calculate_polynomial(self, waypoints):
         # calculate polynomial coefficients for x(t), y(t), and z(t) so they pass through the waypoints
-
+        # waypoints = waypoints[:4]
         waypoints = np.array([*waypoints,waypoints[0]])
 
         self.get_logger().info(f'{waypoints}')
@@ -60,17 +60,17 @@ class QuadrotorPolyOptimizer(Node):
         t = np.arange(n)
 
         # least squares method for x(t)
-        A = np.vstack([t**3, t**2, t, np.ones(n)]).T
+        A = np.vstack([t**i for i in reversed(range(len(waypoints) -1))]).T
         x = np.array([p.x for p in waypoints])
         self.poly_x = np.linalg.lstsq(A, x, rcond=None)[0]
 
         # least squares method for y(t)
-        A = np.vstack([t**3, t**2, t, np.ones(n)]).T
+        A = np.vstack([t**i for i in reversed(range(len(waypoints) -1))]).T
         y = np.array([p.y for p in waypoints])
         self.poly_y = np.linalg.lstsq(A, y, rcond=None)[0]
 
         # least squares method for z(t)
-        A = np.vstack([t**4, t**3, t**2, t, np.ones(n)]).T
+        A = np.vstack([t**i for i in reversed(range(len(waypoints) -1))]).T
         z = np.array([p.z for p in waypoints])
         self.poly_z = np.linalg.lstsq(A, z, rcond=None)[0]
 
