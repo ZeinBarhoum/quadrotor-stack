@@ -18,10 +18,16 @@ class QuadrotorPathVisualizer(Node):
         #                                                      callback= self.reference_callback,
         #                                                      qos_profile= 10)
 
-        self.subscrber_referece_path = self.create_subscription(msg_type= State,
+        self.subscriber_referece_path = self.create_subscription(msg_type= State,
                                                                 topic = 'quadrotor_reference',
                                                                 callback= self.reference_callback,
                                                                 qos_profile= 10)
+        
+        self.subscriber_actual_path = self.create_subscription(msg_type= State,
+                                                               topic = 'quadrotor_state',
+                                                               callback= self.state_callback,
+                                                               qos_profile= 10)
+                                                               
         
         self.timer_plot = self.create_timer(timer_period_sec= 0.1, 
                                             callback= self.plot_callback)
@@ -31,6 +37,9 @@ class QuadrotorPathVisualizer(Node):
         self.fig, self.ax3 = plt.subplots(1, 1, subplot_kw={'projection': '3d'})
         self.references = [[0],[0],[0]]
         self.current_reference = [0,0,0]
+        
+        self.states = [[0],[0],[0]]
+        self.current_state = [0,0,0]
 
     def waypoints_callback(self, msg):
         x = [waypoint.x for waypoint in msg.waypoints]
@@ -41,6 +50,9 @@ class QuadrotorPathVisualizer(Node):
     def plot_callback(self):
         
         self.ax3.plot(*self.references, c='r')
+        self.ax3.plot(*self.states, c='g')
+        # plt.legend()
+        
         # self.ax3.scatter(*self.current_reference, c='b', marker='o')
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
@@ -52,6 +64,14 @@ class QuadrotorPathVisualizer(Node):
         self.references[2].append(msg.pose.position.z)
         
         self.current_reference = [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z]
+        
+    def state_callback(self, msg):
+
+        self.states[0].append(msg.pose.position.x)
+        self.states[1].append(msg.pose.position.y)
+        self.states[2].append(msg.pose.position.z)
+        
+        self.current_state = [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z]
         
 
 
