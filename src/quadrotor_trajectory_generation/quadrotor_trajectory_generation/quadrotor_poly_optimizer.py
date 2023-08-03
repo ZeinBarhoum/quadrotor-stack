@@ -26,6 +26,7 @@ class QuadrotorPolyOptimizer(Node):
         self.poly_x = np.array([2.0], dtype=np.float32)
         self.poly_y = np.array([2.0], dtype=np.float32)
         self.poly_z = np.array([2.0], dtype=np.float32)
+        self.max_time = 0
 
     def receive_waypoints_callback(self, msg):
         self.waypoints = np.array(msg.waypoints)
@@ -39,7 +40,8 @@ class QuadrotorPolyOptimizer(Node):
         pub_msg.poly_y = self.poly_y.tolist()
         pub_msg.poly_z = self.poly_z.tolist()
 
-        pub_msg.t_clip = float(self.num_waypoints-1)
+        # pub_msg.t_clip = float(self.num_waypoints-1)
+        pub_msg.t_clip = self.max_time
 
         self.publisher.publish(pub_msg)
 
@@ -53,25 +55,40 @@ class QuadrotorPolyOptimizer(Node):
 
         n = len(waypoints)
 
-
-
         self.num_waypoints = n
-
-        t = np.arange(n)
-
-        # least squares method for x(t)
-        A = np.vstack([t**i for i in reversed(range(len(waypoints) -1))]).T
+        
         x = np.array([p.x for p in waypoints])
+        y = np.array([p.y for p in waypoints])
+        z = np.array([p.z for p in waypoints])
+        waypoints_array : np.ndarray = np.array([x,y,z])
+        # self.get_logger().info(f'{waypoints_array}')
+        
+        # self.get_logger().info(f'{waypoints_array.shape}')
+
+        # make the time related to the distance between each two consequent waypoints
+        t = 1*np.cumsum(np.sqrt(np.sum(np.diff(waypoints_array, axis=1)**2, axis=0)))
+        # ad 0 to the begining of t
+        t = np.concatenate(([0], t))
+        
+        # t = np.arange(n)
+        
+        t[-1] = t[-2] + 2
+        self.max_time = float(t[-1])
+        
+        self.get_logger().info(f'{t}')
+        # added order 
+        extra = 0
+        # least squares method for x(t)
+        A = np.vstack([t**i for i in reversed(range(len(waypoints) + extra))]).T
         self.poly_x = np.linalg.lstsq(A, x, rcond=None)[0]
+        self.get_logger().info(f'{self.poly_x=}')
 
         # least squares method for y(t)
-        A = np.vstack([t**i for i in reversed(range(len(waypoints) -1))]).T
-        y = np.array([p.y for p in waypoints])
+        A = np.vstack([t**i for i in reversed(range(len(waypoints) + extra))]).T
         self.poly_y = np.linalg.lstsq(A, y, rcond=None)[0]
 
         # least squares method for z(t)
-        A = np.vstack([t**i for i in reversed(range(len(waypoints) -1))]).T
-        z = np.array([p.z for p in waypoints])
+        A = np.vstack([t**i for i in reversed(range(len(waypoints) + extra))]).T
         self.poly_z = np.linalg.lstsq(A, z, rcond=None)[0]
 
 
