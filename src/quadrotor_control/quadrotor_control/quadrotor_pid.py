@@ -78,7 +78,7 @@ class QuadrotorPID(Node):
     def calculate_command(self):
 
         thrust, computed_target_rpy = self.PositionalControl(self.pos,self.rot, self.desired_pos, self.desired_rot, self.vel)
-        computed_target_rpy[:2] = np.clip(computed_target_rpy[:2], -self.MAX_ROLL_PITCH, self.MAX_ROLL_PITCH)
+        # computed_target_rpy[:2] = np.clip(computed_target_rpy[:2], -self.MAX_ROLL_PITCH, self.MAX_ROLL_PITCH)
         # print(computed_target_rpy)
         rpm = self.AngularControl(thrust, self.rot, computed_target_rpy)
         # rpm = self.AngularControl(thrust, rot, np.array([0,-0.3,0]))
@@ -173,20 +173,21 @@ class QuadrotorPID(Node):
         self.MAX_TORQUE_Z = 2*self.KM*self.MAX_RPM**2
 
 
-        self.KP_Force = np.array([.3, .3, 1.25])
-        self.KI_Force = np.array([.05, .05, .05])
-        self.KD_Force = np.array([.2, .2, .5])
-        self.KP_Torque = np.array([40000., 40000., 30000.])
+        self.KP_Force = np.array([.1, .1, 1.25])
+        self.KI_Force = np.array([.00, .00, .05])
+        self.KD_Force = np.array([.09, .09, .5])
+        self.KP_Torque = np.array([70000., 70000., 60000.])
         self.KI_Torque = np.array([.0, .0, 500.])
         self.KD_Torque = np.array([20000., 20000., 12000.])
 
-        self.MAX_ROLL_PITCH = np.pi/6
+        # self.MAX_ROLL_PITCH = np.pi/8
 
         self.PWM2RPM_SCALE = 0.2685
         self.PWM2RPM_CONST = 4070.3
         self.MIN_PWM = 20000
         self.MAX_PWM = 65535
         self.MIXER_MATRIX = np.array([ [.5, -.5,  -1], [.5, .5, 1], [-.5,  .5,  -1], [-.5, -.5, 1] ])
+
 
 
 def main(args=None):
