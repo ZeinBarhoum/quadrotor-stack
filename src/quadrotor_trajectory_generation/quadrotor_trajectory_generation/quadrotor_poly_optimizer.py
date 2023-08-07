@@ -49,7 +49,7 @@ class QuadrotorPolyOptimizer(Node):
     def _calculate_polynomial(self, waypoints):
         # calculate polynomial coefficients for x(t), y(t), and z(t) so they pass through the waypoints
         # waypoints = waypoints[:4]
-        waypoints = np.array([*waypoints,waypoints[0]])
+        waypoints = np.array(waypoints)
 
         self.get_logger().info(f'{waypoints}')
 
@@ -66,13 +66,11 @@ class QuadrotorPolyOptimizer(Node):
         # self.get_logger().info(f'{waypoints_array.shape}')
 
         # make the time related to the distance between each two consequent waypoints
-        t = 1*np.cumsum(np.sqrt(np.sum(np.diff(waypoints_array, axis=1)**2, axis=0)))
+        t = 2*np.cumsum(np.sqrt(np.sum(np.diff(waypoints_array, axis=1)**2, axis=0)))
         # ad 0 to the begining of t
         t = np.concatenate(([0], t))
         
         # t = np.arange(n)
-        
-        t[-1] = t[-2] + 2
         self.max_time = float(t[-1])
         
         self.get_logger().info(f'{t}')

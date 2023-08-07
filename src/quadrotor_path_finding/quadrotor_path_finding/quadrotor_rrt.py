@@ -148,7 +148,7 @@ class QuadrotorRRT(Node):
         self.goal_position = np.array(self.goal_position / self.cell_size).astype(np.int32)
         print(self.goal_position)
 
-        rrt = RRT(self.current_position, goal=self.goal_position, occupancy_map=self.map_data, step_size=15, pause=1e-5, min_dist= 50)
+        rrt = RRT(self.current_position, goal=self.goal_position, occupancy_map=self.map_data, step_size=50, pause=1e-5, min_dist= 50)
 
         path = rrt.plan()
         path = np.array(path) * self.cell_size

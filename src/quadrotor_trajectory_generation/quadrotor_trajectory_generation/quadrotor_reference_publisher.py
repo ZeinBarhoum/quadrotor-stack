@@ -45,7 +45,7 @@ class QuadrotorReferencePublisher(Node):
         self.current_time += self.DT
 
         if(self.t_clip > 0 and self.current_time > self.t_clip):
-            self.current_time = 0.0
+            self.current_time = self.t_clip
 
     def receive_poly_trajectory_callback(self, msg):
         self.poly_x = np.array(msg.poly_x)
