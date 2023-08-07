@@ -77,18 +77,18 @@ class QuadrotorPID(Node):
 
     def calculate_command(self):
 
-        thrust, computed_target_rpy = self.PositionalControl(self.pos,self.rot, self.desired_pos, self.desired_rot, self.vel)
+        thrust, computed_target_rpy = self.PositionalControl(self.pos,self.rot, self.desired_pos, self.desired_rot, self.vel, self.desired_vel)
         # computed_target_rpy[:2] = np.clip(computed_target_rpy[:2], -self.MAX_ROLL_PITCH, self.MAX_ROLL_PITCH)
         # print(computed_target_rpy)
         rpm = self.AngularControl(thrust, self.rot, computed_target_rpy)
         # rpm = self.AngularControl(thrust, rot, np.array([0,-0.3,0]))
         return rpm
 
-    def PositionalControl(self,pos, rot, desired_pos, desired_rot, vel):
+    def PositionalControl(self,pos, rot, desired_pos, desired_rot, vel, desired_vel):
 
         cur_rotation = np.array(p.getMatrixFromQuaternion(p.getQuaternionFromEuler(rot))).reshape(3, 3)
         pos_e = desired_pos - pos
-        vel_e = - vel
+        vel_e = desired_vel - vel
         self.integration_error_pos += pos_e*self.DT
         self.integration_error_pos = np.clip(self.integration_error_pos, -2., 2.)
         self.integration_error_pos[2] = np.clip(self.integration_error_pos[2], -0.15, .15)
@@ -148,6 +148,7 @@ class QuadrotorPID(Node):
     def initialize_referece_feedback(self):
         self.pos = np.zeros(3)
         self.desired_pos = np.ones(3)
+        self.desired_vel = np.zeros(3)
         self.rot = np.zeros(3)
         self.desired_rot = np.zeros(3)
 
