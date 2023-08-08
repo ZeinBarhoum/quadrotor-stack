@@ -91,6 +91,12 @@ class QuadrotorPybullet(Node):
             f.write(robot_description_content)
 
         self.urdf_file = new_file
+        
+        description_folder = os.path.join(
+            get_package_share_directory('quadrotor_simulation'), 'world')
+        description_file = os.path.join(description_folder, 'block.urdf')
+        
+        self.obstacle_urdf_file = description_file
 
     def initialize_pybullet(self):
         self.physicsClient = p.connect(p.GUI)
@@ -100,6 +106,8 @@ class QuadrotorPybullet(Node):
         p.setGravity(0, 0, -self.G)
 
         self.planeId = p.loadURDF("plane.urdf")
+        
+        self.obstacleId = p.loadURDF(self.obstacle_urdf_file, [2.5,2.5,2.5], useFixedBase= 1)
 
         self.quadrotor_id = p.loadURDF(self.urdf_file, [0, 0, 0.25])
 

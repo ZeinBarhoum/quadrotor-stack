@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="cf2">
+    <link name="base_link">
+        <visual name='v1'>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="3.0 1.0 3.0"/>
+            </geometry>
+            <material name="black">
+                <color rgba=".0 .0 .0 1"/>
+            </material>
+        </visual>
+        <visual name='v2'>
+            <origin rpy="0 0 0" xyz="0 1 0"/>
+            <geometry>
+                <box size="1.0 1.0 3.0"/>
+            </geometry>
+            <material name="black">
+                <color rgba=".0 .0 .0 1"/>
+            </material>
+        </visual>
+    </link>
+</robot>

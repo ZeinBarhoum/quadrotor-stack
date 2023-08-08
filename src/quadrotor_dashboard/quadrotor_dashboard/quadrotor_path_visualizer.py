@@ -28,8 +28,11 @@ class QuadrotorPathVisualizer(Node):
                                                                callback= self.state_callback,
                                                                qos_profile= 10)
                                                                
+        # Control the publishing rate
+        self.publish_rate = 20  # Hz
+        self.DT = 1.0 / self.publish_rate  # seconds
         
-        self.timer_plot = self.create_timer(timer_period_sec= 0.1, 
+        self.timer_plot = self.create_timer(timer_period_sec= self.DT, 
                                             callback= self.plot_callback)
 
         plt.ion()
