@@ -12,6 +12,7 @@ class QuadrotorDefaultMap(Node):
         occupancy_map = np.zeros((100, 100, 100))
         occupancy_map[20:80, 40:60, 20:80] = 1
         occupancy_map[40:60, 60:80, 20:80] = 1
+        occupancy_map[:,:,0:2] = 1
 
         self.map = occupancy_map
 

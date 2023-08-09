@@ -93,9 +93,9 @@ class RRT:
         if x1 == x2 and y1 == y2 and z1 == z2:
             return True
 
-        steps_x = np.linspace(x1, x2, 10)
-        steps_y = np.linspace(y1, y2, 10)
-        steps_z = np.linspace(z1, z2, 10)
+        steps_x = np.linspace(x1, x2, 1)
+        steps_y = np.linspace(y1, y2, 1)
+        steps_z = np.linspace(z1, z2, 1)
 
         for i in range(len(steps_x)):
             x, y, z = steps_x[i], steps_y[i], steps_z[i]
