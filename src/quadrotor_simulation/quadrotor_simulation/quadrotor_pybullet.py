@@ -4,22 +4,21 @@ from rclpy.node import Node
 from rclpy.time import Time
 
 from ament_index_python.packages import get_package_share_directory
-from quadrotor_interfaces.msg import RotorCommand, State
 
+from quadrotor_interfaces.msg import RotorCommand, State
 from geometry_msgs.msg import Pose, Point, Quaternion, Vector3, Twist
+from sensor_msgs.msg import Image
 
 import pybullet as p
 import pybullet_data
-import xacro
-import os
-
-import numpy as np
 
 import cv2
-
 from cv_bridge import CvBridge
 
-from sensor_msgs.msg import Image
+import xacro
+import os
+import numpy as np
+import yaml
 
 class QuadrotorPybullet(Node):
     def __init__(self):
@@ -68,10 +67,22 @@ class QuadrotorPybullet(Node):
         self.get_logger().info('Simulator node initialized')
 
     def initialize_constants(self):
+        config_folder = os.path.join(
+            get_package_share_directory('quadrotor_description'), 'config')
+        config_file = os.path.join(config_folder, 'cf2x_params.yaml')
+        with open(config_file, "r") as stream:
+            try:
+                parameters = yaml.safe_load(stream)
+            except yaml.YAMLError as exc:
+                self.get_logger().error(f"Cofiguration File {config_file} Couldn't Be Loaded, Raised Error {exc}")
+                parameters = dict()
+        
+        self.get_logger().info(f'{parameters=}')
+        CF2X_PARAMS = parameters['CF2X_PARAMS']
         self.G = 9.81  # m/s^2
-        self.KF = 3.16e-10  # N/(rad/s)^2
-        self.KM = 7.94e-12  # Nm/(rad/s)^2
-        self.M = 0.027  # kg
+        self.KF = CF2X_PARAMS['KF'] # N/(rad/s)^2
+        self.KM = CF2X_PARAMS['KM']  # Nm/(rad/s)^2
+        self.M = CF2X_PARAMS['M']  # kg
         self.W = self.M*self.G  # N
         self.HOVER_RPM = np.sqrt(self.W/(4*self.KF))  # rpm
 
