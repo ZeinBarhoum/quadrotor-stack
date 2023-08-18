@@ -3,6 +3,9 @@ from launch_ros.actions import Node
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration, TextSubstitution, PythonExpression
 
+from ament_index_python.packages import get_package_share_directory
+import yaml
+import os
 
 def generate_launch_description():
 
@@ -15,6 +18,17 @@ def generate_launch_description():
             description='Controller to use (default: quadrotor_pid)'
         )
     )
+    config_folder = os.path.join(get_package_share_directory('quadrotor_bringup'), 'config')
+    config_file = os.path.join(config_folder, 'simulation.yaml')
+    with open(config_file, "r") as stream:
+        try:
+            parameters = yaml.safe_load(stream)
+        except yaml.YAMLError as exc:
+            self.get_logger().error(f"Cofiguration File {config_file} Couldn't Be Loaded, Raised Error {exc}")
+            parameters = dict()
+    
+    path_visualizer_parameters = parameters['QuadrotorPathVisualizer']
+    
     simulation_node = Node(
         package='quadrotor_simulation',
         executable='quadrotor_pybullet',
@@ -54,6 +68,7 @@ def generate_launch_description():
     path_visualizer_node = Node(
         package = 'quadrotor_dashboard',
         executable= 'quadrotor_path_visualizer',
+        parameters= [{'refresh_rate': path_visualizer_parameters['refresh_rate']}],
         output = 'screen'
     )
 

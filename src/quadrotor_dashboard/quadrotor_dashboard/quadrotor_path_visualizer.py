@@ -7,16 +7,12 @@ from mpl_toolkits import mplot3d
 
 class QuadrotorPathVisualizer(Node):
     def __init__(self):
-        super().__init__('quadrotor_path_visualizer')
+        super().__init__('quadrotor_dashboard')
         self.subscriber_waypoints = self.create_subscription(msg_type= PathWayPoints,
                                                              topic= 'quadrotor_waypoints',
                                                              callback= self.waypoints_callback,
                                                              qos_profile= 10
                                                              )
-        # self.subscriber_reference = self.create_subscription(msg_type= State,
-        #                                                      tooic= 'quadrotor_reference',
-        #                                                      callback= self.reference_callback,
-        #                                                      qos_profile= 10)
 
         self.subscriber_referece_path = self.create_subscription(msg_type= State,
                                                                 topic = 'quadrotor_reference',
@@ -29,7 +25,10 @@ class QuadrotorPathVisualizer(Node):
                                                                qos_profile= 10)
                                                                
         # Control the publishing rate
-        self.publish_rate = 20  # Hz
+        self.declare_parameter('refresh_rate', 20)
+        
+        self.publish_rate = self.get_parameter('refresh_rate').get_parameter_value().integer_value
+        
         self.DT = 1.0 / self.publish_rate  # seconds
         
         self.timer_plot = self.create_timer(timer_period_sec= self.DT, 
@@ -43,6 +42,8 @@ class QuadrotorPathVisualizer(Node):
         
         self.states = [[0],[0],[0]]
         self.current_state = [0,0,0]
+        
+        self.get_logger().info('Quadrotor Path Visualizer has been started with refresh rate of {} Hz'.format(self.publish_rate))
 
     def waypoints_callback(self, msg):
         x = [waypoint.x for waypoint in msg.waypoints]
