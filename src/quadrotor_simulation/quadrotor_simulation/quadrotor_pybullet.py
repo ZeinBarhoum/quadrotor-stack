@@ -20,6 +20,17 @@ import os
 import numpy as np
 import yaml
 
+from timeit import timeit
+
+try:
+    import IPython.core.ultratb
+except ImportError:
+    # No IPython. Use default exception printing.
+    pass
+else:
+    import sys
+    sys.excepthook = IPython.core.ultratb.ColorTB()
+
 class QuadrotorPybullet(Node):
     def __init__(self):
         super().__init__('quadrotor_pybullet_node')
@@ -41,18 +52,19 @@ class QuadrotorPybullet(Node):
             10  # Queue size
         )
 
-        self.image_publisher = self.create_publisher(Image, '/quadrotor_img', 10)
-
+        self.image_publisher = self.create_publisher(Image, '/quadrotor_img', 2)
 
         # Control the simulation frequency
-        self.simulation_frequency = 240  # Hz
-        self.timer_period = 1.0 / self.simulation_frequency  # seconds
-        self.state_timer = self.create_timer(self.timer_period, self.simulation_step)
+        self.simulation_step_frequency = 240  # Hz
+        self.simulation_step_period = 1.0 / self.simulation_step_frequency  # seconds
 
-        self.image_publishing_frequency = 24  # Change this value as desired
+        #control the state pbulishing frequency 
+        self.state_publishing_frequency = 240  # Hz
+        self.state_publishing_period = 1.0 / self.state_publishing_frequency  # seconds
+        
+        #control the image publishing frequency
+        self.image_publishing_frequency = 5  # Change this value as desired
         self.image_publishing_period = 1.0 / self.image_publishing_frequency  # seconds
-        self.camera_timer = self.create_timer(self.image_publishing_period, self.publish_image)
-
 
 
         # initialize the constants, the urdf file and the pybullet client
@@ -62,9 +74,18 @@ class QuadrotorPybullet(Node):
 
         # initialize control commands
         self.rotor_speeds = np.array([self.HOVER_RPM] * 4)
+        
+        #initialize the state
+        self.state = State()
 
+        #initialize timers
+        self.simulation_step_timer = self.create_timer(self.simulation_step_period, self.simulation_step)
+        self.state_publishing_timer = self.create_timer(self.state_publishing_period, self.publish_state)
+        self.camera_timer = self.create_timer(self.image_publishing_period, self.publish_image)
+        
         # Announce that the node is initialized
         self.get_logger().info('Simulator node initialized')
+        
 
     def initialize_constants(self):
         config_folder = os.path.join(
@@ -114,7 +135,10 @@ class QuadrotorPybullet(Node):
 
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
 
+        p.setTimeStep(self.simulation_step_period)
+        
         p.setGravity(0, 0, -self.G)
+        
 
         self.planeId = p.loadURDF("plane.urdf")
         
@@ -154,11 +178,7 @@ class QuadrotorPybullet(Node):
 
         p.stepSimulation()
 
-        self.publish_state()
-
-    def publish_state(self):
-        quad_pos, quad_quat = p.getBasePositionAndOrientation(
-            self.quadrotor_id)
+        quad_pos, quad_quat = p.getBasePositionAndOrientation(self.quadrotor_id)
         self.quad_pos = quad_pos
         self.quad_quat = quad_quat
 
@@ -173,13 +193,14 @@ class QuadrotorPybullet(Node):
         twist.linear = Vector3(x=quad_v[0], y=quad_v[1], z=quad_v[2])
         twist.angular = Vector3(x=quad_w[0], y=quad_w[1], z=quad_w[2])
 
-        msg = State()
-        msg.header.stamp =Time(nanoseconds = self.get_clock().now().nanoseconds - self.start_time.nanoseconds).to_msg()
-        msg.pose = pose
-        msg.twist = twist
+        self.state = State()
+        self.state.header.stamp =Time(nanoseconds = self.get_clock().now().nanoseconds - self.start_time.nanoseconds).to_msg()
+        self.state.pose = pose
+        self.state.twist = twist
 
+    def publish_state(self):
         #publish the message
-        self.publisher.publish(msg)
+        self.publisher.publish(self.state)
 
     def publish_image(self):
         # Publish the image here
