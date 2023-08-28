@@ -1,4 +1,4 @@
-from launch import LaunchDescription
+from launch import LaunchDescription, LaunchContext
 from launch_ros.actions import Node
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration, TextSubstitution, PythonExpression
@@ -6,6 +6,7 @@ from launch.substitutions import LaunchConfiguration, TextSubstitution, PythonEx
 from ament_index_python.packages import get_package_share_directory
 import yaml
 import os
+
 
 def generate_launch_description():
 
@@ -18,7 +19,7 @@ def generate_launch_description():
             description='Controller to use (default: quadrotor_pid)'
         )
     )
-    config_folder = os.path.join(get_package_share_directory('quadrotor_bringup'), 'config')
+    config_folder = os.path.join('src', 'quadrotor_bringup', 'config')
     config_file = os.path.join(config_folder, 'simulation.yaml')
     with open(config_file, "r") as stream:
         try:
@@ -26,13 +27,14 @@ def generate_launch_description():
         except yaml.YAMLError as exc:
             self.get_logger().error(f"Cofiguration File {config_file} Couldn't Be Loaded, Raised Error {exc}")
             parameters = dict()
-    
     path_visualizer_parameters = parameters['QuadrotorPathVisualizer']
-    
+    pybullet_simulation_parameters = parameters['PybulletSimulation']
+
     simulation_node = Node(
         package='quadrotor_simulation',
         executable='quadrotor_pybullet',
-        output='screen'
+        output='screen',
+        parameters=[pybullet_simulation_parameters]
     )
 
     controller = LaunchConfiguration("controller")
@@ -44,32 +46,32 @@ def generate_launch_description():
     )
 
     reference_publisher_node = Node(
-        package= 'quadrotor_trajectory_generation',
-        executable= 'quadrotor_reference_publisher',
-        output= 'screen'
+        package='quadrotor_trajectory_generation',
+        executable='quadrotor_reference_publisher',
+        output='screen'
     )
 
     trajectory_poly_optimizer_node = Node(
-        package = 'quadrotor_trajectory_generation',
-        executable = 'quadrotor_poly_optimizer',
-        output = 'screen'
+        package='quadrotor_trajectory_generation',
+        executable='quadrotor_poly_optimizer',
+        output='screen'
     )
 
     mapping_node = Node(
-        package = 'quadrotor_mapping',
-        executable = 'quadrotor_default_map',
-        output = 'screen'
+        package='quadrotor_mapping',
+        executable='quadrotor_default_map',
+        output='screen'
     )
     path_finding_node = Node(
-        package = 'quadrotor_path_finding',
-        executable= 'quadrotor_rrt',
-        output = 'screen'
+        package='quadrotor_path_finding',
+        executable='quadrotor_rrt',
+        output='screen'
     )
     path_visualizer_node = Node(
-        package = 'quadrotor_dashboard',
-        executable= 'quadrotor_path_visualizer',
-        parameters= [{'refresh_rate': path_visualizer_parameters['refresh_rate']}],
-        output = 'screen'
+        package='quadrotor_dashboard',
+        executable='quadrotor_path_visualizer',
+        parameters=[{'refresh_rate': path_visualizer_parameters['refresh_rate']}],
+        output='screen'
     )
 
     return LaunchDescription(

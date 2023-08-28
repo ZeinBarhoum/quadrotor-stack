@@ -1,2 +1,31 @@
+PybulletSimulation:
+  # Physics server to use (GUI or DIRECT)
+  physics_server: GUI
+  # Name of the quadrotor model to use (cf2x or other)
+  quadrotor_description: cf2x
+  # List of obstacles to include in the simulation
+  obstacles_description: [block]
+  # Whether to render the ground plane
+  render_ground: true
+  # Whether to render the architecture
+  render_architecture: true
+  # Whether to publish images from the camera
+  publish_image: true
+  # Dimensions of the published images
+  image_width: 400
+  image_height: 300
+  # Frequency at which the state is published
+  state_publishing_frequency: 240
+  # Frequency at which images are published
+  image_publishing_frequency: 5
+  # Frequency at which the simulation is stepped
+  simulation_step_frequency: 240
+  # Topic name for the quadrotor state messages
+  state_topic: quadrotor_state
+  # Topic name for the quadrotor image messages
+  image_topic: quadrotor_img
+  # Topic name for the quadrotor rotor speeds messages
+  rotor_speeds_topic: quadrotor_rotor_speeds
+
 QuadrotorPathVisualizer:
   refresh_rate: 10
