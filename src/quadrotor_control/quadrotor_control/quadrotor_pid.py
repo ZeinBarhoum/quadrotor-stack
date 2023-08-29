@@ -10,6 +10,7 @@ from scipy.spatial.transform import Rotation
 
 import math
 
+
 class QuadrotorPID(Node):
     def __init__(self):
         super().__init__('quadrotor_pid_node')
@@ -72,19 +73,19 @@ class QuadrotorPID(Node):
         rpm = self.calculate_command()
         # self.get_logger().info(f'Publishing rotor commands{rpm}')
         msg = RotorCommand()
-        msg.rotor_speeds = np.array(rpm, dtype= np.float32)
+        msg.rotor_speeds = np.array(rpm, dtype=np.float32)
         self.publisher.publish(msg)
 
     def calculate_command(self):
 
-        thrust, computed_target_rpy = self.PositionalControl(self.pos,self.rot, self.desired_pos, self.desired_rot, self.vel, self.desired_vel)
+        thrust, computed_target_rpy = self.PositionalControl(self.pos, self.rot, self.desired_pos, self.desired_rot, self.vel, self.desired_vel)
         # computed_target_rpy[:2] = np.clip(computed_target_rpy[:2], -self.MAX_ROLL_PITCH, self.MAX_ROLL_PITCH)
         # print(computed_target_rpy)
         rpm = self.AngularControl(thrust, self.rot, computed_target_rpy)
         # rpm = self.AngularControl(thrust, rot, np.array([0,-0.3,0]))
         return rpm
 
-    def PositionalControl(self,pos, rot, desired_pos, desired_rot, vel, desired_vel):
+    def PositionalControl(self, pos, rot, desired_pos, desired_rot, vel, desired_vel):
 
         cur_rotation = np.array(p.getMatrixFromQuaternion(p.getQuaternionFromEuler(rot))).reshape(3, 3)
         pos_e = desired_pos - pos
@@ -96,10 +97,10 @@ class QuadrotorPID(Node):
         #### PID target thrust #####################################
 
         target_thrust = np.multiply(self.KP_Force, pos_e) \
-                        + np.multiply(self.KI_Force, self.integration_error_pos) \
-                        + np.multiply(self.KD_Force, vel_e) + np.array([0, 0, self.W])
+            + np.multiply(self.KI_Force, self.integration_error_pos) \
+            + np.multiply(self.KD_Force, vel_e) + np.array([0, 0, self.W])
 
-        scalar_thrust = max(0., np.dot(target_thrust, cur_rotation[:,2]))
+        scalar_thrust = max(0., np.dot(target_thrust, cur_rotation[:, 2]))
 
         thrust = (math.sqrt(scalar_thrust / (4*self.KF)) - self.PWM2RPM_CONST) / self.PWM2RPM_SCALE
         target_z_ax = target_thrust / np.linalg.norm(target_thrust)
@@ -113,16 +114,16 @@ class QuadrotorPID(Node):
             print("\n[ERROR] in Control._dslPIDPositionControl(), values outside range [-pi,pi]")
         return thrust, target_euler
 
-    def AngularControl(self,thrust, rot, target_euler):
+    def AngularControl(self, thrust, rot, target_euler):
 
         cur_rotation = np.array(p.getMatrixFromQuaternion(p.getQuaternionFromEuler(rot))).reshape(3, 3)
         cur_rpy = rot
 
         target_quat = (Rotation.from_euler('XYZ', target_euler, degrees=False)).as_quat()
 
-        w,x,y,z = target_quat
+        w, x, y, z = target_quat
         target_rotation = (Rotation.from_quat([w, x, y, z])).as_matrix()
-        rot_matrix_e = np.dot((target_rotation.transpose()),cur_rotation) - np.dot(cur_rotation.transpose(),target_rotation)
+        rot_matrix_e = np.dot((target_rotation.transpose()), cur_rotation) - np.dot(cur_rotation.transpose(), target_rotation)
         rot_e = np.array([rot_matrix_e[2, 1], rot_matrix_e[0, 2], rot_matrix_e[1, 0]])
         rpy_rates_e = - (cur_rpy - self.last_rpy)/self.DT
         self.last_rpy = cur_rpy
@@ -132,14 +133,14 @@ class QuadrotorPID(Node):
         self.integration_error_rot[0:2] = np.clip(self.integration_error_rot[0:2], -1., 1.)
         #### PID target torques ####################################
         target_torques = - np.multiply(self.KP_Torque, rot_e) \
-                         + np.multiply(self.KD_Torque, rpy_rates_e) \
-                         + np.multiply(self.KI_Torque, self.integration_error_rot)
+            + np.multiply(self.KD_Torque, rpy_rates_e) \
+            + np.multiply(self.KI_Torque, self.integration_error_rot)
 
         target_torques = np.clip(target_torques, -3200, 3200)
         pwm = thrust + np.dot(self.MIXER_MATRIX, target_torques)
+        # print(pwm)
         pwm = np.clip(pwm, self.MIN_PWM, self.MAX_PWM)
         return self.PWM2RPM_SCALE * pwm + self.PWM2RPM_CONST
-
 
     def initilize_errors(self):
         self.integration_error_pos = np.zeros(3)
@@ -173,7 +174,6 @@ class QuadrotorPID(Node):
         self.MAX_TORQUE_XY = self.ARM*self.KF*self.MAX_RPM**2
         self.MAX_TORQUE_Z = 2*self.KM*self.MAX_RPM**2
 
-
         self.KP_Force = np.array([.1, .1, 1.25])
         self.KI_Force = np.array([.00, .00, .05])
         self.KD_Force = np.array([.09, .09, .5])
@@ -187,8 +187,7 @@ class QuadrotorPID(Node):
         self.PWM2RPM_CONST = 4070.3
         self.MIN_PWM = 20000
         self.MAX_PWM = 65535
-        self.MIXER_MATRIX = np.array([ [.5, -.5,  -1], [.5, .5, 1], [-.5,  .5,  -1], [-.5, -.5, 1] ])
-
+        self.MIXER_MATRIX = np.array([[.5, -.5,  -1], [.5, .5, 1], [-.5,  .5,  -1], [-.5, -.5, 1]])
 
 
 def main(args=None):
@@ -198,6 +197,7 @@ def main(args=None):
 
     node.destroy_node()
     rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()

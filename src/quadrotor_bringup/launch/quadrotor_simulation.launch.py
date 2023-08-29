@@ -25,10 +25,10 @@ def generate_launch_description():
         try:
             parameters = yaml.safe_load(stream)
         except yaml.YAMLError as exc:
-            self.get_logger().error(f"Cofiguration File {config_file} Couldn't Be Loaded, Raised Error {exc}")
             parameters = dict()
     path_visualizer_parameters = parameters['QuadrotorPathVisualizer']
     pybullet_simulation_parameters = parameters['PybulletSimulation']
+    pid_controller_parameters = parameters['PIDController']
 
     simulation_node = Node(
         package='quadrotor_simulation',
@@ -42,7 +42,8 @@ def generate_launch_description():
     controller_node = Node(
         package='quadrotor_control',
         executable=controller,
-        output='screen'
+        output='screen',
+        parameters=[pid_controller_parameters]
     )
 
     reference_publisher_node = Node(

@@ -27,5 +27,20 @@ PybulletSimulation:
   # Topic name for the quadrotor rotor speeds messages
   rotor_speeds_topic: quadrotor_rotor_speeds
 
+PIDController:
+  KP_Z: 40.0  # For thrust
+  KD_Z: 8.0  # For thrust
+  KP_XY: 1.0  # For position
+  KD_XY: 1.0  # For position
+  KP_RP: 0.01  # For roll and pitch
+  KD_RP: 0.001  # For roll and pitch
+  KP_Y: 0.001  # For yaw
+  KD_Y: 0.0001  # For yaw
+  MAX_ROLL_PITCH: 0.39269908169872414  # For roll and pitch (pi/8)
+  quadrotor_description: cf2x  # quadrotor name (for config file)
+  state_topic: quadrotor_state
+  reference_topic: quadrotor_reference
+  rotor_speeds_topic: quadrotor_rotor_speeds
+  command_publishing_frequency: 240
 QuadrotorPathVisualizer:
   refresh_rate: 10

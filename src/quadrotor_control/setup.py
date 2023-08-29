@@ -20,7 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'quadrotor_pid = quadrotor_control.quadrotor_pid:main',
+            'quadrotor_pid = quadrotor_control.quadrotor_pid2:main',
         ],
     },
 )

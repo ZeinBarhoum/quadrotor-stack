@@ -134,9 +134,7 @@ class QuadrotorPybullet(Node):
         self.initialize_pybullet()
 
         # Initialize the published and received data
-        self.rotor_speeds = np.array([self.HOVER_RPM] * 4)
-        self.state = State()
-        self.ros_img = Image()
+        self.initialize_data()
 
         # initialize timers
         self.simulation_step_timer = self.create_timer(self.simulation_step_period, self.simulation_step_callback)
@@ -268,6 +266,23 @@ class QuadrotorPybullet(Node):
             self.obstacleIds.append(p.loadURDF(obstacle_urdf_file, [2.5, 2.5, 2.5], useFixedBase=1))
         self.quadrotor_id = p.loadURDF(self.quadrotor_urdf_file, [0, 0, 0.25])
 
+    def initialize_data(self):
+        """
+        Initializes the data required for the quadrotor simulation.
+
+        Sets the initial rotor speeds to the hover RPM, initializes the state of the quadrotor, and creates an empty ROS image.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
+
+        self.rotor_speeds = np.array([self.HOVER_RPM] * 4)
+        self.state = State()
+        self.ros_img = Image()
+
     def receive_commands_callback(self, msg):
         """
         Callback function to receive commands from a ROS topic.
@@ -328,7 +343,7 @@ class QuadrotorPybullet(Node):
         twist.angular = Vector3(x=quad_w[0], y=quad_w[1], z=quad_w[2])
 
         self.state = State()
-        self.state.header.stamp = Time(nanoseconds=self.get_clock().now().nanoseconds - self.start_time.nanoseconds).to_msg()
+        self.state.header.stamp = self.get_clock().now().to_msg()
         self.state.pose = pose
         self.state.twist = twist
 
