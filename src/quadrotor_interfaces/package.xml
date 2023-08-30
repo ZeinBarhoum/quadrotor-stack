@@ -5,7 +5,7 @@
   <version>0.0.0</version>
   <description>Custom message and service interfaces for quadrotor research ROS2. </description>
   <maintainer email="zein.barhoum799@gmail.com">Zein Alabedeen Barhoum</maintainer>
-  <license>TODO: License declaration</license>
+  <license>MIT</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
   

@@ -14,6 +14,8 @@ find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/State.msg"
+  "msg/StateStamped.msg"
+  "msg/ReferenceState.msg"
   "msg/RotorCommand.msg"
   "msg/PathWayPoints.msg"
   "msg/OccupancyGrid3D.msg"
