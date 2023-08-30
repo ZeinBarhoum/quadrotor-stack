@@ -6,6 +6,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
+
 class MapNode:
     def __init__(self, x, y, z):
         self.x = x
@@ -15,6 +16,7 @@ class MapNode:
 
     def __str__(self):
         return f"({self.x}, {self.y}, {self.z})"
+
 
 class RRT:
     def __init__(self, start, goal, occupancy_map, max_iter=1000, step_size=1, goal_sample_rate=0.1, min_dist=0.1, pause=0.01):
@@ -38,12 +40,12 @@ class RRT:
         ax.scatter(self.start.x, self.start.y, self.start.z, c='g', marker='o', s=100)
         ax.scatter(self.goal.x, self.goal.y, self.goal.z, c='r', marker='o', s=100)
 
-
         for i in range(self.max_iter):
             if np.random.uniform() < self.goal_sample_rate:
                 x, y, z = self.goal.x, self.goal.y, self.goal.z
             else:
-                x, y, z = np.random.uniform(self.occupancy_map.shape[0]), np.random.uniform(self.occupancy_map.shape[1]), np.random.uniform(self.occupancy_map.shape[2])
+                x, y, z = np.random.uniform(self.occupancy_map.shape[0]), np.random.uniform(
+                    self.occupancy_map.shape[1]), np.random.uniform(self.occupancy_map.shape[2])
             nearest_node = self.get_nearest_node(x, y, z)
             new_node = self.steer(nearest_node, x, y, z)
             if self.is_collision_free(nearest_node, new_node):
@@ -121,7 +123,6 @@ class RRT:
         return np.sqrt((node1.x - node2.x) ** 2 + (node1.y - node2.y) ** 2 + (node1.z - node2.z) ** 2)
 
 
-
 class QuadrotorRRT(Node):
     def __init__(self):
         super().__init__('quadrotor_rrt')
@@ -148,7 +149,7 @@ class QuadrotorRRT(Node):
         self.goal_position = np.array(self.goal_position / self.cell_size).astype(np.int32)
         print(self.goal_position)
 
-        rrt = RRT(self.current_position, goal=self.goal_position, occupancy_map=self.map_data, step_size=50, pause=1e-5, min_dist= 50)
+        rrt = RRT(self.current_position, goal=self.goal_position, occupancy_map=self.map_data, step_size=50, pause=1e-5, min_dist=50)
 
         path = rrt.plan()
         path = np.array(path) * self.cell_size
@@ -168,9 +169,10 @@ class QuadrotorRRT(Node):
 
         # Publish the path
         self.publisher_path.publish(msg)
-    def state_callback(self, msg):
+
+    def state_callback(self, msg: State):
         # Update the current position
-        self.current_position = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z])
+        self.current_position = np.array([msg.state.pose.position.x, msg.state.pose.position.y, msg.state.pose.position.z])
         self.current_position = np.array(self.current_position / self.cell_size).astype(np.int32)
         # print(self.current_position)
 
@@ -181,6 +183,7 @@ def main():
     rclpy.spin(_node)
     _node.destroy_node()
     rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()

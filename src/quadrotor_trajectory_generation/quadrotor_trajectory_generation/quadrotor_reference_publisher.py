@@ -1,12 +1,12 @@
 import rclpy
 from rclpy.node import Node
-from quadrotor_interfaces.msg import PolynomialTrajectory, State
+from quadrotor_interfaces.msg import PolynomialTrajectory, ReferenceState
 import numpy as np
+
 
 class QuadrotorReferencePublisher(Node):
     def __init__(self):
         super().__init__('quadrotor_reference_publisher')
-
 
         self.subscriber_poly = self.create_subscription(
             PolynomialTrajectory,
@@ -16,7 +16,7 @@ class QuadrotorReferencePublisher(Node):
         )
 
         self.publisher_ref = self.create_publisher(
-            State,
+            ReferenceState,
             'quadrotor_reference',
             10  # Queue size
         )
@@ -37,29 +37,27 @@ class QuadrotorReferencePublisher(Node):
 
     def publish_reference(self):
         zero_vel = False
-        if(self.t_clip > 0 and self.current_time > self.t_clip):
+        if (self.t_clip > 0 and self.current_time > self.t_clip):
             self.current_time = self.t_clip
             zero_vel = True
-            
-        msg = State()
-        msg.pose.position.x = np.polyval(self.poly_x, self.current_time)
-        msg.pose.position.y = np.polyval(self.poly_y, self.current_time)
-        msg.pose.position.z = np.polyval(self.poly_z, self.current_time)
 
-        msg.twist.linear.x = float(np.polyval(np.polyder(self.poly_x), self.current_time))
-        msg.twist.linear.y = float(np.polyval(np.polyder(self.poly_y), self.current_time))
-        msg.twist.linear.z = float(np.polyval(np.polyder(self.poly_z), self.current_time))
-        
-        if(zero_vel):
-            msg.twist.linear.x = 0.0
-            msg.twist.linear.y = 0.0
-            msg.twist.linear.z = 0.0
-        
+        msg = ReferenceState()
+        msg.current_state.pose.position.x = np.polyval(self.poly_x, self.current_time)
+        msg.current_state.pose.position.y = np.polyval(self.poly_y, self.current_time)
+        msg.current_state.pose.position.z = np.polyval(self.poly_z, self.current_time)
+
+        msg.current_state.twist.linear.x = float(np.polyval(np.polyder(self.poly_x), self.current_time))
+        msg.current_state.twist.linear.y = float(np.polyval(np.polyder(self.poly_y), self.current_time))
+        msg.current_state.twist.linear.z = float(np.polyval(np.polyder(self.poly_z), self.current_time))
+
+        if (zero_vel):
+            msg.current_state.twist.linear.x = 0.0
+            msg.current_state.twist.linear.y = 0.0
+            msg.current_state.twist.linear.z = 0.0
+
         self.publisher_ref.publish(msg)
 
         self.current_time += self.DT
-
-        
 
     def receive_poly_trajectory_callback(self, msg):
         self.poly_x = np.array(msg.poly_x)
@@ -68,6 +66,7 @@ class QuadrotorReferencePublisher(Node):
         self.t_clip = msg.t_clip
         self.current_time = 0.0
 
+
 def main():
     rclpy.init()
     node = QuadrotorReferencePublisher()
@@ -75,6 +74,7 @@ def main():
 
     node.destroy_node()
     rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()
