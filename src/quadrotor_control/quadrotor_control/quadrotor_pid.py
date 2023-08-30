@@ -82,12 +82,16 @@ class QuadrotorPID(Node):
         # Declare the parameters
         self.declare_parameter('KP_Z', 40.0)  # For thrust
         self.declare_parameter('KD_Z', 5.0)  # For thrust
+        self.declare_parameter('KI_Z', 0.0)  # For thrust
         self.declare_parameter('KP_XY', 1.0)  # For position
         self.declare_parameter('KD_XY', 40.0)  # For position
+        self.declare_parameter('KI_XY', 0.0)  # For position
         self.declare_parameter('KP_RP', 5.0)  # For roll and pitch
         self.declare_parameter('KD_RP', 1.0)  # For roll and pitch
+        self.declare_parameter('KI_RP', 0.0)  # For roll and pitch
         self.declare_parameter('KP_Y', 40.0)  # For yaw
         self.declare_parameter('KD_Y', 5.0)  # For yaw
+        self.declare_parameter('KI_Y', 0.0)  # For yaw
         self.declare_parameter('MAX_ROLL_PITCH', DEFAULT_MAX_ANGLES)  # For roll and pitch
         self.declare_parameter('quadrotor_description', 'cf2x')  # quadrotor name (for config file)
         self.declare_parameter('state_topic', 'quadrotor_state')
@@ -98,12 +102,16 @@ class QuadrotorPID(Node):
         # Get the parameters
         self.KP_Z = self.get_parameter_value('KP_Z', 'float')
         self.KD_Z = self.get_parameter_value('KD_Z', 'float')
+        self.KI_Z = self.get_parameter_value('KI_Z', 'float')
         self.KP_XY = self.get_parameter_value('KP_XY', 'float')
         self.KD_XY = self.get_parameter_value('KD_XY', 'float')
+        self.KI_XY = self.get_parameter_value('KI_XY', 'float')
         self.KP_RP = self.get_parameter_value('KP_RP', 'float')
         self.KD_RP = self.get_parameter_value('KD_RP', 'float')
+        self.KI_RP = self.get_parameter_value('KI_RP', 'float')
         self.KP_Y = self.get_parameter_value('KP_Y', 'float')
         self.KD_Y = self.get_parameter_value('KD_Y', 'float')
+        self.KI_Y = self.get_parameter_value('KI_Y', 'float')
         self.MAX_ROLL_PITCH = self.get_parameter_value('MAX_ROLL_PITCH', 'float')
         self.quadrotor_description = self.get_parameter_value('quadrotor_description', 'str')
         self.state_topic = self.get_parameter_value('state_topic', 'str')
@@ -214,14 +222,14 @@ class QuadrotorPID(Node):
         self.MAX_TORQUE_Z = 2 * self.KM * self.MAX_RPM ** 2
 
     def initialize_errors(self):
-        """ Initializes the control errors including position, rotation, velocity and angular velocity errors.
-        TODO: Add integral error
+        """ Initializes the integral control errors for position and rotation.
         """
-        self.error_p = np.zeros(3)  # position
-        self.error_r = np.zeros(3)  # rotation (EULER ANGLES)
-        self.error_v = np.zeros(3)  # velocity
-        self.error_w = np.zeros(3)  # angular velocity (body frame)
-        # TODO add integral error
+        # integral errors
+        self._error_p_integral = np.zeros(3)  # position integral
+        self._error_r_integral = np.zeros(3)  # rotation integral (EULER ANGLES)
+
+        # time of last update (for descrete integration)
+        self._last_update_time = self.get_clock().now()
 
     def initialize_data(self):
         """ Initializes the actual and reference states and the rotor command. 
@@ -266,31 +274,34 @@ class QuadrotorPID(Node):
         """ Calculate the desired rotor speeds using P(I)D control and publish the command
         This function is called back by the command_publishing_timer at the frequency specified by the command_publishing_frequency parameter.
         """
+        current_time = self.get_clock().now()
+        dt = (current_time - self._last_update_time).nanoseconds / 1e9
+        self._last_update_time = current_time
         error_p = self.reference_state['position'] - self.actual_state['position']
-
         error_v = self.reference_state['velocity'] - self.actual_state['velocity']
+        self._error_p_integral += error_p * dt
         KP_XYZ = np.array([self.KP_XY, self.KP_XY, self.KP_Z])
         KD_XYZ = np.array([self.KD_XY, self.KD_XY, self.KD_Z])
-        desired_acc = np.multiply(KP_XYZ, error_p) + np.multiply(KD_XYZ, error_v)
+        KI_XYZ = np.array([self.KI_XY, self.KI_XY, self.KI_Z])
+        desired_acc = np.multiply(KP_XYZ, error_p) + np.multiply(KD_XYZ, error_v) + np.multiply(KI_XYZ, self._error_p_integral)
         desired_thrust = self.M * (desired_acc[2] + self.G)
-        # self.get_logger().info(f'desired_acc: {desired_acc}')
-        desired_yaw = self.reference_state['orientation'].as_euler('xyz')[2]
-        current_yaw = self.actual_state['orientation'].as_euler('xyz')[2]
-        # self.get_logger().info(f'current state: {self.actual_state}')
 
+        desired_yaw = self.reference_state['orientation'].as_euler('xyz')[2]
         desired_roll = (1.0/self.G) * (desired_acc[0] * math.sin(desired_yaw) - desired_acc[1] * math.cos(desired_yaw))
         desired_pitch = (1.0/self.G) * (desired_acc[0] * math.cos(desired_yaw) + desired_acc[1] * math.sin(desired_yaw))
-        # self.get_logger().info(f'desired_pitch: {desired_pitch}')
+        desired_roll = np.clip(desired_roll, -self.MAX_ROLL_PITCH, self.MAX_ROLL_PITCH)
+        desired_pitch = np.clip(desired_pitch, -self.MAX_ROLL_PITCH, self.MAX_ROLL_PITCH)
         desired_euler = np.array([desired_roll, desired_pitch, desired_yaw])
-
-        desired_w = np.array([0.0, 0.0, 0.0])
+        desired_w = np.array([0.0, 0.0, self.reference_state['angular_velocity'][2]])
 
         error_r = desired_euler - self.actual_state['orientation'].as_euler('xyz')
         error_w = desired_w - self.actual_state['angular_velocity']
+        self._error_r_integral += error_r * dt
 
         KP_RPY = np.array([self.KP_RP, self.KP_RP, self.KP_Y])
         KD_RPY = np.array([self.KD_RP, self.KD_RP, self.KD_Y])
-        desired_torques = np.multiply(KP_RPY, error_r) + np.multiply(KD_RPY, error_w)
+        KI_RPY = np.array([self.KI_RP, self.KI_RP, self.KI_Y])
+        desired_torques = np.multiply(KP_RPY, error_r) + np.multiply(KD_RPY, error_w) + np.multiply(KI_RPY, self._error_r_integral)
 
         # calculate the rotor speeds
         self.command.rotor_speeds = self.calculate_command(desired_thrust, desired_torques)
