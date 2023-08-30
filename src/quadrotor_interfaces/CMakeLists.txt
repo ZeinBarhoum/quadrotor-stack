@@ -13,8 +13,8 @@ find_package(geometry_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/StateData.msg"
   "msg/State.msg"
-  "msg/StateStamped.msg"
   "msg/ReferenceState.msg"
   "msg/RotorCommand.msg"
   "msg/PathWayPoints.msg"
