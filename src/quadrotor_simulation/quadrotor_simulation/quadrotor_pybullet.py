@@ -344,8 +344,8 @@ class QuadrotorPybullet(Node):
 
         self.state = State()
         self.state.header.stamp = self.get_clock().now().to_msg()
-        self.state.pose = pose
-        self.state.twist = twist
+        self.state.state.pose = pose
+        self.state.state.twist = twist
 
     def publish_state_callback(self):
         """

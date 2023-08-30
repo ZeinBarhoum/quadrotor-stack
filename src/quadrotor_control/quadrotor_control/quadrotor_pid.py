@@ -2,7 +2,7 @@
 import rclpy
 from rclpy.node import Node
 
-from quadrotor_interfaces.msg import State, RotorCommand
+from quadrotor_interfaces.msg import State, ReferenceState, RotorCommand
 
 import numpy as np
 from scipy.spatial.transform import Rotation
@@ -66,7 +66,7 @@ class QuadrotorPID(Node):
 
     Subscribers:
         state_topic (State): The current state of the quadrotor.
-        reference_topic (State): The desired state of the quadrotor.
+        reference_topic (ReferenceState): The desired state of the quadrotor.
 
     Publishers:
         rotor_speeds_topic (RotorCommand): The desired rotor speeds.
@@ -125,7 +125,7 @@ class QuadrotorPID(Node):
                                                          callback=self.receive_state_callback,
                                                          qos_profile=DEFAULT_QOS_PROFILE
                                                          )
-        self.reference_subscriber = self.create_subscription(msg_type=State,
+        self.reference_subscriber = self.create_subscription(msg_type=ReferenceState,
                                                              topic=self.reference_topic,
                                                              callback=self.receive_reference_callback,
                                                              qos_profile=DEFAULT_QOS_PROFILE
@@ -253,22 +253,25 @@ class QuadrotorPID(Node):
         Args:
             msg (State): The current state of the quadrotor.
         """
-        self.actual_state['position'] = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z])
-        self.actual_state['orientation'] = Rotation.from_quat([msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w])
-        self.actual_state['velocity'] = np.array([msg.twist.linear.x, msg.twist.linear.y, msg.twist.linear.z])
-        self.actual_state['angular_velocity'] = np.array([msg.twist.angular.x, msg.twist.angular.y, msg.twist.angular.z])
+        state = msg.state
+        self.actual_state['position'] = np.array([state.pose.position.x, state.pose.position.y, state.pose.position.z])
+        self.actual_state['orientation'] = Rotation.from_quat(
+            [state.pose.orientation.x, state.pose.orientation.y, state.pose.orientation.z, state.pose.orientation.w])
+        self.actual_state['velocity'] = np.array([state.twist.linear.x, state.twist.linear.y, state.twist.linear.z])
+        self.actual_state['angular_velocity'] = np.array([state.twist.angular.x, state.twist.angular.y, state.twist.angular.z])
 
-    def receive_reference_callback(self, msg: State):
+    def receive_reference_callback(self, msg: ReferenceState):
         """ Convert the recieved reference state msg to the reference state dictionary.
 
         Args:
-            msg (State): The desired state of the quadrotor.
+            msg (ReferenceState): The desired state of the quadrotor.
         """
-        self.reference_state['position'] = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z])
+        state = msg.current_state
+        self.reference_state['position'] = np.array([state.pose.position.x, state.pose.position.y, state.pose.position.z])
         self.reference_state['orientation'] = Rotation.from_quat(
-            [msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w])
-        self.reference_state['velocity'] = np.array([msg.twist.linear.x, msg.twist.linear.y, msg.twist.linear.z])
-        self.reference_state['angular_velocity'] = np.array([msg.twist.angular.x, msg.twist.angular.y, msg.twist.angular.z])
+            [state.pose.orientation.x, state.pose.orientation.y, state.pose.orientation.z, state.pose.orientation.w])
+        self.reference_state['velocity'] = np.array([state.twist.linear.x, state.twist.linear.y, state.twist.linear.z])
+        self.reference_state['angular_velocity'] = np.array([state.twist.angular.x, state.twist.angular.y, state.twist.angular.z])
 
     def publish_command(self):
         """ Calculate the desired rotor speeds using P(I)D control and publish the command
@@ -304,6 +307,7 @@ class QuadrotorPID(Node):
         desired_torques = np.multiply(KP_RPY, error_r) + np.multiply(KD_RPY, error_w) + np.multiply(KI_RPY, self._error_r_integral)
 
         # calculate the rotor speeds
+        self.command.header.stamp = self.get_clock().now().to_msg()
         self.command.rotor_speeds = self.calculate_command(desired_thrust, desired_torques)
 
         # publish the command

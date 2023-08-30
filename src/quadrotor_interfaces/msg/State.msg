@@ -1,4 +1,4 @@
-std_msgs/Header header
+# Message Type for the quadrotor state with the header
 
-geometry_msgs/Pose pose
-geometry_msgs/Twist twist
+std_msgs/Header header
+quadrotor_interfaces/StateData state

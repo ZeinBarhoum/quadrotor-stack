@@ -1,4 +1,5 @@
-# Header for timestamp and coordinate frame information
+# Message Type for 3D Occupancy Grids, used for representing the map
+
 std_msgs/Header header
 
 # Dimensions of the grid (number of cells along each axis)
