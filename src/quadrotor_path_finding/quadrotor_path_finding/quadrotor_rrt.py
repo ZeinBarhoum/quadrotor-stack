@@ -126,7 +126,7 @@ class RRT:
 class QuadrotorRRT(Node):
     def __init__(self):
         super().__init__('quadrotor_rrt')
-        self.subscriber_map = self.create_subscription(OccupancyGrid3D, 'map', self.map_callback, 10)
+        self.subscriber_map = self.create_subscription(OccupancyGrid3D, 'quadrotor_map', self.map_callback, 10)
         self.publisher_path = self.create_publisher(PathWayPoints, 'quadrotor_waypoints', 10)
         self.subscriber_replan = self.create_subscription(Point, 'quadrotor_plan_command', self.plan_callback, 10)
         self.subscriber_state = self.create_subscription(State, 'quadrotor_state', self.state_callback, 10)
