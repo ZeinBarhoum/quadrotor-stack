@@ -13,14 +13,15 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='zein',
+    maintainer='Zein Alabedeen Barhoum',
     maintainer_email='zein.barhoum799@gmail.com',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    description='Trajectory Tracking for Quadrotor',
+    license='MIT',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'quadrotor_pid = quadrotor_control.quadrotor_pid2:main',
+            'quadrotor_pid = quadrotor_control.quadrotor_pid:main',
+            'quadrotor_dfbs = quadrotor_control.quadrotor_dfbs:main',
         ],
     },
 )
