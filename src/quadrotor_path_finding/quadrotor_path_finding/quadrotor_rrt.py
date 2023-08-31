@@ -44,8 +44,8 @@ class RRT:
             if np.random.uniform() < self.goal_sample_rate:
                 x, y, z = self.goal.x, self.goal.y, self.goal.z
             else:
-                x, y, z = np.random.uniform(self.occupancy_map.shape[0]), np.random.uniform(
-                    self.occupancy_map.shape[1]), np.random.uniform(self.occupancy_map.shape[2])
+                x, y, z = np.floor(np.random.uniform(self.occupancy_map.shape[0])), np.floor(np.random.uniform(
+                    self.occupancy_map.shape[1])), np.floor(np.random.uniform(self.occupancy_map.shape[2]))
             nearest_node = self.get_nearest_node(x, y, z)
             new_node = self.steer(nearest_node, x, y, z)
             if self.is_collision_free(nearest_node, new_node):
@@ -59,7 +59,7 @@ class RRT:
                     ax.plot([node[0] for node in path], [node[1] for node in path], [node[2] for node in path], 'r-', linewidth=3)
                     # Show occupancy map
                     xs, ys, zs = np.where(self.occupancy_map > 0)
-                    ax.scatter(xs, ys, zs, c='k', marker='s', s=10)
+                    ax.scatter(xs, ys, zs, c='k', marker='s', s=10, alpha=0.01)
 
                     plt.pause(self.pause)
                     plt.show()
@@ -102,9 +102,10 @@ class RRT:
         for i in range(len(steps_x)):
             x, y, z = steps_x[i], steps_y[i], steps_z[i]
 
-            x = np.clip(x, 0, self.occupancy_map.shape[0] - 1)
-            y = np.clip(y, 0, self.occupancy_map.shape[1] - 1)
-            z = np.clip(y, 0, self.occupancy_map.shape[2] - 1)
+            if (x >= self.occupancy_map.shape[0]) or (y >= self.occupancy_map.shape[1]) or (z >= self.occupancy_map.shape[2]):
+                return False
+            if (x < 0) or (y < 0) or (z < 0):
+                return False
 
             if self.occupancy_map[int(x), int(y), int(z)]:
                 return False
