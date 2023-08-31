@@ -1,200 +1,319 @@
+""" A ROS2 node that implements a Differential Flattness Based Controller for a quadrotor. """
 import rclpy
 from rclpy.node import Node
-from quadrotor_interfaces.msg import State, RotorCommand
+from rosidl_runtime_py.convert import message_to_ordereddict
+
+from quadrotor_interfaces.msg import State, ReferenceState, RotorCommand
 
 import numpy as np
-
-import pybullet as p
-
 from scipy.spatial.transform import Rotation
-
 import math
 
+import os
+from ament_index_python.packages import get_package_share_directory
+import yaml
 
-class QuadrotorPID(Node):
+from typing import Union, List, Tuple
+
+# For colored traceback
+try:
+    import IPython.core.ultratb
+except ImportError:
+    # No IPython. Use default exception printing
+    pass
+else:
+    import sys
+    sys.excepthook = IPython.core.ultratb.ColorTB()
+
+# Constants
+DEFAULT_FREQUENCY = 240  # Hz
+DEFAULT_QOS_PROFILE = 10
+
+
+class QuadrotorDFBC(Node):
+
     def __init__(self):
-        super().__init__('quadrotor_pid_node')
+        """ Initialize the node's parameters, subscribers, publishers and timers."""
+        super().__init__('quadrotor_dfbc_node')
 
-        # Create a subscriber to receive the quadrotor state feedback
-        self.subscriber_state = self.create_subscription(
-            State,
-            'quadrotor_state',
-            self.receive_state_callback,
-            10  # Queue size
-        )
+        # Declare the parameters:
+        self.declare_parameters(parameters=[('KP_XYZ', [1.0, 1.0, 1.0]),
+                                            ('KD_XYZ', [1.0, 1.0, 1.0]),
+                                            ('KP_RPY', [1.0, 1.0, 1.0]),
+                                            ('KD_RPY', [1.0, 1.0, 1.0]),
+                                            ('quadrotor_description', 'cf2x'),
+                                            ('state_topic', 'quadrotor_state'),
+                                            ('reference_topic', 'quadrotor_reference'),
+                                            ('rotor_speeds_topic', 'quadrotor_rotor_speeds'),
+                                            ('command_publish_frequency', DEFAULT_FREQUENCY),
+                                            ],
+                                namespace='')
+        # Get the parameters:
+        self.KP_XYZ = self.get_parameter_value('KP_XYZ', 'list[float]')
+        self.KD_XYZ = self.get_parameter_value('KD_XYZ', 'list[float]')
+        self.KP_RPY = self.get_parameter_value('KP_RPY', 'list[float]')
+        self.KD_RPY = self.get_parameter_value('KD_RPY', 'list[float]')
+        self.quadrotor_description = self.get_parameter_value('quadrotor_description', 'str')
+        self.state_topic = self.get_parameter_value('state_topic', 'str')
+        self.reference_topic = self.get_parameter_value('reference_topic', 'str')
+        self.rotor_speeds_topic = self.get_parameter_value('rotor_speeds_topic', 'str')
+        self.command_publish_frequency = self.get_parameter_value('command_publish_frequency', 'int')
 
-        self.subscriber_reference = self.create_subscription(
-            State,
-            'quadrotor_reference',
-            self.receive_reference_callback,
-            10  # Queue size
-        )
+        # Sybscribers and Publishers
+        self.state_subscriber = self.create_subscription(msg_type=State,
+                                                         topic=self.state_topic,
+                                                         callback=self.receive_state_callback,
+                                                         qos_profile=DEFAULT_QOS_PROFILE)
+        self.reference_subscriber = self.create_subscription(msg_type=ReferenceState,
+                                                             topic=self.reference_topic,
+                                                             callback=self.receive_reference_callback,
+                                                             qos_profile=DEFAULT_QOS_PROFILE)
+        self.command_publisher = self.create_publisher(msg_type=RotorCommand,
+                                                       topic=self.rotor_speeds_topic,
+                                                       qos_profile=DEFAULT_QOS_PROFILE)
 
-        # Create a publisher to publish the rotor speed commands
-        self.publisher = self.create_publisher(
-            RotorCommand,
-            'quadrotor_rotor_speeds',
-            10  # Queue size
-        )
+        # Initialize contants, control errors and published/subscribed data
+        self.initialize_constants()
+        self.initialize_errors()
+        self.initialize_data()
 
-        # Control the publishing rate
-        self.publish_rate = 240  # Hz
-        self.DT = 1.0 / self.publish_rate  # seconds
-        self.timer = self.create_timer(self.DT, self.publish_command)
-
-        # Initialization
-        self.initialize_referece_feedback()
-        self.initilize_constants()
-        self.initilize_errors()
-
+        # Initialize timers
+        self.command_publishing_period = 1.0 / self.command_publish_frequency
+        self.command_publishing_timer = self.create_timer(timer_period_sec=self.command_publishing_period,
+                                                          callback=self.publish_command)
         # Announce that the node is initialized
-        self.get_logger().info('PID node initialized')
+        self.start_time = self.get_clock().now()
+        self.get_logger().info(f'DFBC node initialized at {self.start_time.seconds_nanoseconds()}')
 
-    def receive_state_callback(self, msg):
-        # self.get_logger().info('Received state feedback')
+    def get_parameter_value(self, parameter_name: str, parameter_type: str) -> Union[bool, int, float, str, List[str]]:
+        """
+        Get the value of a parameter with the given name and type.
 
-        self.pos = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z])
-        self.quat = np.array([msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w])
+        Args:
+            parameter_name (str): The name of the parameter to retrieve.
+            parameter_type (str): The type of the parameter to retrieve. Supported types are 'bool', 'int', 'float', 'str',
+                'list[float]', 'list[str]' and 'list[int]'.
 
-        self.rot = np.array(p.getEulerFromQuaternion(self.quat))
-        self.vel = np.array([msg.twist.linear.x, msg.twist.linear.y, msg.twist.linear.z])
-        self.w = np.array([msg.twist.angular.x, msg.twist.angular.y, msg.twist.angular.z])
+        Returns:
+            The value of the parameter, cast to the specified type.
 
-    def receive_reference_callback(self, msg):
-        # self.get_logger().info('Received state reference')
+        Raises:
+            ValueError: If the specified parameter type is not supported.
+        """
 
-        self.desired_pos = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z])
-        self.desired_quat = np.array([msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w])
-        self.desired_rot = p.getEulerFromQuaternion(self.desired_quat)
-        self.desired_vel = np.array([msg.twist.linear.x, msg.twist.linear.y, msg.twist.linear.z])
-        self.desired_w = np.array([msg.twist.angular.x, msg.twist.angular.y, msg.twist.angular.z])
+        parameter = self.get_parameter(parameter_name)
+        parameter_value = parameter.get_parameter_value()
+
+        if parameter_type == 'bool':
+            return parameter_value.bool_value
+        elif parameter_type == 'int':
+            return parameter_value.integer_value
+        elif parameter_type == 'float':
+            return parameter_value.double_value
+        elif parameter_type == 'str':
+            return parameter_value.string_value
+        elif parameter_type == 'list[str]':
+            return parameter_value.string_array_value
+        elif parameter_type == 'list[float]':
+            return parameter_value.double_array_value
+        elif parameter_type == 'list[int]':
+            return parameter_value.integer_array_value
+        else:
+            raise ValueError(f"Unsupported parameter type: {parameter_type}")
+
+    def initialize_constants(self):
+        """
+        Initializes the constants used in the quadrotor DFBC controller.
+
+        Reads the quadrotor parameters from a YAML file located in the quadrotor_description package,
+        calculates the maximum thrust, maximum RPM, maximum torque in the XY plane and maximum torque
+        around the Z axis, and sets the hover RPM based on the weight of the quadrotor.
+
+        Raises:
+            FileNotFoundError: If the configuration file couldn't be found.
+            yaml.YAMLError: If the configuration file couldn't be loaded due to a YAML error.
+        """
+
+        config_folder = os.path.join(get_package_share_directory('quadrotor_description'), 'config')
+        config_file = os.path.join(config_folder, f'{self.quadrotor_description}_params.yaml')
+        with open(config_file, 'r') as stream:
+            try:
+                parameters = yaml.safe_load(stream)
+            except yaml.YAMLError as exc:
+                self.get_logger().error(
+                    f"Cofiguration File {config_file} Couldn't Be Loaded, Raised Error {exc}")
+                parameters = dict()
+        quadrotor_params = parameters[f'{self.quadrotor_description.upper()}_PARAMS']
+        self.G = 9.81
+        self.KF = quadrotor_params['KF']
+        self.KM = quadrotor_params['KM']
+        self.ARM = quadrotor_params['ARM']
+        self.M = quadrotor_params['M']
+        self.T2W = quadrotor_params['T2W']
+        self.W = self.G * self.M
+        self.HOVER_RPM = math.sqrt(self.W / (4 * self.KF))
+        self.MAX_THRUST = self.T2W * self.W
+        self.MAX_RPM = math.sqrt(self.MAX_THRUST / (4 * self.KF))
+        self.MAX_TORQUE_XY = self.ARM * self.KF * self.MAX_RPM ** 2
+        self.MAX_TORQUE_Z = 2 * self.KM * self.MAX_RPM ** 2
+
+    def initialize_errors(self):
+        """ Initializes the integral control errors for position and rotation.
+        NOT USED IN THE ORIGINAL DFBC IMPLEMENTTATION BUT INCLUDED FOR FUTURE IMPROVEMENTS
+        """
+        # integral errors
+        self._error_p_integral = np.zeros(3)  # position integral
+        self._error_r_integral = np.zeros(3)  # rotation integral (EULER ANGLES)
+
+        # time of last update (for descrete integration)
+        self._last_update_time = self.get_clock().now()
+
+    def initialize_data(self):
+        self.actual_state = message_to_ordereddict(State())
+        self.reference_state = message_to_ordereddict(ReferenceState())
+        self.command = RotorCommand()
+        self.command.rotor_speeds = np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+
+    def receive_state_callback(self, msg: State):
+        """ Receives the state of the quadrotor from the state subscriber and stores it in the actual_state variable.
+
+        Args:
+            msg (State): The state of the quadrotor.
+        """
+        self.actual_state = message_to_ordereddict(msg)
+
+    def receive_reference_callback(self, msg: ReferenceState):
+        """ Receives the reference state of the quadrotor from the reference subscriber and stores it in the reference_state variable.
+
+        Args:
+            msg (ReferenceState): The reference state of the quadrotor.
+        """
+        self.reference_state = message_to_ordereddict(msg)
 
     def publish_command(self):
-        rpm = self.calculate_command()
-        # self.get_logger().info(f'Publishing rotor commands{rpm}')
-        msg = RotorCommand()
-        msg.rotor_speeds = np.array(rpm, dtype=np.float32)
-        self.publisher.publish(msg)
+        """ Publishes the rotor commands to the command publisher. """
+        self.calculate_command()
+        self.command_publisher.publish(self.command)
 
-    def calculate_command(self):
+    def calculate_command(self) -> RotorCommand:
+        """ Calculates the rotor commands based on the actual and reference states of the quadrotor.
+        """
+        actual_state = self.actual_state['state']
+        reference_state = self.reference_state['current_state']
 
-        thrust, computed_target_rpy = self.PositionalControl(self.pos, self.rot, self.desired_pos, self.desired_rot, self.vel, self.desired_vel)
-        # computed_target_rpy[:2] = np.clip(computed_target_rpy[:2], -self.MAX_ROLL_PITCH, self.MAX_ROLL_PITCH)
-        # print(computed_target_rpy)
-        rpm = self.AngularControl(thrust, self.rot, computed_target_rpy)
-        # rpm = self.AngularControl(thrust, rot, np.array([0,-0.3,0]))
-        return rpm
+        actual_position = np.array([actual_state['pose']['position']['x'],
+                                    actual_state['pose']['position']['y'],
+                                    actual_state['pose']['position']['z'],
+                                    ])
+        actual_orientation = np.array([actual_state['pose']['orientation']['x'],
+                                       actual_state['pose']['orientation']['y'],
+                                       actual_state['pose']['orientation']['z'],
+                                       actual_state['pose']['orientation']['w'],
+                                       ])
+        actual_orientation_euler = Rotation.from_quat(actual_orientation).as_euler('xyz', degrees=False)
 
-    def PositionalControl(self, pos, rot, desired_pos, desired_rot, vel, desired_vel):
+        actual_velocity = np.array([actual_state['twist']['linear']['x'],
+                                    actual_state['twist']['linear']['y'],
+                                    actual_state['twist']['linear']['z'],
+                                    ])
+        actual_angular_velocity = np.array([actual_state['twist']['angular']['x'],
+                                            actual_state['twist']['angular']['y'],
+                                            actual_state['twist']['angular']['z'],
+                                            ])
+        reference_position = np.array([reference_state['pose']['position']['x'],
+                                       reference_state['pose']['position']['y'],
+                                       reference_state['pose']['position']['z'],
+                                       ])
+        reference_orientation = np.array([reference_state['pose']['orientation']['x'],
+                                          reference_state['pose']['orientation']['y'],
+                                          reference_state['pose']['orientation']['z'],
+                                          reference_state['pose']['orientation']['w'],
+                                          ])
+        reference_orientation_euler = Rotation.from_quat(reference_orientation).as_euler('xyz', degrees=False)
+        reference_velocity = np.array([reference_state['twist']['linear']['x'],
+                                       reference_state['twist']['linear']['y'],
+                                       reference_state['twist']['linear']['z'],
+                                       ])
+        reference_angular_velocity = np.array([reference_state['twist']['angular']['x'],
+                                               reference_state['twist']['angular']['y'],
+                                               reference_state['twist']['angular']['z'],
+                                               ])
 
-        cur_rotation = np.array(p.getMatrixFromQuaternion(p.getQuaternionFromEuler(rot))).reshape(3, 3)
-        pos_e = desired_pos - pos
-        vel_e = desired_vel - vel
-        self.integration_error_pos += pos_e*self.DT
-        self.integration_error_pos = np.clip(self.integration_error_pos, -2., 2.)
-        self.integration_error_pos[2] = np.clip(self.integration_error_pos[2], -0.15, .15)
+        KP_XYZ = np.array(self.KP_XYZ)
+        KD_XYZ = np.array(self.KD_XYZ)
+        KP_RPY = np.array(self.KP_RPY)
+        KD_RPY = np.array(self.KD_RPY)
 
-        #### PID target thrust #####################################
+        error_position = reference_position - actual_position
+        error_velocity = reference_velocity - actual_velocity
+        error_orientation = reference_orientation_euler - actual_orientation_euler
+        error_angular_velocity = reference_angular_velocity - actual_angular_velocity
 
-        target_thrust = np.multiply(self.KP_Force, pos_e) \
-            + np.multiply(self.KI_Force, self.integration_error_pos) \
-            + np.multiply(self.KD_Force, vel_e) + np.array([0, 0, self.W])
+        desired_acceleration = np.multiply(KP_XYZ, error_position) + np.multiply(KD_XYZ, error_velocity)
+        desired_acceleration[2] += self.G
+        desired_force = self.M * desired_acceleration
+        desired_thrust = np.dot(desired_force, Rotation.from_quat(actual_orientation).as_matrix()[:, 2])
+        # desired_thrust = np.clip(desired_thrust, 0.0, self.MAX_THRUST)
 
-        scalar_thrust = max(0., np.dot(target_thrust, cur_rotation[:, 2]))
+        desired_zb = desired_force / np.linalg.norm(desired_force)
 
-        thrust = (math.sqrt(scalar_thrust / (4*self.KF)) - self.PWM2RPM_CONST) / self.PWM2RPM_SCALE
-        target_z_ax = target_thrust / np.linalg.norm(target_thrust)
-        target_x_c = np.array([math.cos(desired_rot[2]), math.sin(desired_rot[2]), 0])
-        target_y_ax = np.cross(target_z_ax, target_x_c) / np.linalg.norm(np.cross(target_z_ax, target_x_c))
-        target_x_ax = np.cross(target_y_ax, target_z_ax)
-        target_rotation = (np.vstack([target_x_ax, target_y_ax, target_z_ax])).transpose()
-        #### Target rotation #######################################
-        target_euler = (Rotation.from_matrix(target_rotation)).as_euler('XYZ', degrees=False)
-        if np.any(np.abs(target_euler) > math.pi):
-            print("\n[ERROR] in Control._dslPIDPositionControl(), values outside range [-pi,pi]")
-        return thrust, target_euler
+        desired_xc = np.array([math.cos(reference_orientation_euler[2]), math.sin(reference_orientation_euler[2]), 0])
+        desired_yb = np.cross(desired_zb, desired_xc) / np.linalg.norm(np.cross(desired_zb, desired_xc))
+        desired_xb = np.cross(desired_yb, desired_zb)
 
-    def AngularControl(self, thrust, rot, target_euler):
+        desired_Rb = np.vstack([desired_xb, desired_yb, desired_zb]).transpose()
+        actual_Rb = Rotation.from_quat(actual_orientation).as_matrix()
 
-        cur_rotation = np.array(p.getMatrixFromQuaternion(p.getQuaternionFromEuler(rot))).reshape(3, 3)
-        cur_rpy = rot
+        error_rotation = -0.5*(desired_Rb.transpose() @ actual_Rb - actual_Rb.transpose() @ desired_Rb)
 
-        target_quat = (Rotation.from_euler('XYZ', target_euler, degrees=False)).as_quat()
+        error_rotation = np.array([error_rotation[2, 1], error_rotation[0, 2], error_rotation[1, 0]])
+        # self.get_logger().info(f'{error_rotation=}')
 
-        w, x, y, z = target_quat
-        target_rotation = (Rotation.from_quat([w, x, y, z])).as_matrix()
-        rot_matrix_e = np.dot((target_rotation.transpose()), cur_rotation) - np.dot(cur_rotation.transpose(), target_rotation)
-        rot_e = np.array([rot_matrix_e[2, 1], rot_matrix_e[0, 2], rot_matrix_e[1, 0]])
-        rpy_rates_e = - (cur_rpy - self.last_rpy)/self.DT
-        self.last_rpy = cur_rpy
-        self.integration_error_rot = self.integration_error_rot - rot_e*self.DT
+        error_angular_velocity = reference_angular_velocity - actual_angular_velocity
 
-        self.integration_error_rot = np.clip(self.integration_error_rot, -1500., 1500.)
-        self.integration_error_rot[0:2] = np.clip(self.integration_error_rot[0:2], -1., 1.)
-        #### PID target torques ####################################
-        target_torques = - np.multiply(self.KP_Torque, rot_e) \
-            + np.multiply(self.KD_Torque, rpy_rates_e) \
-            + np.multiply(self.KI_Torque, self.integration_error_rot)
+        desired_torques = np.multiply(KP_RPY, error_rotation) + np.multiply(KD_RPY, error_angular_velocity)
 
-        target_torques = np.clip(target_torques, -3200, 3200)
-        pwm = thrust + np.dot(self.MIXER_MATRIX, target_torques)
-        # print(pwm)
-        pwm = np.clip(pwm, self.MIN_PWM, self.MAX_PWM)
-        return self.PWM2RPM_SCALE * pwm + self.PWM2RPM_CONST
+        self.command.header.stamp = self.get_clock().now().to_msg()
+        self.command.rotor_speeds = self.calculate_rotor_speeds(desired_thrust, desired_torques)
 
-    def initilize_errors(self):
-        self.integration_error_pos = np.zeros(3)
-        self.integration_error_rot = np.zeros(3)
+    def calculate_rotor_speeds(self, thrust: float, torques: np.ndarray) -> np.ndarray:
+        """ Claculate the rotor speeds using the thrust and torques. 
+        Uses the following equation:
+            [thrust, torques] = A * [w1^2, w2^2, w3^2, w4^2]
 
-    def initialize_referece_feedback(self):
-        self.pos = np.zeros(3)
-        self.desired_pos = np.ones(3)
-        self.desired_vel = np.zeros(3)
-        self.rot = np.zeros(3)
-        self.desired_rot = np.zeros(3)
+        Args:
+            thrust (float): The desired thrust.
+            torques (np.ndarray): The desired torques.
 
-        self.last_rpy = np.zeros(3)
+        Returns:
+            np.ndarray: The desired rotor speeds.
+        """
+        # self.get_logger().info(f'{thrust=:.2f} {torques}')
+        # A = np.array([[self.KF, self.KF, self.KF, self.KF],
+        #               [0, self.ARM*self.KF, 0, -self.ARM*self.KF],
+        #               [-self.ARM*self.KF, 0, self.ARM*self.KF, 0],
+        #               [self.KM, -self.KM, self.KM, -self.KM]])
+        arm_angle = math.pi / 4
+        A = np.array([[self.KF, self.KF, self.KF, self.KF],
+                      self.KF*self.ARM*np.array([math.cos(arm_angle), math.sin(arm_angle), -math.cos(arm_angle), -math.sin(arm_angle)]),
+                      self.KF*self.ARM*np.array([-math.sin(arm_angle), math.cos(arm_angle), math.sin(arm_angle), -math.cos(arm_angle)]),
+                      [-self.KM, self.KM, -self.KM, self.KM]])
 
-        self.vel = np.zeros(3)
-
-    def initilize_constants(self):
-        self.G = 9.81
-
-        self.KF = 3.16e-10
-        self.KM = 7.94e-12
-        self.M = 0.027
-        self.ARM = 0.0397
-
-        self.W = self.M*self.G
-        self.T2W = 2.5
-        self.HOVER_RPM = np.sqrt(self.W/(4*self.KF))
-        self.MAX_THRUST = self.T2W*self.W
-        self.MAX_RPM = np.sqrt(self.MAX_THRUST/(4*self.KF))
-
-        self.MAX_TORQUE_XY = self.ARM*self.KF*self.MAX_RPM**2
-        self.MAX_TORQUE_Z = 2*self.KM*self.MAX_RPM**2
-
-        self.KP_Force = np.array([.1, .1, 1.25])
-        self.KI_Force = np.array([.00, .00, .05])
-        self.KD_Force = np.array([.09, .09, .5])
-        self.KP_Torque = np.array([70000., 70000., 60000.])
-        self.KI_Torque = np.array([.0, .0, 500.])
-        self.KD_Torque = np.array([20000., 20000., 12000.])
-
-        # self.MAX_ROLL_PITCH = np.pi/8
-
-        self.PWM2RPM_SCALE = 0.2685
-        self.PWM2RPM_CONST = 4070.3
-        self.MIN_PWM = 20000
-        self.MAX_PWM = 65535
-        self.MIXER_MATRIX = np.array([[.5, -.5,  -1], [.5, .5, 1], [-.5,  .5,  -1], [-.5, -.5, 1]])
+        rotor_speeds_squared = np.matmul(np.linalg.inv(A), np.array([thrust, torques[0], torques[1], torques[2]]))
+        rotor_speeds_squared = np.clip(rotor_speeds_squared, 0, self.MAX_RPM**2)
+        rotor_speeds = np.sqrt(rotor_speeds_squared)
+        actual_thrust = self.KF * np.sum(rotor_speeds_squared)
+        actual_torques = np.array([self.ARM * self.KF * (rotor_speeds_squared[0] - rotor_speeds_squared[2]),
+                                   self.ARM * self.KF * (rotor_speeds_squared[1] - rotor_speeds_squared[3]),
+                                   self.KM * (rotor_speeds_squared[0] - rotor_speeds_squared[1] + rotor_speeds_squared[2] - rotor_speeds_squared[3])])
+        rotor_speeds = rotor_speeds.astype(np.float32)
+        return rotor_speeds
 
 
-def main(args=None):
-    rclpy.init(args=args)
-    node = QuadrotorPID()
+def main():
+    rclpy.init()
+    node = QuadrotorDFBC()
     rclpy.spin(node)
-
     node.destroy_node()
     rclpy.shutdown()
 

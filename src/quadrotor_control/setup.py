@@ -21,7 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'quadrotor_pid = quadrotor_control.quadrotor_pid:main',
-            'quadrotor_dfbs = quadrotor_control.quadrotor_dfbs:main',
+            'quadrotor_dfbc = quadrotor_control.quadrotor_dfbc:main',
         ],
     },
 )

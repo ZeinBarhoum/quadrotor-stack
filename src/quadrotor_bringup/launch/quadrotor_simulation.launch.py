@@ -29,6 +29,7 @@ def generate_launch_description():
     path_visualizer_parameters = parameters['QuadrotorPathVisualizer']
     pybullet_simulation_parameters = parameters['PybulletSimulation']
     pid_controller_parameters = parameters['PIDController']
+    dfbc_controller_parameters = parameters['DFBCController']
 
     simulation_node = Node(
         package='quadrotor_simulation',
@@ -39,11 +40,17 @@ def generate_launch_description():
 
     controller = LaunchConfiguration("controller")
 
-    controller_node = Node(
+    pid_controller_node = Node(
         package='quadrotor_control',
         executable=controller,
         output='screen',
         parameters=[pid_controller_parameters]
+    )
+    dfbc_controller_node = Node(
+        package='quadrotor_control',
+        executable='quadrotor_dfbc',
+        output='screen',
+        parameters=[dfbc_controller_parameters]
     )
 
     reference_publisher_node = Node(
@@ -78,7 +85,8 @@ def generate_launch_description():
     return LaunchDescription(
         decalred_arguments+[
             simulation_node,
-            controller_node,
+            # pid_controller_node,
+            dfbc_controller_node,
             reference_publisher_node,
             trajectory_poly_optimizer_node,
             mapping_node,

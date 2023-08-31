@@ -46,5 +46,17 @@ PIDController:
   reference_topic: quadrotor_reference
   rotor_speeds_topic: quadrotor_rotor_speeds
   command_publishing_frequency: 240
+
+DFBCController:
+  KP_XYZ: [5.0, 5.0, 40.0]  # For position
+  KD_XYZ: [5.0, 5.0, 12.0]  # For position
+  KP_RPY: [0.005, 0.005, 0.001]  # For roll, pitch and yaw
+  KD_RPY: [0.001, 0.001, 0.001]  # For roll, pitch and yaw
+  quadrotor_description: cf2x  # quadrotor name (for config file)
+  state_topic: quadrotor_state
+  reference_topic: quadrotor_reference
+  rotor_speeds_topic: quadrotor_rotor_speeds
+  command_publishing_frequency: 240
+
 QuadrotorPathVisualizer:
   refresh_rate: 10
