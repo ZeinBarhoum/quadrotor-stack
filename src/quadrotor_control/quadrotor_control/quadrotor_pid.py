@@ -50,12 +50,16 @@ class QuadrotorPID(Node):
     Parameters:
         KP_Z (float): The proportional gain for the z-axis (vertical) position controller.
         KD_Z (float): The derivative gain for the z-axis (vertical) position controller.
+        KI_Z (float): The integral gain for the z-axis (vertical) position controller.
         KP_XY (float): The proportional gain for the x- and y-axis (horizontal) position controller.
         KD_XY (float): The derivative gain for the x- and y-axis (horizontal) position controller.
+        KI_XY (float): The integral gain for the x- and y-axis (horizontal) position controller.
         KP_RP (float): The proportional gain for the roll and pitch controllers.
         KD_RP (float): The derivative gain for the roll and pitch controllers.
+        KI_RP (float): the integral gain for the roll and pitch controllers.
         KP_Y (float): The proportional gain for the yaw controller.
         KD_Y (float): The derivative gain for the yaw controller.
+        KI_Y (float): The integral gain for the yaw controller.
         MAX_ROLL_PITCH (float): The maximum roll and pitch angles that the quadrotor should achieve, in radians.
         quadrotor_description (str): The name of the quadrotor, used to load the quadrotor's parameters from a config
             file (the file is assumed to be in the quadrotor_description package inside the config folder).
@@ -158,7 +162,7 @@ class QuadrotorPID(Node):
         Args:
             parameter_name (str): The name of the parameter to retrieve.
             parameter_type (str): The type of the parameter to retrieve. Supported types are 'bool', 'int', 'float', 'str',
-                'list[float]' and 'list[str]'.
+                'list[float]', 'list[str]' and 'list[int]'.
 
         Returns:
             The value of the parameter, cast to the specified type.
@@ -182,6 +186,8 @@ class QuadrotorPID(Node):
             return parameter_value.string_array_value
         elif parameter_type == 'list[float]':
             return parameter_value.double_array_value
+        elif parameter_type == 'list[int]':
+            return parameter_value.integer_array_value
         else:
             raise ValueError(f"Unsupported parameter type: {parameter_type}")
 
