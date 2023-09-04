@@ -47,17 +47,13 @@ class QuadrotorPathVisualizer(Node):
         plt.ion()
 
         self.fig, self.ax3 = plt.subplots(1, 1, subplot_kw={'projection': '3d'})
-        self.ax3.set_xlabel('X')
-        self.ax3.set_ylabel('Y')
-        self.ax3.set_zlabel('Z')
-        self.ax3.set_xlim(-10, 10)
-        self.ax3.set_ylim(-10, 10)
 
         self.references = [[0], [0], [0]]
         self.current_reference = [0, 0, 0]
 
         self.states = [[0], [0], [0]]
         self.current_state = [0, 0, 0]
+        self.waypoints = [[], [], []]
 
         self.get_logger().info('Quadrotor Path Visualizer has been started with refresh rate of {} Hz'.format(self.publish_rate))
 
@@ -65,12 +61,19 @@ class QuadrotorPathVisualizer(Node):
         x = [waypoint.x for waypoint in msg.waypoints]
         y = [waypoint.y for waypoint in msg.waypoints]
         z = [waypoint.z for waypoint in msg.waypoints]
-        self.ax3.scatter(x, y, z, c='b', marker='o')
+        self.waypoints = [x, y, z]
 
     def plot_callback(self):
-
-        self.ax3.plot(*self.references, c='r')
-        self.ax3.plot(*self.states, c='g')
+        self.ax3.clear()
+        self.ax3.set_xlabel('X')
+        self.ax3.set_ylabel('Y')
+        self.ax3.set_zlabel('Z')
+        self.ax3.set_xlim(-10, 10)
+        self.ax3.set_ylim(-10, 10)
+        self.ax3.scatter(self.waypoints[0], self.waypoints[1], self.waypoints[2], c='b', marker='o', label='Waypoints')
+        self.ax3.plot(*self.references, c='r', label='Reference')
+        self.ax3.plot(*self.states, c='g', label='State')
+        self.ax3.legend()
         # plt.legend()
 
         # self.ax3.scatter(*self.current_reference, c='b', marker='o')

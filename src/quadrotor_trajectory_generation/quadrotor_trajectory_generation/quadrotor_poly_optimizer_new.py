@@ -76,7 +76,7 @@ class QuadrotorPolyTrajOptimizer(Node):
 
         # Announce that the node is initialized
         self.start_time = self.get_clock().now()
-        self.get_logger().info(f'PolyTrajOptimizer node initialized at {self.start_time}')
+        self.get_logger().info(f'PolyTrajOptimizer node initialized at {self.start_time.seconds_nanoseconds()}')
 
     def get_parameter_value(self, parameter_name: str, parameter_type: str) -> Union[bool, int, float, str, List[str]]:
         """
@@ -193,6 +193,7 @@ class QuadrotorPolyTrajOptimizer(Node):
         yaw_waypoints = np.array([psi for psi in headings])
 
         waypoints_array: np.ndarray = np.array([x_waypoints, y_waypoints, z_waypoints])
+        self.get_logger().info(f'{waypoints_array=}')
         if (self.time_allocation == 'distance_proportional'):
             waypoints_times = (1.0/self.avg_velocity)*np.cumsum(np.sqrt(np.sum(np.diff(waypoints_array, axis=1)**2, axis=0)))
             # ad 0 to the begining of t
