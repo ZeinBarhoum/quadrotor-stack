@@ -194,7 +194,7 @@ class QuadrotorPolyTrajOptimizer(Node):
 
         waypoints_array: np.ndarray = np.array([x_waypoints, y_waypoints, z_waypoints])
         if (self.time_allocation == 'distance_proportional'):
-            waypoints_times = self.avg_velocity*np.cumsum(np.sqrt(np.sum(np.diff(waypoints_array, axis=1)**2, axis=0)))
+            waypoints_times = (1.0/self.avg_velocity)*np.cumsum(np.sqrt(np.sum(np.diff(waypoints_array, axis=1)**2, axis=0)))
             # ad 0 to the begining of t
             waypoints_times = np.concatenate(([0], waypoints_times))
         elif (self.time_allocation == 'constant'):

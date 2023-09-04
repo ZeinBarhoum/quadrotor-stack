@@ -47,6 +47,12 @@ class QuadrotorPathVisualizer(Node):
         plt.ion()
 
         self.fig, self.ax3 = plt.subplots(1, 1, subplot_kw={'projection': '3d'})
+        self.ax3.set_xlabel('X')
+        self.ax3.set_ylabel('Y')
+        self.ax3.set_zlabel('Z')
+        self.ax3.set_xlim(-10, 10)
+        self.ax3.set_ylim(-10, 10)
+
         self.references = [[0], [0], [0]]
         self.current_reference = [0, 0, 0]
 
