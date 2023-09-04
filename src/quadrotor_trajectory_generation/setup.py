@@ -21,7 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'quadrotor_reference_publisher = quadrotor_trajectory_generation.quadrotor_reference_publisher:main',
-            'quadrotor_poly_optimizer = quadrotor_trajectory_generation.quadrotor_poly_optimizer:main',
+            'quadrotor_poly_optimizer = quadrotor_trajectory_generation.quadrotor_poly_optimizer_new:main',
         ],
     },
 )

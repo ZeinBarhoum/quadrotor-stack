@@ -163,6 +163,7 @@ class QuadrotorRRT(Node):
             p.x, p.y, p.z = point
             waypoints.append(p)
         msg.waypoints = waypoints
+        msg.heading_angles = [0.0] * len(waypoints)
 
         # self.get_logger().info(f'{msg}')
 

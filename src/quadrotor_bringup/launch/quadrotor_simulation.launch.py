@@ -30,6 +30,7 @@ def generate_launch_description():
     pybullet_simulation_parameters = parameters['PybulletSimulation']
     pid_controller_parameters = parameters['PIDController']
     dfbc_controller_parameters = parameters['DFBCController']
+    poly_traj_optimizer_parameters = parameters['PolyTrajOptimizer']
 
     simulation_node = Node(
         package='quadrotor_simulation',
@@ -62,7 +63,8 @@ def generate_launch_description():
     trajectory_poly_optimizer_node = Node(
         package='quadrotor_trajectory_generation',
         executable='quadrotor_poly_optimizer',
-        output='screen'
+        output='screen',
+        parameters=[poly_traj_optimizer_parameters]
     )
 
     mapping_node = Node(
