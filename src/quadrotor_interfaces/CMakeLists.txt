@@ -19,6 +19,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/RotorCommand.msg"
   "msg/PathWayPoints.msg"
   "msg/OccupancyGrid3D.msg"
+  "msg/PolynomialSegment.msg"
   "msg/PolynomialTrajectory.msg"
 
 DEPENDENCIES geometry_msgs

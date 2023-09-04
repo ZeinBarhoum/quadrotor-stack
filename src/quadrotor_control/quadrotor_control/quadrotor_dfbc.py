@@ -59,7 +59,7 @@ class QuadrotorDFBC(Node):
         self.rotor_speeds_topic = self.get_parameter_value('rotor_speeds_topic', 'str')
         self.command_publish_frequency = self.get_parameter_value('command_publish_frequency', 'int')
 
-        # Sybscribers and Publishers
+        # Subscribers and Publishers
         self.state_subscriber = self.create_subscription(msg_type=State,
                                                          topic=self.state_topic,
                                                          callback=self.receive_state_callback,

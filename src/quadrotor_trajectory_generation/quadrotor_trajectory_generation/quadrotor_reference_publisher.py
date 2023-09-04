@@ -1,7 +1,17 @@
 import rclpy
 from rclpy.node import Node
-from quadrotor_interfaces.msg import PolynomialTrajectory, ReferenceState
+from quadrotor_interfaces.msg import PolynomialTrajectory, PolynomialSegment, ReferenceState
 import numpy as np
+
+# For colored traceback
+try:
+    import IPython.core.ultratb
+except ImportError:
+    # No IPython. Use default exception printing
+    pass
+else:
+    import sys
+    sys.excepthook = IPython.core.ultratb.ColorTB()
 
 
 class QuadrotorReferencePublisher(Node):
@@ -21,8 +31,8 @@ class QuadrotorReferencePublisher(Node):
             10  # Queue size
         )
 
-        self.poly_x = np.array([1])
-        self.poly_y = np.array([1])
+        self.poly_x = np.array([0])
+        self.poly_y = np.array([0])
         self.poly_z = np.array([1])
         self.t_clip = -1
 
@@ -59,11 +69,11 @@ class QuadrotorReferencePublisher(Node):
 
         self.current_time += self.DT
 
-    def receive_poly_trajectory_callback(self, msg):
-        self.poly_x = np.array(msg.poly_x)
-        self.poly_y = np.array(msg.poly_y)
-        self.poly_z = np.array(msg.poly_z)
-        self.t_clip = msg.t_clip
+    def receive_poly_trajectory_callback(self, msg: PolynomialTrajectory):
+        self.poly_x = np.array(msg.segments[0].poly_x)
+        self.poly_y = np.array(msg.segments[0].poly_y)
+        self.poly_z = np.array(msg.segments[0].poly_z)
+        self.t_clip = msg.segments[0].duration
         self.current_time = 0.0
 
 
