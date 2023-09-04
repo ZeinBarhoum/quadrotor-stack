@@ -144,7 +144,7 @@ class QuadrotorPybullet(Node):
 
         # Announce that the node is initialized
         self.start_time = self.get_clock().now()  # For logging purposes
-        self.get_logger().info(f'Pybullet simulation node initialized at {self.start_time.seconds_nanoseconds()}')
+        self.get_logger().info(f'QuadrotorPybullet node initialized at {self.start_time.seconds_nanoseconds()}')
 
     def get_parameter_value(self, parameter_name: str, parameter_type: str) -> Union[bool, int, float, str, List[str]]:
         """
@@ -198,7 +198,7 @@ class QuadrotorPybullet(Node):
                 self.get_logger().error(
                     f"Cofiguration File {config_file} Couldn't Be Loaded, Raised Error {exc}")
                 parameters = dict()
-        self.get_logger().info(f'{parameters=}')
+        # self.get_logger().info(f'{parameters=}')
         CF2X_PARAMS = parameters['CF2X_PARAMS']
         self.G = 9.81  # m/s^2
         self.KF = CF2X_PARAMS['KF']  # N/(rad/s)^2
