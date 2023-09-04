@@ -193,7 +193,7 @@ class QuadrotorPolyTrajOptimizer(Node):
         yaw_waypoints = np.array([psi for psi in headings])
 
         waypoints_array: np.ndarray = np.array([x_waypoints, y_waypoints, z_waypoints])
-        self.get_logger().info(f'{waypoints_array=}')
+        # self.get_logger().info(f'{waypoints_array=}')
         if (self.time_allocation == 'distance_proportional'):
             waypoints_times = (1.0/self.avg_velocity)*np.cumsum(np.sqrt(np.sum(np.diff(waypoints_array, axis=1)**2, axis=0)))
             # ad 0 to the begining of t
@@ -201,9 +201,10 @@ class QuadrotorPolyTrajOptimizer(Node):
         elif (self.time_allocation == 'constant'):
             waypoints_times = np.arange(0, n)*self.segment_time
         elif (self.time_allocation == 'optimization'):
-            raise NotImplementedError
+            raise NotImplementedError('Optimization time allocation is not implemented yet')
         else:
             raise ValueError(f"Unsupported time allocation method: {self.time_allocation}")
+        # self.get_logger().info(f'{waypoints_times=}')
 
         if (self.one_segment):
             self.trajectory.n = 1
@@ -215,13 +216,25 @@ class QuadrotorPolyTrajOptimizer(Node):
             segment.duration = waypoints_times[-1]
             self.trajectory.segments = [segment]
         else:
-            raise NotImplementedError
+            raise NotImplementedError('Multiple segments are not implemented yet')
 
-    def _calculate_polynomial(self, t: np.ndarray, waypoints: np.ndarray) -> np.ndarray:
-        A = np.vstack([t**i for i in reversed(range(len(waypoints)))]).T
-        poly = np.linalg.lstsq(A, waypoints, rcond=None)[0]
-        self.get_logger().info(f'{poly=}')
-        return poly.tolist()
+    def _calculate_polynomial(self, times: np.ndarray, waypoints: np.ndarray) -> np.ndarray:
+        num_waypoints = len(waypoints)
+        num_constraints = num_waypoints + 2
+        num_params = num_constraints
+        A = np.zeros((num_constraints, num_params))
+        for i in range(num_waypoints):
+            A[i, :] = np.array([times[i]**j for j in range(num_params)])
+        A[num_waypoints, :] = np.array([j*times[0]**(j-1) if j > 0 else 0 for j in range(num_params)])
+        A[-1, :] = np.array([j*times[-1]**(j-1) for j in range(num_params)])
+        b = np.zeros(num_constraints)
+        b[:num_waypoints] = waypoints
+        b[num_waypoints:] = [0, 0]
+        # self.get_logger().info(f'{A=}')
+        # self.get_logger().info(f'{b=}')
+        poly = np.linalg.lstsq(A, b, rcond=None)[0]
+        # self.get_logger().info(f'{poly=}')
+        return list(reversed(poly))
 
 
 def main():
