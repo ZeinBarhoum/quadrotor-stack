@@ -85,7 +85,7 @@ class QuadrotorDFBC(Node):
         self.start_time = self.get_clock().now()
         self.get_logger().info(f'DFBC node initialized at {self.start_time.seconds_nanoseconds()}')
 
-    def get_parameter_value(self, parameter_name: str, parameter_type: str) -> Union[bool, int, float, str, List[str]]:
+    def get_parameter_value(self, parameter_name: str, parameter_type: str) -> Union[bool, int, float, str, List[str | int | float]]:
         """
         Get the value of a parameter with the given name and type.
 
@@ -195,7 +195,7 @@ class QuadrotorDFBC(Node):
         self.calculate_command()
         self.command_publisher.publish(self.command)
 
-    def calculate_command(self) -> RotorCommand:
+    def calculate_command(self):
         """ Calculates the rotor commands based on the actual and reference states of the quadrotor.
         """
         actual_state = self.actual_state['state']
