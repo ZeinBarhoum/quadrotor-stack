@@ -28,6 +28,7 @@ else:
 DEFAULT_SEGMENT_TIME = 1.0
 DEFAULT_AVG_VELOCITY = 1.0
 DEFAULT_QOS_PROFILE = 10
+DEFAULT_POLY_ORDER = 3
 
 
 class QuadrotorPolyTrajOptimizer(Node):
@@ -42,6 +43,7 @@ class QuadrotorPolyTrajOptimizer(Node):
                         ('avg_velocity', DEFAULT_AVG_VELOCITY),  # average velocity in m/s for distance proportional time allocation
                         ('quadrotor_description', 'cf2x'),  # quadrotor description file name (without extension)
                         ('one_segment', True),  # if true, the trajectory will be a single segment
+                        ('poly_order', DEFAULT_POLY_ORDER),  # only applies for multi-segment trajectories
                         ('waypoints_topic', 'quadrotor_waypoints'),
                         ('trajectory_topic', 'quadrotor_polynomial_trajectory'),
                         ('map_topic', 'quadrotor_map')
@@ -53,6 +55,7 @@ class QuadrotorPolyTrajOptimizer(Node):
         self.avg_velocity = self.get_parameter_value('avg_velocity', 'float')
         self.quadrotor_description = self.get_parameter_value('quadrotor_description', 'str')
         self.one_segment = self.get_parameter_value('one_segment', 'bool')
+        self.poly_order = self.get_parameter_value('poly_order', 'int')
         self.waypoints_topic = self.get_parameter_value('waypoints_topic', 'str')
         self.trajecotry_topic = self.get_parameter_value('trajectory_topic', 'str')
         self.map_topic = self.get_parameter_value('map_topic', 'str')
@@ -78,7 +81,7 @@ class QuadrotorPolyTrajOptimizer(Node):
         self.start_time = self.get_clock().now()
         self.get_logger().info(f'PolyTrajOptimizer node initialized at {self.start_time.seconds_nanoseconds()}')
 
-    def get_parameter_value(self, parameter_name: str, parameter_type: str) -> Union[bool, int, float, str, List[str]]:
+    def get_parameter_value(self, parameter_name: str, parameter_type: str) -> Union[bool, int, float, str, List[str], List[int], List[float]]:
         """
         Get the value of a parameter with the given name and type.
 
@@ -209,16 +212,35 @@ class QuadrotorPolyTrajOptimizer(Node):
         if (self.one_segment):
             self.trajectory.n = 1
             segment = PolynomialSegment()
-            segment.poly_x = self._calculate_polynomial(waypoints_times, x_waypoints)
-            segment.poly_y = self._calculate_polynomial(waypoints_times, y_waypoints)
-            segment.poly_z = self._calculate_polynomial(waypoints_times, z_waypoints)
-            segment.poly_yaw = self._calculate_polynomial(waypoints_times, yaw_waypoints)
-            segment.duration = waypoints_times[-1]
+            segment.poly_x = self._calculate_polynomial_one_segment(waypoints_times, x_waypoints)
+            # self.get_logger().info(f'{x_waypoints=}, {waypoints_times=}')
+            self._calculate_polynomial_multiple_segments(waypoints_times, x_waypoints)
+
+            segment.poly_y = self._calculate_polynomial_one_segment(waypoints_times, y_waypoints)
+            segment.poly_z = self._calculate_polynomial_one_segment(waypoints_times, z_waypoints)
+            segment.poly_yaw = self._calculate_polynomial_one_segment(waypoints_times, yaw_waypoints)
+            segment.start_time = waypoints_times[0]
+            segment.end_time = waypoints_times[-1]
             self.trajectory.segments = [segment]
         else:
-            raise NotImplementedError('Multiple segments are not implemented yet')
+            solution_x = self._calculate_polynomial_multiple_segments(waypoints_times, x_waypoints)
+            solution_y = self._calculate_polynomial_multiple_segments(waypoints_times, y_waypoints)
+            solution_z = self._calculate_polynomial_multiple_segments(waypoints_times, z_waypoints)
+            solution_yaw = self._calculate_polynomial_multiple_segments(waypoints_times, yaw_waypoints)
+            self.get_logger().info(f'{solution_yaw=}')
+            self.trajectory.n = len(solution_x)
+            self.trajectory.segments = []
+            for i in range(self.trajectory.n):
+                segment = PolynomialSegment()
+                segment.poly_x = solution_x[i]
+                segment.poly_y = solution_y[i]
+                segment.poly_z = solution_z[i]
+                segment.poly_yaw = solution_yaw[i]
+                segment.start_time = waypoints_times[i]
+                segment.end_time = waypoints_times[i+1]
+                self.trajectory.segments.append(segment)
 
-    def _calculate_polynomial(self, times: np.ndarray, waypoints: np.ndarray) -> np.ndarray:
+    def _calculate_polynomial_one_segment(self, times: np.ndarray, waypoints: np.ndarray) -> List[float]:
         num_waypoints = len(waypoints)
         num_constraints = num_waypoints + 2
         num_params = num_constraints
@@ -235,6 +257,61 @@ class QuadrotorPolyTrajOptimizer(Node):
         poly = np.linalg.lstsq(A, b, rcond=None)[0]
         # self.get_logger().info(f'{poly=}')
         return list(reversed(poly))
+
+    def _calculate_polynomial_multiple_segments(self, times: np.ndarray, waypoints: np.ndarray) -> List[List[float]]:
+        num_waypoints = len(waypoints)
+        num_params_per_poly = self.poly_order + 1
+        num_polys = len(waypoints) - 1
+        num_params = num_params_per_poly * num_polys
+
+        A = np.zeros((num_params, num_params))
+        B = np.zeros(num_params)
+
+        num_high_order_constraints = self.poly_order - 1
+        done_constraints = 0
+        for i in range(num_waypoints - 2):  # Middle Waypoints
+            # Middle Waypoints Position Constraints
+            t = times[i+1]  # two constraints in this time, one poly from each direction
+            A[done_constraints, num_params_per_poly*i:num_params_per_poly*(i+1)] = np.array([t**j for j in range(num_params_per_poly)])
+            B[done_constraints] = waypoints[i+1]
+            done_constraints += 1
+
+            A[done_constraints, num_params_per_poly*(i+1):num_params_per_poly*(i+2)] = np.array([t**j for j in range(num_params_per_poly)])
+            B[done_constraints] = waypoints[i+1]
+            done_constraints += 1
+            for order in range(1, num_high_order_constraints+1):
+                A[done_constraints, num_params_per_poly*i:num_params_per_poly *
+                    (i+1)] = np.array([math.perm(j, order) * (t**(j-order)) if j >= order else 0 for j in range(num_params_per_poly)])
+                A[done_constraints, num_params_per_poly*(i+1):num_params_per_poly*(i+2)] = -A[done_constraints, num_params_per_poly*i:num_params_per_poly*(i+1)]
+
+                B[done_constraints] = 0
+                done_constraints += 1
+        t = times[0]
+        A[done_constraints, :num_params_per_poly] = np.array([t**j for j in range(num_params_per_poly)])
+        B[done_constraints] = waypoints[0]
+        done_constraints += 1
+
+        A[done_constraints, :num_params_per_poly] = np.array([j*(t**(j-1)) if j >= 1 else 0 for j in range(num_params_per_poly)])
+        B[done_constraints] = 0
+        done_constraints += 1
+
+        t = times[-1]
+        A[done_constraints, -num_params_per_poly:] = np.array([t**j for j in range(num_params_per_poly)])
+        B[done_constraints] = waypoints[-1]
+        done_constraints += 1
+
+        A[done_constraints, -num_params_per_poly:] = np.array([j*(t**(j-1)) if j >= 1 else 0 for j in range(num_params_per_poly)])
+        B[done_constraints] = 0
+        done_constraints += 1
+        # self.get_logger().info(f'{A=}')
+        # self.get_logger().info(f'{B=}')
+        sol_prams = np.linalg.lstsq(A, B, rcond=None)[0]
+        # self.get_logger().info(f'{sol_prams=}')
+        segments = []
+        for i in range(num_polys):
+            segments.append(list(reversed(sol_prams[i*num_params_per_poly:(i+1)*num_params_per_poly])))
+        # self.get_logger().info(f'{segments=}')
+        return segments
 
 
 def main():
