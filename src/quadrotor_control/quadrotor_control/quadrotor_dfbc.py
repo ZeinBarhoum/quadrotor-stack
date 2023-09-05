@@ -238,6 +238,10 @@ class QuadrotorDFBC(Node):
                                                reference_state['twist']['angular']['y'],
                                                reference_state['twist']['angular']['z'],
                                                ])
+        reference_linear_acceleration = np.array([reference_state['accel']['linear']['x'],
+                                                  reference_state['accel']['linear']['y'],
+                                                  reference_state['accel']['linear']['z'],
+                                                  ])
 
         KP_XYZ = np.array(self.KP_XYZ)
         KD_XYZ = np.array(self.KD_XYZ)
@@ -249,7 +253,7 @@ class QuadrotorDFBC(Node):
         error_orientation = reference_orientation_euler - actual_orientation_euler
         error_angular_velocity = reference_angular_velocity - actual_angular_velocity
 
-        desired_acceleration = np.multiply(KP_XYZ, error_position) + np.multiply(KD_XYZ, error_velocity)
+        desired_acceleration = reference_linear_acceleration + np.multiply(KP_XYZ, error_position) + np.multiply(KD_XYZ, error_velocity)
         desired_acceleration[2] += self.G
         desired_force = self.M * desired_acceleration
         desired_thrust = np.dot(desired_force, Rotation.from_quat(actual_orientation).as_matrix()[:, 2])

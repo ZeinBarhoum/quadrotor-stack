@@ -86,14 +86,14 @@ class QuadrotorReferencePublisher(Node):
         reference_state_msg.current_state.twist.angular.z = float(np.polyval(np.polyder(segment.poly_yaw), t))
 
         # linear acceleration
-        reference_state_msg.current_state.accel.linear.x = float(np.polyval(np.polyder(segment.poly_x, 2), t))
-        reference_state_msg.current_state.accel.linear.y = float(np.polyval(np.polyder(segment.poly_y, 2), t))
-        reference_state_msg.current_state.accel.linear.z = float(np.polyval(np.polyder(segment.poly_z, 2), t))
+        reference_state_msg.current_state.accel.linear.x = (1-self.finished) * float(np.polyval(np.polyder(segment.poly_x, 2), t))
+        reference_state_msg.current_state.accel.linear.y = (1-self.finished) * float(np.polyval(np.polyder(segment.poly_y, 2), t))
+        reference_state_msg.current_state.accel.linear.z = (1-self.finished) * float(np.polyval(np.polyder(segment.poly_z, 2), t))
 
         # angular acceleration
         reference_state_msg.current_state.accel.angular.x = 0.0
         reference_state_msg.current_state.accel.angular.y = 0.0
-        reference_state_msg.current_state.accel.angular.z = float(np.polyval(np.polyder(segment.poly_yaw, 2), t))
+        reference_state_msg.current_state.accel.angular.z = (1-self.finished) * float(np.polyval(np.polyder(segment.poly_yaw, 2), t))
 
         self.current_time += self.DT
         if (self.current_time > segment.end_time):
