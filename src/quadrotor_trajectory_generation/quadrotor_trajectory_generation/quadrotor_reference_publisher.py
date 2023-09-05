@@ -1,7 +1,12 @@
 import rclpy
 from rclpy.node import Node
 from quadrotor_interfaces.msg import PolynomialTrajectory, PolynomialSegment, ReferenceState
+
+from scipy.spatial.transform import Rotation
+
 import numpy as np
+
+from typing import List
 
 # For colored traceback
 try:
@@ -31,12 +36,12 @@ class QuadrotorReferencePublisher(Node):
             10  # Queue size
         )
 
-        self.poly_x = np.array([0])
-        self.poly_y = np.array([0])
-        self.poly_z = np.array([1])
-        self.t_clip = -1
-
+        self.n_segments = 0
+        self.segments = [PolynomialSegment(poly_z=[1.0])]
+        self.durations = [0.0]
+        self.current_segment = 0
         self.current_time = 0.0
+        self.finished = False
 
         # Control the publishing rate
         self.publish_rate = 100  # Hz
@@ -46,34 +51,50 @@ class QuadrotorReferencePublisher(Node):
         self.get_logger().info('Reference publisher node initialized')
 
     def publish_reference(self):
-        zero_vel = False
-        if (self.t_clip > 0 and self.current_time > self.t_clip):
-            self.current_time = self.t_clip
-            zero_vel = True
+        reference_state_msg = ReferenceState()
+        reference_state_msg.header.stamp = self.get_clock().now().to_msg()
 
-        msg = ReferenceState()
-        msg.current_state.pose.position.x = np.polyval(self.poly_x, self.current_time)
-        msg.current_state.pose.position.y = np.polyval(self.poly_y, self.current_time)
-        msg.current_state.pose.position.z = np.polyval(self.poly_z, self.current_time)
+        if (self.current_segment >= self.n_segments):
+            self.finished = True
+            segment = self.segments[self.n_segments - 1]
+            t = segment.end_time
+        else:
+            self.finished = False
+            segment = self.segments[self.current_segment]
+            t = self.current_time
+        # position
+        reference_state_msg.current_state.pose.position.x = float(np.polyval(segment.poly_x, t))
+        reference_state_msg.current_state.pose.position.y = float(np.polyval(segment.poly_y, t))
+        reference_state_msg.current_state.pose.position.z = float(np.polyval(segment.poly_z, t))
 
-        msg.current_state.twist.linear.x = float(np.polyval(np.polyder(self.poly_x), self.current_time))
-        msg.current_state.twist.linear.y = float(np.polyval(np.polyder(self.poly_y), self.current_time))
-        msg.current_state.twist.linear.z = float(np.polyval(np.polyder(self.poly_z), self.current_time))
+        # orientation
+        yaw = float(np.polyval(segment.poly_yaw, t))
+        orientation = Rotation.from_euler('XYZ', [0.0, 0.0, yaw]).as_quat()
+        reference_state_msg.current_state.pose.orientation.x = orientation[0]
+        reference_state_msg.current_state.pose.orientation.y = orientation[1]
+        reference_state_msg.current_state.pose.orientation.z = orientation[2]
+        reference_state_msg.current_state.pose.orientation.w = orientation[3]
 
-        if (zero_vel):
-            msg.current_state.twist.linear.x = 0.0
-            msg.current_state.twist.linear.y = 0.0
-            msg.current_state.twist.linear.z = 0.0
+        # linear velocity
+        reference_state_msg.current_state.twist.linear.x = float(np.polyval(np.polyder(segment.poly_x), t))
+        reference_state_msg.current_state.twist.linear.y = float(np.polyval(np.polyder(segment.poly_y), t))
+        reference_state_msg.current_state.twist.linear.z = float(np.polyval(np.polyder(segment.poly_z), t))
 
-        self.publisher_ref.publish(msg)
+        # angular velocity
+        reference_state_msg.current_state.twist.angular.x = 0.0
+        reference_state_msg.current_state.twist.angular.y = 0.0
+        reference_state_msg.current_state.twist.angular.z = float(np.polyval(np.polyder(segment.poly_yaw), t))
 
         self.current_time += self.DT
+        if (self.current_time > segment.end_time):
+            self.current_segment += 1
+
+        self.publisher_ref.publish(reference_state_msg)
 
     def receive_poly_trajectory_callback(self, msg: PolynomialTrajectory):
-        self.poly_x = np.array(msg.segments[0].poly_x)
-        self.poly_y = np.array(msg.segments[0].poly_y)
-        self.poly_z = np.array(msg.segments[0].poly_z)
-        self.t_clip = msg.segments[0].duration
+        self.n_segments = msg.n
+        self.segments: List[PolynomialSegment] = msg.segments
+        self.current_segment = 0
         self.current_time = 0.0
 
 
