@@ -49,14 +49,16 @@ class QuadrotorPathVisualizer(Node):
         plt.ion()
 
         self.fig = plt.figure()
-        self.num_subplots = (2, 2)
+        self.num_subplots = (3, 2)
         self.ax_3d = self.fig.add_subplot(*self.num_subplots, 1, projection='3d')
         self.ax_xy = self.fig.add_subplot(*self.num_subplots, 2)
         self.ax_error_pos = self.fig.add_subplot(*self.num_subplots, 3)
         self.ax_error_rot = self.fig.add_subplot(*self.num_subplots, 4)
+        self.ax_yaw = self.fig.add_subplot(*self.num_subplots, 5)
 
         self.references = [[0], [0], [0], [0]]
-        self.current_reference = [0, 0, 0]
+        self.references_yaw = [0]
+        self.current_reference = [0, 0, 0, 0]
         self.states = [[0], [0], [0], [0]]
         self.current_state = [0, 0, 0, 0]
         self.future_states = [[0], [0], [0], [0]]
@@ -110,6 +112,16 @@ class QuadrotorPathVisualizer(Node):
         self.ax_error_rot.set_xlim(0, self.times[-1], auto=True)
         self.ax_error_rot.set_ylim(-1, 1, auto=False)
 
+        self.ax_yaw.clear()
+        self.ax_yaw.set_xlabel('Time')
+        self.ax_yaw.set_ylabel('Yaw')
+        self.ax_yaw.set_xlim(0, self.times[-1], auto=True)
+        self.ax_yaw.set_ylim(-np.pi, np.pi, auto=False)
+        # self.get_logger().info(f'{self.references[3]=}')
+        self.ax_yaw.plot(self.references_yaw, c='r', label='Reference')
+        self.ax_yaw.plot(self.states[3], c='g', label='State')
+        self.ax_yaw.legend()
+
         num_points = 50
         if (len(self.times) > num_points):
             times = self.times[-num_points:]
@@ -117,7 +129,6 @@ class QuadrotorPathVisualizer(Node):
             errors_y = self.errors[1][-num_points:]
             errors_z = self.errors[2][-num_points:]
             errors_yaw = self.errors[3][-num_points:]
-
         else:
             times = self.times
             errors_x = self.errors[0]
@@ -164,6 +175,7 @@ class QuadrotorPathVisualizer(Node):
                         msg.state.pose.orientation.z, msg.state.pose.orientation.w])
         euler = Rotation.from_quat(quat).as_euler('xyz')
         self.states[3].append(euler[2])
+        self.references_yaw.append(self.references[3][-1])
 
         self.current_state = [msg.state.pose.position.x, msg.state.pose.position.y, msg.state.pose.position.z, euler[2]]
 
