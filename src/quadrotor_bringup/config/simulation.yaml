@@ -54,7 +54,7 @@ PolyTrajOptimizer:
   segment_time: 0.1  # segment time in seconds for constant time allocation
   avg_velocity: 2.0  # average velocity in m/s for distance proportional time allocation
   quadrotor_description: cf2x  # quadrotor description file name (without extension)
-  one_segment: true  # if true, the trajectory will be a single segment
+  one_segment: false  # if true, the trajectory will be a single segment
   poly_order: 3 # order of polynomials, only applies for multi-segment trajectories
   waypoints_topic: quadrotor_waypoints
   trajectory_topic: quadrotor_polynomial_trajectory
