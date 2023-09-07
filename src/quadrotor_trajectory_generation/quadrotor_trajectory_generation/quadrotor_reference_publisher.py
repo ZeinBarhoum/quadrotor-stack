@@ -47,7 +47,7 @@ class QuadrotorReferencePublisher(Node):
         self.dt_future = 0.1
 
         # Control the publishing rate
-        self.publish_rate = 100  # Hz
+        self.publish_rate = 240  # Hz
         self.DT = 1.0 / self.publish_rate  # seconds
         self.timer = self.create_timer(self.DT, self.publish_reference)
 
@@ -100,7 +100,7 @@ class QuadrotorReferencePublisher(Node):
 
         # orientation
         yaw = float(np.polyval(poly_yaw, t))
-        orientation = Rotation.from_euler('XYZ', [0.0, 0.0, yaw]).as_quat()
+        orientation = Rotation.from_euler('xyz', [0.0, 0.0, yaw]).as_quat()
         state.pose.orientation.x = orientation[0]
         state.pose.orientation.y = orientation[1]
         state.pose.orientation.z = orientation[2]
