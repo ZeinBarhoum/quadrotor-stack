@@ -59,6 +59,7 @@ class QuadrotorPathVisualizer(Node):
         self.current_reference = [0, 0, 0]
         self.states = [[0], [0], [0], [0]]
         self.current_state = [0, 0, 0, 0]
+        self.future_states = [[0], [0], [0], [0]]
         self.errors = [[0], [0], [0], [0]]
         self.current_error = [0, 0, 0, 0]
         self.start_time = -1
@@ -84,6 +85,7 @@ class QuadrotorPathVisualizer(Node):
         self.ax_3d.scatter(*self.waypoints[:3], c='b', marker='o', label='Waypoints')
         self.ax_3d.plot(*self.references[:3], c='r', label='Reference')
         self.ax_3d.plot(*self.states[:3], c='g', label='State')
+        self.ax_3d.scatter(*self.future_states[:3], c='b', marker='x', label='Future States')
         self.ax_3d.legend()
 
         self.ax_xy.clear()
@@ -146,6 +148,11 @@ class QuadrotorPathVisualizer(Node):
         self.references[3].append(euler[2])
 
         self.current_reference = [msg.current_state.pose.position.x, msg.current_state.pose.position.y, msg.current_state.pose.position.z, euler[2]]
+
+        num_future = msg.n
+        self.future_states[0] = [msg.future_states[i].pose.position.x for i in range(num_future)]
+        self.future_states[1] = [msg.future_states[i].pose.position.y for i in range(num_future)]
+        self.future_states[2] = [msg.future_states[i].pose.position.z for i in range(num_future)]
 
     def state_callback(self, msg: State):
 
