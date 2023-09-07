@@ -1,9 +1,11 @@
 import rclpy
 from rclpy.node import Node
 from quadrotor_interfaces.msg import PathWayPoints, State, ReferenceState
+from scipy.spatial.transform import Rotation
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
 import numpy as np
-from mpl_toolkits import mplot3d
 
 try:
     import IPython.core.ultratb
@@ -46,13 +48,22 @@ class QuadrotorPathVisualizer(Node):
 
         plt.ion()
 
-        self.fig, self.ax3 = plt.subplots(1, 1, subplot_kw={'projection': '3d'})
+        self.fig = plt.figure()
+        self.num_subplots = (2, 2)
+        self.ax_3d = self.fig.add_subplot(*self.num_subplots, 1, projection='3d')
+        self.ax_xy = self.fig.add_subplot(*self.num_subplots, 2)
+        self.ax_error_pos = self.fig.add_subplot(*self.num_subplots, 3)
+        self.ax_error_rot = self.fig.add_subplot(*self.num_subplots, 4)
 
-        self.references = [[0], [0], [0]]
+        self.references = [[0], [0], [0], [0]]
         self.current_reference = [0, 0, 0]
+        self.states = [[0], [0], [0], [0]]
+        self.current_state = [0, 0, 0, 0]
+        self.errors = [[0], [0], [0], [0]]
+        self.current_error = [0, 0, 0, 0]
+        self.start_time = -1
+        self.times = [0]
 
-        self.states = [[0], [0], [0]]
-        self.current_state = [0, 0, 0]
         self.waypoints = [[], [], []]
 
         self.get_logger().info('Quadrotor Path Visualizer has been started with refresh rate of {} Hz'.format(self.publish_rate))
@@ -64,19 +75,63 @@ class QuadrotorPathVisualizer(Node):
         self.waypoints = [x, y, z]
 
     def plot_callback(self):
-        self.ax3.clear()
-        self.ax3.set_xlabel('X')
-        self.ax3.set_ylabel('Y')
-        self.ax3.set_zlabel('Z')
-        self.ax3.set_xlim(-10, 10)
-        self.ax3.set_ylim(-10, 10)
-        self.ax3.scatter(self.waypoints[0], self.waypoints[1], self.waypoints[2], c='b', marker='o', label='Waypoints')
-        self.ax3.plot(*self.references, c='r', label='Reference')
-        self.ax3.plot(*self.states, c='g', label='State')
-        self.ax3.legend()
-        # plt.legend()
+        self.ax_3d.clear()
+        self.ax_3d.set_xlabel('X')
+        self.ax_3d.set_ylabel('Y')
+        self.ax_3d.set_zlabel('Z')
+        self.ax_3d.set_xlim(-10, 10)
+        self.ax_3d.set_ylim(-10, 10)
+        self.ax_3d.scatter(*self.waypoints[:3], c='b', marker='o', label='Waypoints')
+        self.ax_3d.plot(*self.references[:3], c='r', label='Reference')
+        self.ax_3d.plot(*self.states[:3], c='g', label='State')
+        self.ax_3d.legend()
 
-        # self.ax3.scatter(*self.current_reference, c='b', marker='o')
+        self.ax_xy.clear()
+        self.ax_xy.set_xlabel('X')
+        self.ax_xy.set_ylabel('Y')
+        self.ax_xy.set_xlim(-10, 10)
+        self.ax_xy.set_ylim(-10, 10)
+        self.ax_xy.scatter(*self.waypoints[:2], c='b', marker='o', label='Waypoints')
+        self.ax_xy.plot(*self.references[:2], c='r', label='Reference')
+        self.ax_xy.plot(*self.states[:2], c='g', label='State')
+        self.ax_xy.legend()
+
+        self.ax_error_pos.clear()
+        self.ax_error_pos.set_xlabel('Time')
+        self.ax_error_pos.set_ylabel('Error')
+        self.ax_error_pos.set_xlim(0, self.times[-1], auto=True)
+        self.ax_error_pos.set_ylim(-1, 1, auto=False)
+
+        self.ax_error_rot.clear()
+        self.ax_error_rot.set_xlabel('Time')
+        self.ax_error_rot.set_ylabel('Error')
+        self.ax_error_rot.set_xlim(0, self.times[-1], auto=True)
+        self.ax_error_rot.set_ylim(-1, 1, auto=False)
+
+        num_points = 50
+        if (len(self.times) > num_points):
+            times = self.times[-num_points:]
+            errors_x = self.errors[0][-num_points:]
+            errors_y = self.errors[1][-num_points:]
+            errors_z = self.errors[2][-num_points:]
+            errors_yaw = self.errors[3][-num_points:]
+
+        else:
+            times = self.times
+            errors_x = self.errors[0]
+            errors_y = self.errors[1]
+            errors_z = self.errors[2]
+            errors_yaw = self.errors[3]
+
+        self.ax_error_pos.plot(times, errors_x, c='r', label='X')
+        self.ax_error_pos.plot(times, errors_y, c='g', label='Y')
+        self.ax_error_pos.plot(times, errors_z, c='b', label='Z')
+        self.ax_error_pos.legend()
+
+        self.ax_error_rot.plot(times, errors_yaw, c='r', label='Yaw')
+        self.ax_error_rot.legend()
+
+        # plt.legend()
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
 
@@ -85,8 +140,12 @@ class QuadrotorPathVisualizer(Node):
         self.references[0].append(msg.current_state.pose.position.x)
         self.references[1].append(msg.current_state.pose.position.y)
         self.references[2].append(msg.current_state.pose.position.z)
+        quat = np.array([msg.current_state.pose.orientation.x, msg.current_state.pose.orientation.y,
+                        msg.current_state.pose.orientation.z, msg.current_state.pose.orientation.w])
+        euler = Rotation.from_quat(quat).as_euler('xyz')
+        self.references[3].append(euler[2])
 
-        self.current_reference = [msg.current_state.pose.position.x, msg.current_state.pose.position.y, msg.current_state.pose.position.z]
+        self.current_reference = [msg.current_state.pose.position.x, msg.current_state.pose.position.y, msg.current_state.pose.position.z, euler[2]]
 
     def state_callback(self, msg: State):
 
@@ -94,7 +153,25 @@ class QuadrotorPathVisualizer(Node):
         self.states[1].append(msg.state.pose.position.y)
         self.states[2].append(msg.state.pose.position.z)
 
-        self.current_state = [msg.state.pose.position.x, msg.state.pose.position.y, msg.state.pose.position.z]
+        quat = np.array([msg.state.pose.orientation.x, msg.state.pose.orientation.y,
+                        msg.state.pose.orientation.z, msg.state.pose.orientation.w])
+        euler = Rotation.from_quat(quat).as_euler('xyz')
+        self.states[3].append(euler[2])
+
+        self.current_state = [msg.state.pose.position.x, msg.state.pose.position.y, msg.state.pose.position.z, euler[2]]
+
+        self.current_error = list(np.array(self.current_reference) - np.array(self.current_state))
+
+        self.errors[0].append(self.current_error[0])
+        self.errors[1].append(self.current_error[1])
+        self.errors[2].append(self.current_error[2])
+        self.errors[3].append(self.current_error[3])
+
+        self.times.append(msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9)
+        if (self.start_time == -1):
+            self.start_time = self.times[-1]
+
+        self.times[-1] -= self.start_time
 
 
 def main():
