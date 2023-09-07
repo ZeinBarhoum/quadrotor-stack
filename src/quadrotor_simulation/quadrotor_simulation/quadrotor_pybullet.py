@@ -36,6 +36,9 @@ else:
 DEFAULT_FREQUENCY = 240  # Hz
 DEFAULT_FREQUENCY_IMG = 5  # Hz
 DEFAULT_QOS_PROFILE = 10
+DEFAULT_VIEW_DISTANCE = 5.0
+DEFAULT_VIEW_YAW = 0.0
+DEFAULT_VIEW_PITCH = 0.0
 
 
 class QuadrotorPybullet(Node):
@@ -60,6 +63,9 @@ class QuadrotorPybullet(Node):
         state_topic (str): The name of the topic to publish the state of the quadrotor.
         image_topic (str): The name of the topic to publish the image of the simulation.
         rotor_speeds_topic (str): The name of the topic to subscribe to for rotor speeds.
+        view_distance (float): The distance of the camera from the quadrotor in the view.
+        view_yaw (float): The yaw angle of the camera in the view.
+        view_pitch (float): The pitch angle of the camera in the view.
 
     Subscribers:
         rotor_speeds_subscriber (RotorCommand): Subscribes to the topic for rotor speeds.
@@ -94,6 +100,9 @@ class QuadrotorPybullet(Node):
         self.declare_parameter('state_topic', 'quadrotor_state')
         self.declare_parameter('image_topic', 'quadrotor_img')
         self.declare_parameter('rotor_speeds_topic', 'quadrotor_rotor_speeds')
+        self.declare_parameter('view_distance', DEFAULT_VIEW_DISTANCE)
+        self.declare_parameter('view_yaw', DEFAULT_VIEW_YAW)
+        self.declare_parameter('view_pitch', DEFAULT_VIEW_PITCH)
 
         # Get the parameters
         self.physics_server = self.get_parameter_value('physics_server', 'str')
@@ -110,6 +119,9 @@ class QuadrotorPybullet(Node):
         self.state_topic = self.get_parameter_value('state_topic', 'str')
         self.image_topic = self.get_parameter_value('image_topic', 'str')
         self.rotor_speeds_topic = self.get_parameter_value('rotor_speeds_topic', 'str')
+        self.view_distance = self.get_parameter_value('view_distance', 'float')
+        self.view_yaw = self.get_parameter_value('view_yaw', 'float')
+        self.view_pitch = self.get_parameter_value('view_pitch', 'float')
 
         # Subscribers and Publishers
         self.rotor_speeds_subscriber = self.create_subscription(msg_type=RotorCommand,
@@ -265,6 +277,12 @@ class QuadrotorPybullet(Node):
         for obstacle_urdf_file in self.obstacle_urdf_files:
             self.obstacleIds.append(p.loadURDF(obstacle_urdf_file, [2.5, 2.5, 2.5], useFixedBase=1))
         self.quadrotor_id = p.loadURDF(self.quadrotor_urdf_file, [0, 0, 0.25])
+        # Disable default damping of pybullet!
+        p.changeDynamics(self.quadrotor_id, -1, linearDamping=0, angularDamping=0)
+        p.changeDynamics(self.quadrotor_id, 0, linearDamping=0, angularDamping=0)
+        p.changeDynamics(self.quadrotor_id, 1, linearDamping=0, angularDamping=0)
+        p.changeDynamics(self.quadrotor_id, 2, linearDamping=0, angularDamping=0)
+        p.changeDynamics(self.quadrotor_id, 3, linearDamping=0, angularDamping=0)
 
     def initialize_data(self):
         """
@@ -329,6 +347,10 @@ class QuadrotorPybullet(Node):
         p.stepSimulation()
 
         quad_pos, quad_quat = p.getBasePositionAndOrientation(self.quadrotor_id)
+
+        p.resetDebugVisualizerCamera(cameraDistance=self.view_distance, cameraYaw=self.view_yaw,
+                                     cameraPitch=self.view_pitch, cameraTargetPosition=quad_pos)  # fix camera onto model
+
         self.quad_pos = quad_pos
         self.quad_quat = quad_quat
 
