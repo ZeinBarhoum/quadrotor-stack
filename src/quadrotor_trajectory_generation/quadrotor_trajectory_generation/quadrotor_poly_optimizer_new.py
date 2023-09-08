@@ -271,7 +271,8 @@ class QuadrotorPolyTrajOptimizer(Node):
         A = np.zeros((num_params, num_params))
         B = np.zeros(num_params)
 
-        num_high_order_constraints = self.poly_order - 1
+        num_high_order_constraints_mid = self.poly_order - 1
+        num_high_order_constraints_term = (self.poly_order - 1)//2
         done_constraints = 0
         for i in range(num_waypoints - 2):  # Middle Waypoints
             # Middle Waypoints Position Constraints
@@ -283,7 +284,7 @@ class QuadrotorPolyTrajOptimizer(Node):
             A[done_constraints, num_params_per_poly*(i+1):num_params_per_poly*(i+2)] = np.array([t**j for j in range(num_params_per_poly)])
             B[done_constraints] = waypoints[i+1]
             done_constraints += 1
-            for order in range(1, num_high_order_constraints+1):
+            for order in range(1, num_high_order_constraints_mid+1):
                 A[done_constraints, num_params_per_poly*i:num_params_per_poly *
                     (i+1)] = np.array([math.perm(j, order) * (t**(j-order)) if j >= order else 0 for j in range(num_params_per_poly)])
                 A[done_constraints, num_params_per_poly*(i+1):num_params_per_poly*(i+2)] = -A[done_constraints, num_params_per_poly*i:num_params_per_poly*(i+1)]
@@ -295,18 +296,30 @@ class QuadrotorPolyTrajOptimizer(Node):
         B[done_constraints] = waypoints[0]
         done_constraints += 1
 
-        A[done_constraints, :num_params_per_poly] = np.array([j*(t**(j-1)) if j >= 1 else 0 for j in range(num_params_per_poly)])
-        B[done_constraints] = 0
-        done_constraints += 1
+        for order in range(1, num_high_order_constraints_term+1):
+            A[done_constraints, :num_params_per_poly] = np.array(
+                [math.perm(j, order) * (t**(j-order)) if j >= order else 0 for j in range(num_params_per_poly)])
+            B[done_constraints] = 0
+            done_constraints += 1
+
+        # A[done_constraints, :num_params_per_poly] = np.array([j*(t**(j-1)) if j >= 1 else 0 for j in range(num_params_per_poly)])
+        # B[done_constraints] = 0
+        # done_constraints += 1
 
         t = times[-1]
         A[done_constraints, -num_params_per_poly:] = np.array([t**j for j in range(num_params_per_poly)])
         B[done_constraints] = waypoints[-1]
         done_constraints += 1
 
-        A[done_constraints, -num_params_per_poly:] = np.array([j*(t**(j-1)) if j >= 1 else 0 for j in range(num_params_per_poly)])
-        B[done_constraints] = 0
-        done_constraints += 1
+        # A[done_constraints, -num_params_per_poly:] = np.array([j*(t**(j-1)) if j >= 1 else 0 for j in range(num_params_per_poly)])
+        # B[done_constraints] = 0
+        # done_constraints += 1
+        for order in range(1, num_high_order_constraints_term+1):
+            A[done_constraints, -num_params_per_poly:] = np.array(
+                [math.perm(j, order) * (t**(j-order)) if j >= order else 0 for j in range(num_params_per_poly)])
+            B[done_constraints] = 0
+            done_constraints += 1
+
         # self.get_logger().info(f'{A=}')
         # self.get_logger().info(f'{B=}')
         sol_prams = np.linalg.lstsq(A, B, rcond=None)[0]
