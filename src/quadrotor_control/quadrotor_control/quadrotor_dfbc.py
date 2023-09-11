@@ -7,7 +7,9 @@ from quadrotor_interfaces.msg import State, ReferenceState, RotorCommand
 
 import numpy as np
 from scipy.spatial.transform import Rotation
+from scipy.optimize import lsq_linear
 import math
+
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -303,8 +305,10 @@ class QuadrotorDFBC(Node):
                       self.KF*self.ARM*np.array([-math.sin(arm_angle), math.cos(arm_angle), math.sin(arm_angle), -math.cos(arm_angle)]),
                       [-self.KM, self.KM, -self.KM, self.KM]])
 
-        rotor_speeds_squared = np.matmul(np.linalg.inv(A), np.array([thrust, torques[0], torques[1], torques[2]]))
-        rotor_speeds_squared = np.clip(rotor_speeds_squared, 0, self.MAX_RPM**2)
+        # rotor_speeds_squared = np.matmul(np.linalg.inv(A), np.array([thrust, torques[0], torques[1], torques[2]]))
+        # rotor_speeds_squared = np.clip(rotor_speeds_squared, 0, self.MAX_RPM**2)
+        rotor_speeds_squared = lsq_linear(A, np.array([thrust, torques[0], torques[1], torques[2]]), bounds=(0, self.MAX_RPM**2)).x
+        # self.get_logger().info(f"{rotor_speeds_squared}")
         rotor_speeds = np.sqrt(rotor_speeds_squared)
         actual_thrust = self.KF * np.sum(rotor_speeds_squared)
         actual_torques = np.array([self.ARM * self.KF * (rotor_speeds_squared[0] - rotor_speeds_squared[2]),
