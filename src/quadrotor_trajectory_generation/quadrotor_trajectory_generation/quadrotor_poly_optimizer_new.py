@@ -9,7 +9,7 @@ from collections import OrderedDict
 import numpy as np
 import math
 
-from typing import List, Union
+from typing import List, Union, Callable, Any, Tuple
 
 import os
 import yaml
@@ -28,7 +28,7 @@ else:
 DEFAULT_SEGMENT_TIME = 1.0
 DEFAULT_AVG_VELOCITY = 1.0
 DEFAULT_QOS_PROFILE = 10
-DEFAULT_POLY_ORDER = 3
+DEFAULT_HIGH_ORDER_CONSTRAINTS = 2
 
 
 class QuadrotorPolyTrajOptimizer(Node):
@@ -43,7 +43,8 @@ class QuadrotorPolyTrajOptimizer(Node):
                         ('avg_velocity', DEFAULT_AVG_VELOCITY),  # average velocity in m/s for distance proportional time allocation
                         ('quadrotor_description', 'cf2x'),  # quadrotor description file name (without extension)
                         ('one_segment', True),  # if true, the trajectory will be a single segment
-                        ('poly_order', DEFAULT_POLY_ORDER),  # only applies for multi-segment trajectories
+                        # only applies for multi-segment trajectories (TODO: Now applies for one segment also)
+                        ('high_order_constraints', DEFAULT_HIGH_ORDER_CONSTRAINTS),
                         ('waypoints_topic', 'quadrotor_waypoints'),
                         ('trajectory_topic', 'quadrotor_polynomial_trajectory'),
                         ('map_topic', 'quadrotor_map')
@@ -55,7 +56,7 @@ class QuadrotorPolyTrajOptimizer(Node):
         self.avg_velocity = self.get_parameter_value('avg_velocity', 'float')
         self.quadrotor_description = self.get_parameter_value('quadrotor_description', 'str')
         self.one_segment = self.get_parameter_value('one_segment', 'bool')
-        self.poly_order = self.get_parameter_value('poly_order', 'int')
+        self.high_order_constraints = self.get_parameter_value('high_order_constraints', 'int', condition_func=lambda x: x % 2 == 0)  # need to be even
         self.waypoints_topic = self.get_parameter_value('waypoints_topic', 'str')
         self.trajecotry_topic = self.get_parameter_value('trajectory_topic', 'str')
         self.map_topic = self.get_parameter_value('map_topic', 'str')
@@ -81,7 +82,7 @@ class QuadrotorPolyTrajOptimizer(Node):
         self.start_time = self.get_clock().now()
         self.get_logger().info(f'PolyTrajOptimizer node initialized at {self.start_time.seconds_nanoseconds()}')
 
-    def get_parameter_value(self, parameter_name: str, parameter_type: str) -> Union[bool, int, float, str, List[str], List[int], List[float]]:
+    def get_parameter_value(self, parameter_name: str, parameter_type: str, condition_func: Union[Callable[[Any], bool], None] = None) -> Union[bool, int, float, str, List[str], List[int], List[float]]:
         """
         Get the value of a parameter with the given name and type.
 
@@ -99,23 +100,27 @@ class QuadrotorPolyTrajOptimizer(Node):
 
         parameter = self.get_parameter(parameter_name)
         parameter_value = parameter.get_parameter_value()
-
+        value = None
         if parameter_type == 'bool':
-            return parameter_value.bool_value
+            value = parameter_value.bool_value
         elif parameter_type == 'int':
-            return parameter_value.integer_value
+            value = parameter_value.integer_value
         elif parameter_type == 'float':
-            return parameter_value.double_value
+            value = parameter_value.double_value
         elif parameter_type == 'str':
-            return parameter_value.string_value
+            value = parameter_value.string_value
         elif parameter_type == 'list[str]':
-            return parameter_value.string_array_value
+            value = parameter_value.string_array_value
         elif parameter_type == 'list[float]':
-            return parameter_value.double_array_value
+            value = parameter_value.double_array_value
         elif parameter_type == 'list[int]':
-            return parameter_value.integer_array_value
+            value = parameter_value.integer_array_value
         else:
             raise ValueError(f"Unsupported parameter type: {parameter_type}")
+
+        if (condition_func and condition_func(value) is False):
+            raise ValueError(f"Parameter {parameter_name} with value {value} does not satisfy the condition")
+        return value
 
     def initialize_constants(self):
         """
@@ -231,7 +236,7 @@ class QuadrotorPolyTrajOptimizer(Node):
             solution_y = self._calculate_polynomial_multiple_segments(waypoints_times, y_waypoints)
             solution_z = self._calculate_polynomial_multiple_segments(waypoints_times, z_waypoints)
             solution_yaw = self._calculate_polynomial_multiple_segments(waypoints_times, yaw_waypoints)
-            self.get_logger().info(f'{solution_yaw=}')
+            # self.get_logger().info(f'{solution_x=}')
             self.trajectory.n = len(solution_x)
             self.trajectory.segments = []
             for i in range(self.trajectory.n):
@@ -263,62 +268,104 @@ class QuadrotorPolyTrajOptimizer(Node):
         return list(reversed(poly))
 
     def _calculate_polynomial_multiple_segments(self, times: np.ndarray, waypoints: np.ndarray) -> List[List[float]]:
+        # this function construct the matrices A,B that satisfy the equation Ax = B where x is the vector of unknown parameters
+        # the vector x is the concatenation of the parameters of all the polynomials in order exept for the first polynomial which is
+        # forms the last parameters and not the first (for easier construction of A)
+
+        def get_poly_param_indices(poly_index: int, num_params_per_poly_mid: int, num_params_per_poly_terminal: int, num_polys: int) -> slice:
+            if (poly_index == 0):
+                return slice(-num_params_per_poly_terminal, None)
+            elif (poly_index == num_polys-1):
+                return slice(-2*num_params_per_poly_terminal, -num_params_per_poly_terminal)
+            else:
+                return slice((poly_index-1)*num_params_per_poly_mid, poly_index*num_params_per_poly_mid)
+
+        def get_poly_der_values(poly_index: int, num_params_per_poly_mid: int, num_params_per_poly_terminal: int, der_order: int, t: float) -> np.ndarray:
+            num_params = num_params_per_poly_mid if poly_index not in [0, num_polys - 1] else num_params_per_poly_terminal
+
+            return np.array([math.perm(j, der_order) * (t**(j-der_order)) if j >= der_order else 0 for j in range(num_params)])
+
+        def add_constraint_to_A_B(A: np.ndarray,
+                                  B: np.ndarray,
+                                  t: float,
+                                  b_value: float,
+                                  constraint_index: int,
+                                  constraint_der: int,
+                                  poly_index: int,
+                                  num_params_per_poly_mid: int,
+                                  num_params_per_poly_terminal: int,
+                                  num_polys: int,
+                                  sign_a_values: int = 1,
+                                  ) -> Tuple[np.ndarray, np.ndarray]:
+            indices = get_poly_param_indices(poly_index, num_params_per_poly_mid, num_params_per_poly_terminal, num_polys)
+            # self.get_logger().info(f'{indices=}')
+            A_values = get_poly_der_values(poly_index, num_params_per_poly_mid, num_params_per_poly_terminal, constraint_der, t)
+            # self.get_logger().info(f'{A_values=}')
+            A[constraint_index, indices] = A_values * sign_a_values
+            B[constraint_index] = b_value
+            return A, B
+
         num_waypoints = len(waypoints)
-        num_params_per_poly = self.poly_order + 1
-        num_polys = len(waypoints) - 1
-        num_params = num_params_per_poly * num_polys
+        # types of polynomials: terminal, middle
+        num_polys = num_waypoints - 1
+        num_polys_mid = max(len(waypoints) - 3, 0)
+        num_polys_terminal = num_polys - num_polys_mid
 
-        A = np.zeros((num_params, num_params))
-        B = np.zeros(num_params)
+        # check issue #36 for explanation on polynomial orders
+        poly_order_mid = self.high_order_constraints + 1
+        poly_order_terminal = (poly_order_mid * 3 - 1) // 2
 
-        num_high_order_constraints_mid = self.poly_order - 1
-        num_high_order_constraints_term = (self.poly_order - 1)//2
+        # number of parameters
+        num_params_per_poly_mid = poly_order_mid + 1
+        num_params_per_poly_terminal = poly_order_terminal + 1
+        # self.get_logger().info(f"{num_params_per_poly_mid=}, {num_params_per_poly_terminal=}")
+
+        # redundant for now
+        num_constraints_per_poly_mid = poly_order_mid + 1
+        num_constraints_per_poly_terminal = poly_order_terminal + 1
+
+        num_params = num_params_per_poly_mid * num_polys_mid + num_params_per_poly_terminal * num_polys_terminal
+        num_constraints = num_constraints_per_poly_mid * num_polys_mid + num_constraints_per_poly_terminal * num_polys_terminal
+
+        A = np.zeros((num_constraints, num_params))
+        B = np.zeros(num_constraints)
+
         done_constraints = 0
-        for i in range(num_waypoints - 2):  # Middle Waypoints
-            # Middle Waypoints Position Constraints
-            t = times[i+1]  # two constraints in this time, one poly from each direction
-            A[done_constraints, num_params_per_poly*i:num_params_per_poly*(i+1)] = np.array([t**j for j in range(num_params_per_poly)])
-            B[done_constraints] = waypoints[i+1]
-            done_constraints += 1
 
-            A[done_constraints, num_params_per_poly*(i+1):num_params_per_poly*(i+2)] = np.array([t**j for j in range(num_params_per_poly)])
-            B[done_constraints] = waypoints[i+1]
+        # add constraints of the first waypoint
+        for der_order in range(self.high_order_constraints + 1):
+            b_value = 0
+            if (der_order == 0):
+                b_value = waypoints[0]
+            A, B = add_constraint_to_A_B(A, B, times[0], b_value, done_constraints, der_order, 0,
+                                         num_params_per_poly_mid, num_params_per_poly_terminal, num_polys)
             done_constraints += 1
-            for order in range(1, num_high_order_constraints_mid+1):
-                A[done_constraints, num_params_per_poly*i:num_params_per_poly *
-                    (i+1)] = np.array([math.perm(j, order) * (t**(j-order)) if j >= order else 0 for j in range(num_params_per_poly)])
-                A[done_constraints, num_params_per_poly*(i+1):num_params_per_poly*(i+2)] = -A[done_constraints, num_params_per_poly*i:num_params_per_poly*(i+1)]
-
-                B[done_constraints] = 0
+        if not done_constraints == num_constraints:  # to check one segment trajectories (2 waypoints)
+            # add constraints of the last waypoint
+            for der_order in range(self.high_order_constraints + 1):
+                b_value = 0
+                if (der_order == 0):
+                    b_value = waypoints[-1]
+                A, B = add_constraint_to_A_B(A, B, times[-1], b_value, done_constraints, der_order, num_polys -
+                                             1, num_params_per_poly_mid, num_params_per_poly_terminal, num_polys)
                 done_constraints += 1
-        t = times[0]
-        A[done_constraints, :num_params_per_poly] = np.array([t**j for j in range(num_params_per_poly)])
-        B[done_constraints] = waypoints[0]
-        done_constraints += 1
 
-        for order in range(1, num_high_order_constraints_term+1):
-            A[done_constraints, :num_params_per_poly] = np.array(
-                [math.perm(j, order) * (t**(j-order)) if j >= order else 0 for j in range(num_params_per_poly)])
-            B[done_constraints] = 0
+        # add constraints of the middle waypoints
+        for i in range(1, num_waypoints - 1):
+            # add position constraint for two polynomials
+            A, B = add_constraint_to_A_B(A, B, times[i], waypoints[i], done_constraints, 0, i - 1,
+                                         num_params_per_poly_mid, num_params_per_poly_terminal, num_polys)
             done_constraints += 1
-
-        # A[done_constraints, :num_params_per_poly] = np.array([j*(t**(j-1)) if j >= 1 else 0 for j in range(num_params_per_poly)])
-        # B[done_constraints] = 0
-        # done_constraints += 1
-
-        t = times[-1]
-        A[done_constraints, -num_params_per_poly:] = np.array([t**j for j in range(num_params_per_poly)])
-        B[done_constraints] = waypoints[-1]
-        done_constraints += 1
-
-        # A[done_constraints, -num_params_per_poly:] = np.array([j*(t**(j-1)) if j >= 1 else 0 for j in range(num_params_per_poly)])
-        # B[done_constraints] = 0
-        # done_constraints += 1
-        for order in range(1, num_high_order_constraints_term+1):
-            A[done_constraints, -num_params_per_poly:] = np.array(
-                [math.perm(j, order) * (t**(j-order)) if j >= order else 0 for j in range(num_params_per_poly)])
-            B[done_constraints] = 0
+            A, B = add_constraint_to_A_B(A, B, times[i], waypoints[i], done_constraints, 0, i,
+                                         num_params_per_poly_mid, num_params_per_poly_terminal, num_polys)
             done_constraints += 1
+            for der_order in range(1, self.high_order_constraints+1):
+                # add higher derivatives constraints
+                A, B = add_constraint_to_A_B(A, B, times[i], 0, done_constraints, der_order, i - 1,
+                                             num_params_per_poly_mid, num_params_per_poly_terminal, num_polys)
+                A, B = add_constraint_to_A_B(A, B, times[i], 0, done_constraints, der_order, i,
+                                             num_params_per_poly_mid, num_params_per_poly_terminal, num_polys, sign_a_values=-1)
+                done_constraints += 1
 
         # self.get_logger().info(f'{A=}')
         # self.get_logger().info(f'{B=}')
@@ -326,7 +373,12 @@ class QuadrotorPolyTrajOptimizer(Node):
         # self.get_logger().info(f'{sol_prams=}')
         segments = []
         for i in range(num_polys):
-            segments.append(list(reversed(sol_prams[i*num_params_per_poly:(i+1)*num_params_per_poly])))
+            if (i == 0):
+                segments.append(list(reversed(sol_prams[-num_params_per_poly_terminal:])))
+            elif (i == num_polys-1):
+                segments.append(list(reversed(sol_prams[-2*num_params_per_poly_terminal:-num_params_per_poly_terminal])))
+            else:
+                segments.append(list(reversed(sol_prams[(i-1)*num_params_per_poly_mid:i*num_params_per_poly_mid])))
         # self.get_logger().info(f'{segments=}')
         return segments
 
