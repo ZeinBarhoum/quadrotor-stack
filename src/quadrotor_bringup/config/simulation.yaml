@@ -52,7 +52,7 @@ DFBCController:
 PolyTrajOptimizer:
   time_allocation: distance_proportional  # distance_proportional, constant or optimization
   segment_time: 0.1  # segment time in seconds for constant time allocation
-  avg_velocity: 2.0  # average velocity in m/s for distance proportional time allocation
+  avg_velocity: 1.0  # average velocity in m/s for distance proportional time allocation
   quadrotor_description: cf2x  # quadrotor description file name (without extension)
   one_segment: false  # if true, the trajectory will be a single segment
   high_order_constraints: 2  # number of constraints for the high order derivatives (velocity = 1 and so on)
