@@ -10,7 +10,7 @@ jobs:
         with:
           args: --recursive --in-place --max-line-length 160 .
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v3
+        uses: peter-evans/create-pull-request@v5
         with:
           commit-message: autopep8 action fixes
           author: GitHub <noreply@github.com>
