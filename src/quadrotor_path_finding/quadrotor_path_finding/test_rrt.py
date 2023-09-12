@@ -1,16 +1,19 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 class Node:
     def __init__(self, x, y):
         self.x = x
         self.y = y
         self.parent = None
+
     def __str__(self):
         return f"({self.x}, {self.y})"
 
+
 class RRT:
-    def __init__(self, start, goal, occupancy_map, max_iter=1000, step_size=1, goal_sample_rate=0.1, min_dist=0.1, pause = 0.01):
+    def __init__(self, start, goal, occupancy_map, max_iter=1000, step_size=1, goal_sample_rate=0.1, min_dist=0.1, pause=0.01):
         self.start = Node(start[0], start[1])
         self.goal = Node(goal[0], goal[1])
         self.occupancy_map = occupancy_map
@@ -91,13 +94,15 @@ class RRT:
         if self.occupancy_map[int(node2.x), int(node2.y)]:
             return False
         return True
+
     def get_distance(self, node1, node2):
         return np.sqrt((node1.x - node2.x) ** 2 + (node1.y - node2.y) ** 2)
+
 
 # Example usage
 occupancy_map = np.zeros((100, 100))
 occupancy_map[20:80, 40:60] = 1
 occupancy_map[40:60, 60:80] = 1
-rrt = RRT(start=(20, 38), goal=(90, 90), occupancy_map=occupancy_map, step_size= 3,  pause = 1e-4)
+rrt = RRT(start=(20, 38), goal=(90, 90), occupancy_map=occupancy_map, step_size=3,  pause=1e-4)
 path = rrt.plan()
 print(path)
