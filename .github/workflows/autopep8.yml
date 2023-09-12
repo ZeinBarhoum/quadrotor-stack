@@ -19,4 +19,4 @@ jobs:
           labels: autopep8, automated pr
           reviewers: ZeinBarhoum
           branch: autopep8-patches
-          token: ${{ secrets.MY_TOKEN }}
+          # token: ${{ secrets.MY_TOKEN }}
