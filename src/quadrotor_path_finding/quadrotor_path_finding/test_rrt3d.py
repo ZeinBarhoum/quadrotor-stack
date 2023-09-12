@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
+
 class MapNode:
     def __init__(self, x, y, z):
         self.x = x
@@ -11,6 +12,7 @@ class MapNode:
 
     def __str__(self):
         return f"({self.x}, {self.y}, {self.z})"
+
 
 class RRT:
     def __init__(self, start, goal, occupancy_map, max_iter=1000, step_size=1, goal_sample_rate=0.1, min_dist=0.1, pause=0.01):
@@ -34,12 +36,12 @@ class RRT:
         ax.scatter(self.start.x, self.start.y, self.start.z, c='g', marker='o', s=100)
         ax.scatter(self.goal.x, self.goal.y, self.goal.z, c='r', marker='o', s=100)
 
-
         for i in range(self.max_iter):
             if np.random.uniform() < self.goal_sample_rate:
                 x, y, z = self.goal.x, self.goal.y, self.goal.z
             else:
-                x, y, z = np.random.uniform(self.occupancy_map.shape[0]), np.random.uniform(self.occupancy_map.shape[1]), np.random.uniform(self.occupancy_map.shape[2])
+                x, y, z = np.random.uniform(self.occupancy_map.shape[0]), np.random.uniform(
+                    self.occupancy_map.shape[1]), np.random.uniform(self.occupancy_map.shape[2])
             nearest_node = self.get_nearest_node(x, y, z)
             new_node = self.steer(nearest_node, x, y, z)
             if self.is_collision_free(nearest_node, new_node):
@@ -116,10 +118,11 @@ class RRT:
     def get_distance(self, node1, node2):
         return np.sqrt((node1.x - node2.x) ** 2 + (node1.y - node2.y) ** 2 + (node1.z - node2.z) ** 2)
 
+
 # Example usage
 occupancy_map = np.zeros((100, 100, 100))
 occupancy_map[20:80, 40:60, 20:80] = 1
 occupancy_map[40:60, 60:80, 20:80] = 1
-rrt = RRT(start=(20, 38, 20), goal=(90, 90, 90), occupancy_map=occupancy_map, step_size=10, pause=1e-4, min_dist= 2)
+rrt = RRT(start=(20, 38, 20), goal=(90, 90, 90), occupancy_map=occupancy_map, step_size=10, pause=1e-4, min_dist=2)
 path = rrt.plan()
 print(path)
