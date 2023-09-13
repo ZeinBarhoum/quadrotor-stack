@@ -1,5 +1,5 @@
-from PyQt5.uic import loadUi
-from PyQt5.QtWidgets import QWidget, QTextEdit, QPushButton, QApplication
+from python_qt_binding import loadUi
+from python_qt_binding.QtWidgets import QWidget, QTextEdit, QPushButton, QApplication
 
 import rclpy
 from ament_index_python.packages import get_package_share_directory
