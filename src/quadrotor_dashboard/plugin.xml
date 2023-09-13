@@ -1,0 +1,17 @@
+<library path="src">
+    <class name="PlanCommand" type="quadrotor_dashboard.plan_command_plugin.QuadPlanCommandPlugin1" base_class_type="rqt_gui_py::Plugin">
+      <description>
+        A Python GUI plugin publishing commands on quadrotor_plan topic.
+      </description>
+      <qtgui>
+        <group>
+          <label>Quadrotor</label>
+          <icon type="theme">folder</icon>
+          <statustip>Plugins related to quadrotor_plan_control project.</statustip>
+        </group>
+        <label>Planning Command Publisher</label>
+        <icon type="theme">media-playback-start</icon>
+        <statustip> A Python GUI plugin publishing commands on quadrotor_plan topic.</statustip>
+      </qtgui>
+    </class>
+  </library>
