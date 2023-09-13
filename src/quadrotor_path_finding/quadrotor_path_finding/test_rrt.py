@@ -100,9 +100,10 @@ class RRT:
 
 
 # Example usage
-occupancy_map = np.zeros((100, 100))
-occupancy_map[20:80, 40:60] = 1
-occupancy_map[40:60, 60:80] = 1
-rrt = RRT(start=(20, 38), goal=(90, 90), occupancy_map=occupancy_map, step_size=3,  pause=1e-4)
-path = rrt.plan()
-print(path)
+def example():
+    occupancy_map = np.zeros((100, 100))
+    occupancy_map[20:80, 40:60] = 1
+    occupancy_map[40:60, 60:80] = 1
+    rrt = RRT(start=(20, 38), goal=(90, 90), occupancy_map=occupancy_map, step_size=3,  pause=1e-4)
+    path = rrt.plan()
+    print(path)
