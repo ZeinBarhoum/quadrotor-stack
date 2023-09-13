@@ -1,5 +1,5 @@
 <library path="src">
-    <class name="PlanCommand" type="quadrotor_dashboard.plan_command.QuadPlanCommand" base_class_type="rqt_gui_py::Plugin">
+    <class name="PlanCommand" type="quadrotor_dashboard.plan_command_plugin.QuadPlanCommandPlugin1" base_class_type="rqt_gui_py::Plugin">
       <description>
         A Python GUI plugin publishing commands on quadrotor_plan topic.
       </description>
