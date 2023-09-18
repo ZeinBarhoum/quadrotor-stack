@@ -8,6 +8,8 @@ from collections import OrderedDict
 
 import numpy as np
 import math
+import casadi as ca
+import sympy as sp
 
 from typing import List, Union, Callable, Any, Tuple
 
@@ -266,6 +268,53 @@ class QuadrotorPolyTrajOptimizer(Node):
         poly = np.linalg.lstsq(A, b, rcond=None)[0]
         # self.get_logger().info(f'{poly=}')
         return list(reversed(poly))
+
+    def _calculate_polynomial_one_segment_optim(self, times: np.ndarray, waypoints: np.ndarray) -> List[float]:
+        num_waypoints = len(waypoints)
+        num_constraints = num_waypoints + 2
+        num_params = num_constraints + 2  # TODO: add parameter for added coeffs
+
+        coeffs = sp.symbols(f'c:{num_params}')
+        t = sp.symbols('t')
+        poly = 0
+        for i in range(num_params):
+            poly += coeffs[i] * t**i
+
+        obj = sp.integrate(sp.diff(poly, t, 4) ** 2, (t, times[0], times[-1]))
+        H = sp.hessian(obj, coeffs)
+        H = np.array(H).astype(np.float64)
+
+        A = np.zeros((num_constraints, num_params))
+        b = np.zeros(num_constraints)
+
+        constraints = []
+        for i in range(num_waypoints):
+            constraints.append(poly.subs(t, times[i]))
+        constraints.append(sp.diff(poly, t, 1).subs(t, times[0]))
+        constraints.append(sp.diff(poly, t, 1).subs(t, times[-1]))
+
+        for i in range(num_constraints):
+            for j in range(num_params):
+                A[i, j] = sp.diff(constraints[i], coeffs[j])
+
+        for i in range(num_waypoints):
+            b[i] = waypoints[i]
+
+        import casadi as ca
+
+        H_c = ca.DM(H)
+        A_c = ca.DM(A)
+        b_c = ca.DM(b)
+
+        qp = {}
+        qp['h'] = H_c.sparsity()
+        qp['a'] = A_c.sparsity()
+
+        S = ca.conic('S', 'qpoases', qp)
+        r = S(h=H, a=A, lba=b_c, uba=b_c)
+        coef_opt = r['x']
+        coef_opt = np.array(coef_opt).reshape(-1)
+        return list(reversed(coef_opt))
 
     def _calculate_polynomial_multiple_segments(self, times: np.ndarray, waypoints: np.ndarray) -> List[List[float]]:
         # this function construct the matrices A,B that satisfy the equation Ax = B where x is the vector of unknown parameters
