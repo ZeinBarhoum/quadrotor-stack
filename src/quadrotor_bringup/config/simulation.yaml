@@ -1,7 +1,11 @@
 PybulletSimulation:
   physics_server: GUI  # Physics server to use (GUI or DIRECT)
   quadrotor_description: cf2x  # Name of the quadrotor model to use (cf2x or other)
-  obstacles_description: [block]  # List of obstacles to include in the simulation, if none then [NONE]
+  obstacles_description: [hoop, hoop, hoop, hoop]  # List of obstacles to include in the simulation, if none then [NONE]
+  obstacles_poses: [4.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0,
+                    8.0, 4.0, 1.0, 0.0, 0.0, -0.7, 0.7,
+                    8.0, 4.0, 3.0, 0.0, 0.0, -0.7, 0.7,
+                    4.0, 1.0, 2.0, 0.0, 0.0, 0.0, 1.0,]  # List of poses, if None then [0.0]
   render_ground: true  # Whether to render the ground plane
   render_architecture: true  # Whether to render the architecture
   publish_image: true  # Whether to publish images from the camera
@@ -14,7 +18,7 @@ PybulletSimulation:
   state_topic: quadrotor_state  # Topic name for the quadrotor state messages
   image_topic: quadrotor_img  # Topic name for the quadrotor image messages
   rotor_speeds_topic: quadrotor_rotor_speeds  # Topic name for the quadrotor rotor speeds messages
-  view_distance: 7.0  # Distance from the quadrotor to the camera (in the pybullet view)
+  view_distance: 15.0  # Distance from the quadrotor to the camera (in the pybullet view)
   view_yaw: 75.0  # Yaw angle of the camera (in the pybullet view)
   view_pitch: -20.0  # Pitch angle of the camera (in the pybullet view)
 
