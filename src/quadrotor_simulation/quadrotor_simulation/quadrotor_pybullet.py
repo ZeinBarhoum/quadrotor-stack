@@ -88,7 +88,8 @@ class QuadrotorPybullet(Node):
         # Declare the parameters
         self.declare_parameter('physics_server', 'GUI')  # GUI, DIRECT
         self.declare_parameter('quadrotor_description', 'cf2x')
-        self.declare_parameter('obstacles_description', ['block'])
+        self.declare_parameter('obstacles_description', ['NONE'])
+        self.declare_parameter('obstacles_poses', [0.0])
         self.declare_parameter('render_ground', True)
         self.declare_parameter('render_architecture', True)
         self.declare_parameter('publish_image', True)
@@ -108,6 +109,7 @@ class QuadrotorPybullet(Node):
         self.physics_server = self.get_parameter_value('physics_server', 'str')
         self.quadrotor_description_file_name = self.get_parameter_value('quadrotor_description', 'str')
         self.obstacles_description_file_names = self.get_parameter_value('obstacles_description', 'list[str]')
+        self.obstacles_poses = self.get_parameter_value('obstacles_poses', 'list[float]')
         self.render_ground = self.get_parameter_value('render_ground', 'bool')
         self.render_architecture = self.get_parameter_value('render_architecture', 'bool')
         self.publish_image = self.get_parameter_value('publish_image', 'bool')
@@ -165,7 +167,7 @@ class QuadrotorPybullet(Node):
         Args:
             parameter_name: The name of the parameter to retrieve.
             parameter_type: The type of the parameter to retrieve. Supported types are 'bool', 'int', 'float', 'str',
-                and 'list[str]'.
+                'list[float]' and 'list[str]'.
 
         Returns:
             The value of the parameter, cast to the specified type.
@@ -187,6 +189,8 @@ class QuadrotorPybullet(Node):
             return parameter_value.string_value
         elif parameter_type == 'list[str]':
             return parameter_value.string_array_value
+        elif parameter_type == 'list[float]':
+            return parameter_value.double_array_value
         else:
             raise ValueError(f"Unsupported parameter type: {parameter_type}")
 
@@ -247,8 +251,12 @@ class QuadrotorPybullet(Node):
             if (name == 'NONE'):
                 break
             self.obstacle_description_file_name = name
-            obstacle_description_file = os.path.join(obstacles_description_folder, self.obstacle_description_file_name+'.urdf')
-            self.obstacle_urdf_files.append(obstacle_description_file)
+            obstacle_description_file = os.path.join(obstacles_description_folder, self.obstacle_description_file_name+'.urdf.xacro')
+            obstacle_description_content = xacro.process_file(obstacle_description_file).toxml()
+            new_file = os.path.join(obstacles_description_folder, name + '.urdf')
+            with open(new_file, 'w+') as f:
+                f.write(obstacle_description_content)
+            self.obstacle_urdf_files.append(new_file)
 
     def initialize_pybullet(self):
         """
@@ -274,8 +282,8 @@ class QuadrotorPybullet(Node):
         if (self.render_architecture):
             p.loadURDF("samurai.urdf")
         self.obstacleIds = []
-        for obstacle_urdf_file in self.obstacle_urdf_files:
-            self.obstacleIds.append(p.loadURDF(obstacle_urdf_file, [2.5, 2.5, 2.5], useFixedBase=1))
+        for (i, obstacle_urdf_file) in enumerate(self.obstacle_urdf_files):
+            self.obstacleIds.append(p.loadURDF(obstacle_urdf_file, self.obstacles_poses[i*7: i*7+3], self.obstacles_poses[i*7+3: i*7+7], useFixedBase=1))
         self.quadrotor_id = p.loadURDF(self.quadrotor_urdf_file, [0, 0, 0.25])
         # Disable default damping of pybullet!
         p.changeDynamics(self.quadrotor_id, -1, linearDamping=0, angularDamping=0)

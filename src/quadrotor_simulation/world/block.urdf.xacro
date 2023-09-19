@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="cf2">
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="block">
     <link name="base_link">
         <visual name='v1'>
             <origin rpy="0 0 0" xyz="0 0 0"/>
