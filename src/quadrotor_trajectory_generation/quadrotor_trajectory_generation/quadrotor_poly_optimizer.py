@@ -31,6 +31,7 @@ DEFAULT_SEGMENT_TIME = 1.0
 DEFAULT_AVG_VELOCITY = 1.0
 DEFAULT_QOS_PROFILE = 10
 DEFAULT_HIGH_ORDER_CONSTRAINTS = 2
+DEFAULT_ADDED_POLY_ORDER = 2
 
 
 class QuadrotorPolyTrajOptimizer(Node):
@@ -48,7 +49,7 @@ class QuadrotorPolyTrajOptimizer(Node):
                         # only applies for multi-segment trajectories (TODO: Now applies for one segment also)
                         ('high_order_constraints', DEFAULT_HIGH_ORDER_CONSTRAINTS),
                         ('optimize', False),  # if true, the trajectory will be optimized
-                        ('added_poly_order', 2),  # the added orders to polynomials for optimization (only applies if optimize is true)
+                        ('added_poly_order', DEFAULT_ADDED_POLY_ORDER),  # the added orders to polynomials for optimization (only applies if optimize is true)
                         ('waypoints_topic', 'quadrotor_waypoints'),
                         ('trajectory_topic', 'quadrotor_polynomial_trajectory'),
                         ('map_topic', 'quadrotor_map')
@@ -308,8 +309,6 @@ class QuadrotorPolyTrajOptimizer(Node):
         for i in range(num_waypoints):
             b[i] = waypoints[i]
 
-        import casadi as ca
-
         H_c = ca.DM(H)
         A_c = ca.DM(A)
         b_c = ca.DM(b)
@@ -325,6 +324,12 @@ class QuadrotorPolyTrajOptimizer(Node):
         return list(reversed(coef_opt))
 
     def _calculate_polynomial_multiple_segments(self, times: np.ndarray, waypoints: np.ndarray) -> List[List[float]]:
+        if (self.optimize):
+            return self._calculate_polynomial_multiple_segments_optim(times, waypoints)
+
+        return self._calculate_polynomial_multiple_segments_no_optim(times, waypoints)
+
+    def _calculate_polynomial_multiple_segments_no_optim(self, times: np.ndarray, waypoints: np.ndarray) -> List[List[float]]:
         # this function construct the matrices A,B that satisfy the equation Ax = B where x is the vector of unknown parameters
         # the vector x is the concatenation of the parameters of all the polynomials in order exept for the first polynomial which is
         # forms the last parameters and not the first (for easier construction of A)
@@ -437,6 +442,111 @@ class QuadrotorPolyTrajOptimizer(Node):
             else:
                 segments.append(list(reversed(sol_prams[(i-1)*num_params_per_poly_mid:i*num_params_per_poly_mid])))
         # self.get_logger().info(f'{segments=}')
+        return segments
+
+    def _calculate_polynomial_multiple_segments_optim(self, times: np.ndarray, waypoints: np.ndarray) -> List[List[float]]:
+        num_waypoints = len(waypoints)
+        # types of polynomials: terminal, middle
+        num_polys = num_waypoints - 1
+        num_polys_mid = max(len(waypoints) - 3, 0)
+        num_polys_terminal = num_polys - num_polys_mid
+
+        # check issue #36 for explanation on polynomial orders
+        # for parameters = constraints
+        poly_order_mid = self.high_order_constraints + 1
+        poly_order_terminal = (poly_order_mid * 3 - 1) // 2
+
+        # number of parameters
+        num_params_per_poly_mid = poly_order_mid + 1 + self.added_poly_order
+        num_params_per_poly_terminal = poly_order_terminal + 1 + self.added_poly_order
+        # number of constraints < number of parameters
+        num_constraints_per_poly_mid = poly_order_mid + 1
+        num_constraints_per_poly_terminal = poly_order_terminal + 1
+
+        num_params = num_params_per_poly_mid * num_polys_mid + num_params_per_poly_terminal * num_polys_terminal
+        num_constraints = num_constraints_per_poly_mid * num_polys_mid + num_constraints_per_poly_terminal * num_polys_terminal
+
+        A = np.zeros((num_constraints, num_params))
+        b = np.zeros(num_constraints)
+
+        t = sp.symbols('t')
+        coeffs = []
+        coeffs_flat = []
+        polys = []
+        # create symbols
+        for i in range(num_polys):
+            if (i == 0 or i == num_polys-1):
+                coeffs.append(sp.symbols(f'c{i}_:{num_params_per_poly_terminal}'))
+            else:
+                coeffs.append(sp.symbols(f'c{i}_:{num_params_per_poly_mid}'))
+            coeffs_flat.extend(coeffs[i])
+        # create polynomials
+        for i in range(num_polys):
+            poly = 0
+            for j in range(len(coeffs[i])):
+                poly += coeffs[i][j] * t**j
+            polys.append(poly)
+        # create objective function
+        obj = 0
+        for i in range(num_polys):
+            obj += sp.integrate(sp.diff(polys[i], t, 4) ** 2, (t, times[i], times[i+1]))
+        # calculate the matrix H
+        H = sp.hessian(obj, coeffs_flat)
+        H = np.array(H).astype(np.float64)
+
+        # create the constraints
+        constraints_lhs = []
+        constraints_rhs = []
+        for i in range(num_waypoints):
+            if (i == 0):  # first waypoint
+                for j in range(self.high_order_constraints+1):
+                    constraints_lhs.append(sp.diff(polys[i], t, j).subs(t, times[i]))
+                    constraints_rhs.append(waypoints[i] if j == 0 else 0)
+            elif (i == num_waypoints-1):  # last waypoint
+                for j in range(self.high_order_constraints+1):
+                    constraints_lhs.append(sp.diff(polys[i-1], t, j).subs(t, times[i]))
+                    constraints_rhs.append(waypoints[i] if j == 0 else 0)
+            else:
+                # position constraints
+                constraints_lhs.append(polys[i-1].subs(t, times[i]))
+                constraints_rhs.append(waypoints[i])
+                constraints_lhs.append(polys[i].subs(t, times[i]))
+                constraints_rhs.append(waypoints[i])
+                # higher derivatives constraints
+                for j in range(1, self.high_order_constraints+1):
+                    constraints_lhs.append(sp.diff(polys[i-1], t, j).subs(t, times[i]) -
+                                           sp.diff(polys[i], t, j).subs(t, times[i]))
+                    constraints_rhs.append(0)
+        for i in range(num_constraints):
+            for j in range(num_params):
+                A[i, j] = sp.diff(constraints_lhs[i], coeffs_flat[j])
+
+        for i in range(num_constraints):
+            b[i] = constraints_rhs[i]
+
+        H_c = ca.DM(H)
+        A_c = ca.DM(A)
+        b_c = ca.DM(b)
+
+        qp = {}
+        qp['h'] = H_c.sparsity()
+        qp['a'] = A_c.sparsity()
+        opts = {}
+        opts['printLevel'] = 'none'
+        S = ca.conic('S', 'qpoases', qp, opts)
+        r = S(h=H, a=A, lba=b_c, uba=b_c)
+        sol_params = r['x']
+        sol_params = np.array(sol_params).reshape(-1)
+
+        segments = []
+        for i in range(num_polys):
+            if (i == 0):
+                segments.append(list(reversed(sol_params[0:num_params_per_poly_terminal])))
+            elif (i == num_polys-1):
+                segments.append(list(reversed(sol_params[-num_params_per_poly_terminal:])))
+            else:
+                segments.append(list(reversed(sol_params[num_params_per_poly_terminal+(i-1) *
+                                num_params_per_poly_mid:num_params_per_poly_terminal+i*num_params_per_poly_mid])))
         return segments
 
 
