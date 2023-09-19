@@ -47,6 +47,8 @@ class QuadrotorPolyTrajOptimizer(Node):
                         ('one_segment', True),  # if true, the trajectory will be a single segment
                         # only applies for multi-segment trajectories (TODO: Now applies for one segment also)
                         ('high_order_constraints', DEFAULT_HIGH_ORDER_CONSTRAINTS),
+                        ('optimize', False),  # if true, the trajectory will be optimized
+                        ('added_poly_order', 2),  # the added orders to polynomials for optimization (only applies if optimize is true)
                         ('waypoints_topic', 'quadrotor_waypoints'),
                         ('trajectory_topic', 'quadrotor_polynomial_trajectory'),
                         ('map_topic', 'quadrotor_map')
@@ -59,6 +61,8 @@ class QuadrotorPolyTrajOptimizer(Node):
         self.quadrotor_description = self.get_parameter_value('quadrotor_description', 'str')
         self.one_segment = self.get_parameter_value('one_segment', 'bool')
         self.high_order_constraints = self.get_parameter_value('high_order_constraints', 'int', condition_func=lambda x: x % 2 == 0)  # need to be even
+        self.optimize = self.get_parameter_value('optimize', 'bool')
+        self.added_poly_order = self.get_parameter_value('added_poly_order', 'int')
         self.waypoints_topic = self.get_parameter_value('waypoints_topic', 'str')
         self.trajecotry_topic = self.get_parameter_value('trajectory_topic', 'str')
         self.map_topic = self.get_parameter_value('map_topic', 'str')
@@ -224,15 +228,13 @@ class QuadrotorPolyTrajOptimizer(Node):
             self.trajectory.n = 1
             segment = PolynomialSegment()
             segment.poly_x = self._calculate_polynomial_one_segment(waypoints_times, x_waypoints)
-            # self.get_logger().info(f'{x_waypoints=}, {waypoints_times=}')
-            self._calculate_polynomial_multiple_segments(waypoints_times, x_waypoints)
-
             segment.poly_y = self._calculate_polynomial_one_segment(waypoints_times, y_waypoints)
             segment.poly_z = self._calculate_polynomial_one_segment(waypoints_times, z_waypoints)
             segment.poly_yaw = self._calculate_polynomial_one_segment(waypoints_times, yaw_waypoints)
             segment.start_time = waypoints_times[0]
             segment.end_time = waypoints_times[-1]
             self.trajectory.segments = [segment]
+            self.get_logger().info(f'{self.trajectory=}')
         else:
             solution_x = self._calculate_polynomial_multiple_segments(waypoints_times, x_waypoints)
             solution_y = self._calculate_polynomial_multiple_segments(waypoints_times, y_waypoints)
@@ -252,6 +254,12 @@ class QuadrotorPolyTrajOptimizer(Node):
                 self.trajectory.segments.append(segment)
 
     def _calculate_polynomial_one_segment(self, times: np.ndarray, waypoints: np.ndarray) -> List[float]:
+        if self.optimize:
+            return self._calculate_polynomial_one_segment_optim(times, waypoints)
+
+        return self._calculate_polynomial_one_segment_no_optim(times, waypoints)
+
+    def _calculate_polynomial_one_segment_no_optim(self, times: np.ndarray, waypoints: np.ndarray) -> List[float]:
         num_waypoints = len(waypoints)
         num_constraints = num_waypoints + 2
         num_params = num_constraints
@@ -272,7 +280,7 @@ class QuadrotorPolyTrajOptimizer(Node):
     def _calculate_polynomial_one_segment_optim(self, times: np.ndarray, waypoints: np.ndarray) -> List[float]:
         num_waypoints = len(waypoints)
         num_constraints = num_waypoints + 2
-        num_params = num_constraints + 2  # TODO: add parameter for added coeffs
+        num_params = num_constraints + self.added_poly_order  # TODO: add parameter for added coeffs
 
         coeffs = sp.symbols(f'c:{num_params}')
         t = sp.symbols('t')

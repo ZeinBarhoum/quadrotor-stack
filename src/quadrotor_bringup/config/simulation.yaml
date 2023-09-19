@@ -56,6 +56,8 @@ PolyTrajOptimizer:
   quadrotor_description: cf2x  # quadrotor description file name (without extension)
   one_segment: true  # if true, the trajectory will be a single segment
   high_order_constraints: 2  # number of constraints for the high order derivatives (velocity = 1 and so on)
+  optimize: true
+  added_poly_order: 2
   waypoints_topic: quadrotor_waypoints
   trajectory_topic: quadrotor_polynomial_trajectory
   map_topic: quadrotor_map
