@@ -17,11 +17,11 @@ In real life, the simulation node would be replaced with multiple nodes, namely 
 
 ## Implemented Modules and Functionalities
 
-- [ ] Simulation: quadrotor_simulation
+- [x] Simulation: quadrotor_simulation
   - [x] Pybullet: quadrotor_pybullet
 - [ ] Tracking: quadrotor_control
   - [x] PID: quadrotor_pid
-  - [ ] DFBC
+  - [x] DFBC
   - [ ] MPC
 - [ ] Mapping
 - [ ] Path Planning : quadrotor_path_finding
