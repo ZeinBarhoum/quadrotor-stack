@@ -1,0 +1,17 @@
+<library path="src">
+    <class name="PublishWaypoints" type="quadrotor_dashboard.plugin_publish_waypoints.QuadPublishWaypointsPlugin" base_class_type="rqt_gui_py::Plugin">
+      <description>
+        A Python GUI plugin that enable interactive setting of waypoints and publishing.
+      </description>
+      <qtgui>
+        <group>
+          <label>Quadrotor</label>
+          <icon type="theme">folder</icon>
+          <statustip>Plugins related to quadrotor_plan_control project.</statustip>
+        </group>
+        <label>Waypoints Publisher</label>
+        <icon type="theme">media-playback-start</icon>
+        <statustip> A Python GUI plugin that enable interactive setting of waypoints and publishing. </statustip>
+      </qtgui>
+    </class>
+  </library>

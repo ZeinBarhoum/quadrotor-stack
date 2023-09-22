@@ -17,25 +17,21 @@ In real life, the simulation node would be replaced with multiple nodes, namely 
 
 ## Implemented Modules and Functionalities
 
-- [ ] Simulation: quadrotor_simulation
+- [x] Simulation: quadrotor_simulation
   - [x] Pybullet: quadrotor_pybullet
-  - [ ] AirSim??
 - [ ] Tracking: quadrotor_control
   - [x] PID: quadrotor_pid
+  - [x] DFBC
   - [ ] MPC
-  - [ ] DFBC
 - [ ] Mapping
 - [ ] Path Planning : quadrotor_path_finding
   - [x] RRT : quadrotor_rrt
   - [ ] RRT-star
-  - [ ] A*
-  - [ ] ??
 - [ ] Trajectory Generation : quadrotor_trajectory_generation
   - [x] 3rd order polynomials (no optimization) - quadrotor_poly_optimizer
-  - [ ] Higher order polynomials (with optimization)
+  - [x] Higher order polynomials (with optimization)
   - [ ] B-splines
   - [ ] Bézier
-  - [ ] ??
 
 ## Installation
 
