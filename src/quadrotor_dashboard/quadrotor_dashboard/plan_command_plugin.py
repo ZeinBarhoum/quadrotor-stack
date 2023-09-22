@@ -3,7 +3,7 @@ from qt_gui.plugin import Plugin
 from .plan_command import QuadPlanCommandWidget1
 
 
-class QuadPlanCommandPlugin1(Plugin):
+class QuadPlanCommandPlugin(Plugin):
     def __init__(self, context):
         super().__init__(context)
 

@@ -24,5 +24,6 @@
   <export>
     <build_type>ament_python</build_type>
     <rqt_gui plugin="${prefix}/plugin.xml"/>
+    <rqt_gui plugin="${prefix}/plugin_publish_waypoints.xml"/>
   </export>
 </package>

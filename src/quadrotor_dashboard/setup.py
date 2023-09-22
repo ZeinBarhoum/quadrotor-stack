@@ -1,5 +1,5 @@
 from setuptools import setup
-
+from glob import glob
 package_name = 'quadrotor_dashboard'
 
 setup(
@@ -8,10 +8,8 @@ setup(
     packages=[package_name],
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
-        ('share/' + package_name + '/resource', ['resource/plan_command.ui']),
-        ('share/' + package_name, ['package.xml']),
-        ('share/' + package_name, ['plugin.xml']),
-
+        ('share/' + package_name + '/resource', glob("resource/*.ui")),
+        ('share/' + package_name, glob("*.xml")),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -24,6 +22,7 @@ setup(
         'console_scripts': [
             'quadrotor_path_visualizer = quadrotor_dashboard.quadrotor_path_visualizer:main',
             'rqt_plan_command = quadrotor_dashboard.main:main',
+            'rqt_publish_waypoints = quadrotor_dashboard.plugin_publish_waypoints:main',
         ],
     },
 )
