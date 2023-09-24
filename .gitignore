@@ -1,5 +1,6 @@
 install/
 log/
 build/
+bin/
 **/.vscode/
 **/__pycache__/
