@@ -4,7 +4,6 @@ from rclpy.node import Node
 
 from quadrotor_interfaces.msg import PolynomialSegment, PolynomialTrajectory, PathWayPoints, OccupancyGrid3D
 from rosidl_runtime_py.convert import message_to_ordereddict
-from collections import OrderedDict
 
 import numpy as np
 import math
@@ -17,6 +16,7 @@ import os
 import yaml
 from ament_index_python.packages import get_package_share_directory
 
+from quadrotor_utils.collision_detection import detect_collision_trajectory
 # For colored traceback
 try:
     import IPython.core.ultratb
@@ -235,7 +235,6 @@ class QuadrotorPolyTrajOptimizer(Node):
             segment.start_time = waypoints_times[0]
             segment.end_time = waypoints_times[-1]
             self.trajectory.segments = [segment]
-            self.get_logger().info(f'{self.trajectory=}')
         else:
             solution_x = self._calculate_polynomial_multiple_segments(waypoints_times, x_waypoints)
             solution_y = self._calculate_polynomial_multiple_segments(waypoints_times, y_waypoints)
@@ -253,6 +252,8 @@ class QuadrotorPolyTrajOptimizer(Node):
                 segment.start_time = waypoints_times[i]
                 segment.end_time = waypoints_times[i+1]
                 self.trajectory.segments.append(segment)
+        self.get_logger().info(f'{self.trajectory=}')
+        self.get_logger().info(f'{detect_collision_trajectory(self.map, self.trajectory)=}')
 
     def _calculate_polynomial_one_segment(self, times: np.ndarray, waypoints: np.ndarray) -> List[float]:
         if self.optimize:

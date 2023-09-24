@@ -12,6 +12,7 @@
   <depend>python3-scipy</depend>
   <depend>python3-yaml</depend>
   <depend>quadrotor_interfaces</depend>
+  <depend>quadrotor_utils</depend>
   <depend>rclpy</depend>
 
   <test_depend>ament_copyright</test_depend>

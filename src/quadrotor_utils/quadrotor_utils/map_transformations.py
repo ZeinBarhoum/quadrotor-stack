@@ -51,7 +51,7 @@ def voxelmap_to_OccupancyGrid3D(map: np.ndarray, cell_size: float = 0.05, origin
     return grid
 
 
-def point_to_voxel(grid: OccupancyGrid3D, point: npt.ArrayLike, with_round: bool = False) -> np.ndarray:
+def point_to_voxel(grid: OccupancyGrid3D, point: npt.ArrayLike, with_round: bool = False, error_on_out_of_range: bool = False) -> np.ndarray:
     """Converts a point in 3D space to a voxel in the given 3D occupancy grid map.
 
     Args:
@@ -83,13 +83,13 @@ def point_to_voxel(grid: OccupancyGrid3D, point: npt.ArrayLike, with_round: bool
     x = (point[0] - origin.x) / cell_size
     y = (point[1] - origin.y) / cell_size
     z = (point[2] - origin.z) / cell_size
-
-    if x < 0 or x >= n:
-        raise ValueError('x out of range')
-    if y < 0 or y >= m:
-        raise ValueError('y out of range')
-    if z < 0 or z >= k:
-        raise ValueError('z out of range')
+    if (error_on_out_of_range):
+        if x < 0 or x >= n:
+            raise ValueError('x out of range')
+        if y < 0 or y >= m:
+            raise ValueError('y out of range')
+        if z < 0 or z >= k:
+            raise ValueError('z out of range')
 
     if with_round:
         x = round(x)
@@ -99,7 +99,7 @@ def point_to_voxel(grid: OccupancyGrid3D, point: npt.ArrayLike, with_round: bool
     return np.array([x, y, z])
 
 
-def voxel_to_point(grid: OccupancyGrid3D, voxel: npt.ArrayLike) -> np.ndarray:
+def voxel_to_point(grid: OccupancyGrid3D, voxel: npt.ArrayLike, error_on_out_of_range: bool = False) -> np.ndarray:
     """Converts a voxel in the given 3D occupancy grid map to a point in 3D space.
 
     Args:
@@ -122,12 +122,13 @@ def voxel_to_point(grid: OccupancyGrid3D, voxel: npt.ArrayLike) -> np.ndarray:
         raise ValueError('Voxel must be a vector')
     if voxel.shape[0] != 3:
         raise ValueError('Voxel must be 3D')
-    if voxel[0] < 0 or voxel[0] >= grid.width:
-        raise ValueError('Voxel x out of range')
-    if voxel[1] < 0 or voxel[1] >= grid.height:
-        raise ValueError('Voxel y out of range')
-    if voxel[2] < 0 or voxel[2] >= grid.depth:
-        raise ValueError('Voxel z out of range')
+    if (error_on_out_of_range):
+        if voxel[0] < 0 or voxel[0] >= grid.width:
+            raise ValueError('Voxel x out of range')
+        if voxel[1] < 0 or voxel[1] >= grid.height:
+            raise ValueError('Voxel y out of range')
+        if voxel[2] < 0 or voxel[2] >= grid.depth:
+            raise ValueError('Voxel z out of range')
 
     x = voxel[0] * cell_size + origin.x
     y = voxel[1] * cell_size + origin.y

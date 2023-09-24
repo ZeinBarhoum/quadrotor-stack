@@ -5,7 +5,7 @@ from quadrotor_interfaces.msg import PolynomialSegment, PolynomialTrajectory, Oc
 from quadrotor_utils.map_transformations import OccupancyGrid3D_to_voxelmap, point_to_voxel
 
 
-def detect_collision_voxelmap(voxel_map: npt.ArrayLike, voxel: npt.ArrayLike) -> bool:
+def detect_collision_voxelmap(voxel_map: npt.ArrayLike, voxel: npt.ArrayLike, collision_on_out_of_range: bool = True) -> bool:
     """Detects collision between a point and a 3D map
 
     Args:
@@ -26,17 +26,24 @@ def detect_collision_voxelmap(voxel_map: npt.ArrayLike, voxel: npt.ArrayLike) ->
     if voxel_map.ndim != 3:
         raise ValueError('Map must be 3D')
 
-    if voxel_map.ndim != 1:
+    if voxel.ndim != 1:
         raise ValueError('Point must be a vector')
 
-    if voxel_map.shape[0] != 3:
+    if voxel.shape[0] != 3:
         raise ValueError('Point must be 3D')
 
     for x in [np.floor(voxel[0]), np.ceil(voxel[0])]:
         for y in [np.floor(voxel[1]), np.ceil(voxel[1])]:
             for z in [np.floor(voxel[2]), np.ceil(voxel[2])]:
-                if map[int(x), int(y), int(z)] == 1:
-                    return True
+                try:
+                    if voxel_map[int(x), int(y), int(z)] == 1:
+                        return True
+                except IndexError as e:
+                    if (collision_on_out_of_range):
+                        return True
+                    else:
+                        raise e
+
     return False
 
 
