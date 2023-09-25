@@ -4,7 +4,7 @@ from rclpy.node import Node
 
 from quadrotor_interfaces.msg import PolynomialSegment, PolynomialTrajectory, PathWayPoints, OccupancyGrid3D
 from rosidl_runtime_py.convert import message_to_ordereddict
-from collections import OrderedDict
+from geometry_msgs.msg import Point
 
 import numpy as np
 import math
@@ -17,6 +17,7 @@ import os
 import yaml
 from ament_index_python.packages import get_package_share_directory
 
+from quadrotor_utils.collision_detection import detect_collision_trajectory
 # For colored traceback
 try:
     import IPython.core.ultratb
@@ -165,8 +166,10 @@ class QuadrotorPolyTrajOptimizer(Node):
     def initialize_data(self):
         """
         Initializes the data recevied/sent from the subsribers/publishers.
+        #TODO: needs some adjeustments
         """
-        self.waypoints = message_to_ordereddict(PathWayPoints())
+        self.waypoints: List[Point] = []
+        self.headings: List[float] = []
         self.map = message_to_ordereddict(OccupancyGrid3D())
         self.trajectory = PolynomialTrajectory()
 
@@ -191,11 +194,11 @@ class QuadrotorPolyTrajOptimizer(Node):
         self.waypoints = msg.waypoints
         self.headings = msg.heading_angles
 
-        self.calculate_trajectory()
+        self.trajectory = self.calculate_trajectory()
 
         self.trajectory_publisher.publish(self.trajectory)
 
-    def calculate_trajectory(self):
+    def calculate_trajectory(self) -> PolynomialTrajectory:
         """ Calculate the trajectory from the waypoints 
         TODO: ADD COLLISSION CHECKING using the map
         """
@@ -224,9 +227,9 @@ class QuadrotorPolyTrajOptimizer(Node):
         else:
             raise ValueError(f"Unsupported time allocation method: {self.time_allocation}")
         # self.get_logger().info(f'{waypoints_times=}')
-
+        trajectory = PolynomialTrajectory()
         if (self.one_segment):
-            self.trajectory.n = 1
+            trajectory.n = 1
             segment = PolynomialSegment()
             segment.poly_x = self._calculate_polynomial_one_segment(waypoints_times, x_waypoints)
             segment.poly_y = self._calculate_polynomial_one_segment(waypoints_times, y_waypoints)
@@ -234,17 +237,16 @@ class QuadrotorPolyTrajOptimizer(Node):
             segment.poly_yaw = self._calculate_polynomial_one_segment(waypoints_times, yaw_waypoints)
             segment.start_time = waypoints_times[0]
             segment.end_time = waypoints_times[-1]
-            self.trajectory.segments = [segment]
-            self.get_logger().info(f'{self.trajectory=}')
+            trajectory.segments = [segment]
         else:
             solution_x = self._calculate_polynomial_multiple_segments(waypoints_times, x_waypoints)
             solution_y = self._calculate_polynomial_multiple_segments(waypoints_times, y_waypoints)
             solution_z = self._calculate_polynomial_multiple_segments(waypoints_times, z_waypoints)
             solution_yaw = self._calculate_polynomial_multiple_segments(waypoints_times, yaw_waypoints)
             # self.get_logger().info(f'{solution_x=}')
-            self.trajectory.n = len(solution_x)
-            self.trajectory.segments = []
-            for i in range(self.trajectory.n):
+            trajectory.n = len(solution_x)
+            trajectory.segments = []
+            for i in range(trajectory.n):
                 segment = PolynomialSegment()
                 segment.poly_x = solution_x[i]
                 segment.poly_y = solution_y[i]
@@ -252,7 +254,27 @@ class QuadrotorPolyTrajOptimizer(Node):
                 segment.poly_yaw = solution_yaw[i]
                 segment.start_time = waypoints_times[i]
                 segment.end_time = waypoints_times[i+1]
-                self.trajectory.segments.append(segment)
+                trajectory.segments.append(segment)
+        collision, collision_segments = detect_collision_trajectory(self.map, trajectory)
+        self.get_logger().warn(f"Collision Detection: {collision}, Collision Segments: {collision_segments}")
+        if (collision):
+            self.add_waypoint(segment=collision_segments[0])
+            return self.calculate_trajectory()
+        return trajectory
+
+    def add_waypoint(self, segment: int):
+        self.get_logger().info(f"{segment}")
+        waypoint0, waypoint1 = self.waypoints[segment: segment+2]
+
+        waypoint_middle = Point()
+        waypoint_middle.x = 0.5*(waypoint0.x + waypoint1.x)
+        waypoint_middle.y = 0.5*(waypoint0.y + waypoint1.y)
+        waypoint_middle.z = 0.5*(waypoint0.z + waypoint1.z)
+
+        heading_middle = 0.5*(self.headings[segment] + self.headings[segment+1])
+
+        self.waypoints.insert(segment+1, waypoint_middle)
+        self.headings.insert(segment+1, heading_middle)
 
     def _calculate_polynomial_one_segment(self, times: np.ndarray, waypoints: np.ndarray) -> List[float]:
         if self.optimize:
