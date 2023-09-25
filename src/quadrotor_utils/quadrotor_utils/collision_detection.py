@@ -37,13 +37,19 @@ def detect_collision_voxelmap(voxel_map: npt.ArrayLike, voxel: npt.ArrayLike, co
         for y in [np.floor(voxel[1]), np.ceil(voxel[1])]:
             for z in [np.floor(voxel[2]), np.ceil(voxel[2])]:
                 try:
+                    if (x < 0 or y < 0 or z < 0):
+                        if (collision_on_out_of_range):
+                            return True
+                        else:
+                            raise IndexError("Negative Voxel indices")
                     if voxel_map[int(x), int(y), int(z)] == 1:
                         return True
                 except IndexError as e:
+                    print("here")
                     if (collision_on_out_of_range):
                         return True
                     else:
-                        raise e
+                        raise IndexError("Out Of Range Voxel indices")
 
     return False
 
@@ -96,7 +102,7 @@ def detect_collision_trajectory_segment(grid: OccupancyGrid3D,
 def detect_collision_trajectory(grid: OccupancyGrid3D,
                                 trajectory: PolynomialTrajectory,
                                 precision: float = 0.1,
-                                ) -> Union[bool, Tuple[bool, List[int]]]:
+                                ) -> Tuple[bool, List[int]]:
     """Detects collision between a trajectory and a 3D map
 
     Args:
@@ -114,4 +120,4 @@ def detect_collision_trajectory(grid: OccupancyGrid3D,
             collision_segments_indices.append(i)
     if len(collision_segments_indices) > 0:
         return (True, collision_segments_indices)
-    return False
+    return (False, [])

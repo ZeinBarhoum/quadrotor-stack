@@ -4,6 +4,7 @@ from rclpy.node import Node
 
 from quadrotor_interfaces.msg import PolynomialSegment, PolynomialTrajectory, PathWayPoints, OccupancyGrid3D
 from rosidl_runtime_py.convert import message_to_ordereddict
+from geometry_msgs.msg import Point
 
 import numpy as np
 import math
@@ -165,8 +166,10 @@ class QuadrotorPolyTrajOptimizer(Node):
     def initialize_data(self):
         """
         Initializes the data recevied/sent from the subsribers/publishers.
+        #TODO: needs some adjeustments
         """
-        self.waypoints = message_to_ordereddict(PathWayPoints())
+        self.waypoints: List[Point] = []
+        self.headings: List[float] = []
         self.map = message_to_ordereddict(OccupancyGrid3D())
         self.trajectory = PolynomialTrajectory()
 
@@ -252,8 +255,26 @@ class QuadrotorPolyTrajOptimizer(Node):
                 segment.start_time = waypoints_times[i]
                 segment.end_time = waypoints_times[i+1]
                 trajectory.segments.append(segment)
-        self.get_logger().info(f'{detect_collision_trajectory(self.map, trajectory)=}')
+        collision, collision_segments = detect_collision_trajectory(self.map, trajectory)
+        self.get_logger().warn(f"Collision Detection: {collision}, Collision Segments: {collision_segments}")
+        if (collision):
+            self.add_waypoint(segment=collision_segments[0])
+            return self.calculate_trajectory()
         return trajectory
+
+    def add_waypoint(self, segment: int):
+        self.get_logger().info(f"{segment}")
+        waypoint0, waypoint1 = self.waypoints[segment: segment+2]
+
+        waypoint_middle = Point()
+        waypoint_middle.x = 0.5*(waypoint0.x + waypoint1.x)
+        waypoint_middle.y = 0.5*(waypoint0.y + waypoint1.y)
+        waypoint_middle.z = 0.5*(waypoint0.z + waypoint1.z)
+
+        heading_middle = 0.5*(self.headings[segment] + self.headings[segment+1])
+
+        self.waypoints.insert(segment+1, waypoint_middle)
+        self.headings.insert(segment+1, heading_middle)
 
     def _calculate_polynomial_one_segment(self, times: np.ndarray, waypoints: np.ndarray) -> List[float]:
         if self.optimize:

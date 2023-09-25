@@ -6,7 +6,7 @@ PybulletSimulation:
                     8.0, 4.0, 1.0, 0.0, 0.0, -0.7, 0.7,
                     8.0, 4.0, 3.0, 0.0, 0.0, -0.7, 0.7,
                     4.0, 1.0, 2.0, 0.0, 0.0, 0.0, 1.0,]  # List of poses, if None then [0.0]
-  render_ground: true  # Whether to render the ground plane
+  render_ground: false  # Whether to render the ground plane
   render_architecture: true  # Whether to render the architecture
   publish_image: true  # Whether to publish images from the camera
   # Dimensions of the published images
