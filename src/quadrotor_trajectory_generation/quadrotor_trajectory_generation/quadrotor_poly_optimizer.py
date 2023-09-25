@@ -191,11 +191,11 @@ class QuadrotorPolyTrajOptimizer(Node):
         self.waypoints = msg.waypoints
         self.headings = msg.heading_angles
 
-        self.calculate_trajectory()
+        self.trajectory = self.calculate_trajectory()
 
         self.trajectory_publisher.publish(self.trajectory)
 
-    def calculate_trajectory(self):
+    def calculate_trajectory(self) -> PolynomialTrajectory:
         """ Calculate the trajectory from the waypoints 
         TODO: ADD COLLISSION CHECKING using the map
         """
@@ -224,9 +224,9 @@ class QuadrotorPolyTrajOptimizer(Node):
         else:
             raise ValueError(f"Unsupported time allocation method: {self.time_allocation}")
         # self.get_logger().info(f'{waypoints_times=}')
-
+        trajectory = PolynomialTrajectory()
         if (self.one_segment):
-            self.trajectory.n = 1
+            trajectory.n = 1
             segment = PolynomialSegment()
             segment.poly_x = self._calculate_polynomial_one_segment(waypoints_times, x_waypoints)
             segment.poly_y = self._calculate_polynomial_one_segment(waypoints_times, y_waypoints)
@@ -234,16 +234,16 @@ class QuadrotorPolyTrajOptimizer(Node):
             segment.poly_yaw = self._calculate_polynomial_one_segment(waypoints_times, yaw_waypoints)
             segment.start_time = waypoints_times[0]
             segment.end_time = waypoints_times[-1]
-            self.trajectory.segments = [segment]
+            trajectory.segments = [segment]
         else:
             solution_x = self._calculate_polynomial_multiple_segments(waypoints_times, x_waypoints)
             solution_y = self._calculate_polynomial_multiple_segments(waypoints_times, y_waypoints)
             solution_z = self._calculate_polynomial_multiple_segments(waypoints_times, z_waypoints)
             solution_yaw = self._calculate_polynomial_multiple_segments(waypoints_times, yaw_waypoints)
             # self.get_logger().info(f'{solution_x=}')
-            self.trajectory.n = len(solution_x)
-            self.trajectory.segments = []
-            for i in range(self.trajectory.n):
+            trajectory.n = len(solution_x)
+            trajectory.segments = []
+            for i in range(trajectory.n):
                 segment = PolynomialSegment()
                 segment.poly_x = solution_x[i]
                 segment.poly_y = solution_y[i]
@@ -251,9 +251,9 @@ class QuadrotorPolyTrajOptimizer(Node):
                 segment.poly_yaw = solution_yaw[i]
                 segment.start_time = waypoints_times[i]
                 segment.end_time = waypoints_times[i+1]
-                self.trajectory.segments.append(segment)
-        self.get_logger().info(f'{self.trajectory=}')
-        self.get_logger().info(f'{detect_collision_trajectory(self.map, self.trajectory)=}')
+                trajectory.segments.append(segment)
+        self.get_logger().info(f'{detect_collision_trajectory(self.map, trajectory)=}')
+        return trajectory
 
     def _calculate_polynomial_one_segment(self, times: np.ndarray, waypoints: np.ndarray) -> List[float]:
         if self.optimize:

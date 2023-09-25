@@ -3,6 +3,7 @@ import numpy as np
 import numpy.typing as npt
 from quadrotor_interfaces.msg import PolynomialSegment, PolynomialTrajectory, OccupancyGrid3D
 from quadrotor_utils.map_transformations import OccupancyGrid3D_to_voxelmap, point_to_voxel
+from typing import Union, Tuple, List
 
 
 def detect_collision_voxelmap(voxel_map: npt.ArrayLike, voxel: npt.ArrayLike, collision_on_out_of_range: bool = True) -> bool:
@@ -65,7 +66,7 @@ def detect_collision_OccupancyGrid3D(grid: OccupancyGrid3D, point: npt.ArrayLike
 def detect_collision_trajectory_segment(grid: OccupancyGrid3D,
                                         segment: PolynomialSegment,
                                         precision: float = 0.1,
-                                        ):
+                                        ) -> bool:
     """Detects collision between a trajectory segment and a 3D map
 
     Args:
@@ -95,7 +96,7 @@ def detect_collision_trajectory_segment(grid: OccupancyGrid3D,
 def detect_collision_trajectory(grid: OccupancyGrid3D,
                                 trajectory: PolynomialTrajectory,
                                 precision: float = 0.1,
-                                ):
+                                ) -> Union[bool, Tuple[bool, List[int]]]:
     """Detects collision between a trajectory and a 3D map
 
     Args:
@@ -104,9 +105,13 @@ def detect_collision_trajectory(grid: OccupancyGrid3D,
         precision (float, optional): Precision of the trajectory segment in seconds. Defaults to 0.1.
     Returns:
         bool: True if there is a collision, False otherwise
+        List[int]: Indices of the segments where the collision happens
     """
     segments = trajectory.segments
-    for segment in segments:
+    collision_segments_indices = []
+    for (i, segment) in enumerate(segments):
         if detect_collision_trajectory_segment(grid, segment, precision):
-            return True
+            collision_segments_indices.append(i)
+    if len(collision_segments_indices) > 0:
+        return (True, collision_segments_indices)
     return False
