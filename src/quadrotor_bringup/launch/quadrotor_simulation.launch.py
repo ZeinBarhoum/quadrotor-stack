@@ -80,8 +80,14 @@ def generate_launch_description():
     path_visualizer_node = Node(
         package='quadrotor_dashboard',
         executable='quadrotor_path_visualizer',
-        parameters=[{'refresh_rate': path_visualizer_parameters['refresh_rate']}],
+        parameters=[
+            {'refresh_rate': path_visualizer_parameters['refresh_rate']}],
         output='screen'
+    )
+    rqt_gui_node = Node(
+        package='rqt_gui',
+        executable='rqt_gui',
+        output='screen',
     )
 
     return LaunchDescription(
@@ -93,5 +99,6 @@ def generate_launch_description():
             trajectory_poly_optimizer_node,
             mapping_node,
             path_finding_node,
-            path_visualizer_node
+            path_visualizer_node,
+            rqt_gui_node,
         ])
