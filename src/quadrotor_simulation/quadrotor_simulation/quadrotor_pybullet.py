@@ -222,6 +222,7 @@ class QuadrotorPybullet(Node):
         self.M = CF2X_PARAMS['M']  # kg
         self.W = self.M*self.G  # N
         self.HOVER_RPM = np.sqrt(self.W/(4*self.KF))  # rpm
+        self.get_logger().info(f"HOVER RPM IS : {self.HOVER_RPM} rpm")
 
     def initialize_urdf(self):
         """
@@ -284,13 +285,13 @@ class QuadrotorPybullet(Node):
         self.obstacleIds = []
         for (i, obstacle_urdf_file) in enumerate(self.obstacle_urdf_files):
             self.obstacleIds.append(p.loadURDF(obstacle_urdf_file, self.obstacles_poses[i*7: i*7+3], self.obstacles_poses[i*7+3: i*7+7], useFixedBase=1))
-        self.quadrotor_id = p.loadURDF(self.quadrotor_urdf_file, [0, 0, 0.25])
+        self.quadrotor_id = p.loadURDF(self.quadrotor_urdf_file, [0, 0, 4], flags=p.URDF_USE_INERTIA_FROM_FILE)
         # Disable default damping of pybullet!
-        p.changeDynamics(self.quadrotor_id, -1, linearDamping=0, angularDamping=0)
-        p.changeDynamics(self.quadrotor_id, 0, linearDamping=0, angularDamping=0)
-        p.changeDynamics(self.quadrotor_id, 1, linearDamping=0, angularDamping=0)
-        p.changeDynamics(self.quadrotor_id, 2, linearDamping=0, angularDamping=0)
-        p.changeDynamics(self.quadrotor_id, 3, linearDamping=0, angularDamping=0)
+        p.changeDynamics(self.quadrotor_id, -1, linearDamping=0, angularDamping=0, lateralFriction=0)
+        p.changeDynamics(self.quadrotor_id, 0, linearDamping=0, angularDamping=0, lateralFriction=0)
+        p.changeDynamics(self.quadrotor_id, 1, linearDamping=0, angularDamping=0, lateralFriction=0)
+        p.changeDynamics(self.quadrotor_id, 2, linearDamping=0, angularDamping=0, lateralFriction=0)
+        p.changeDynamics(self.quadrotor_id, 3, linearDamping=0, angularDamping=0, lateralFriction=0)
 
     def initialize_data(self):
         """
@@ -350,7 +351,7 @@ class QuadrotorPybullet(Node):
             p.applyExternalForce(self.quadrotor_id, i, forceObj=[0, 0, F[i]], posObj=[0, 0, 0], flags=p.LINK_FRAME)
 
         # applying Tz on the center of mass, the only one that depend on the drag and isn't simulated by the forces before
-        p.applyExternalTorque(self.quadrotor_id, 4, torqueObj=T, flags=p.LINK_FRAME)
+        p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=T, flags=p.LINK_FRAME)
 
         p.stepSimulation()
 

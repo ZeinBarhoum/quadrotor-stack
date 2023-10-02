@@ -53,6 +53,20 @@ DFBCController:
   rotor_speeds_topic: quadrotor_rotor_speeds
   command_publishing_frequency: 240
 
+Dataset:
+  dataset_package: quadrotor_control
+  dataset_folder: resource/datasets/NeuroBEM
+  dataset_name: merged_2021-02-03-16-54-28_
+  time_field: t
+  command_fields:
+    - mot 1
+    - mot 2
+    - mot 3
+    - mot 4
+  interpolation_method: linear
+  rotor_speeds_topic: quadrotor_rotor_speeds
+  command_publish_frequency: 240
+
 PolyTrajOptimizer:
   time_allocation: distance_proportional  # distance_proportional, constant or optimization
   segment_time: 0.1  # segment time in seconds for constant time allocation
