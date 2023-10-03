@@ -23,6 +23,9 @@
       <geometry>
         <sphere radius="${0.1*sqrt(ARM_X**2+ARM_Y**2)}"/>
       </geometry>  
+      <material name="grey">
+        <color rgba="0.0 0.0 0.0 1.0"/>
+      </material>
     </visual>
 
     <!-- Rotor 1 -->

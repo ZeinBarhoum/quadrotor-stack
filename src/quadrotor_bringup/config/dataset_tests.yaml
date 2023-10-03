@@ -8,11 +8,31 @@ Dataset:
     - mot 4 # left front
     - mot 3 # left back
     - mot 1 # right back
+  state_fields:
+    - pos x
+    - pos y
+    - pos z
+    - quat x
+    - quat y
+    - quat z
+    - quat w
+    - vel x
+    - vel y
+    - vel z
+    - ang vel x
+    - ang vel y
+    - ang vel z
+    - acc x
+    - acc y
+    - acc z
+    - ang acc x
+    - ang acc y
+    - ang acc z
   interpolation_method: previous
   rotor_speeds_topic: quadrotor_rotor_speeds
   command_publish_frequency: 240
 
-PybulletSimulation:
+PybulletSimulationDataset:
   physics_server: GUI  # Physics server to use (GUI or DIRECT)
   quadrotor_description: neuroBEM  # Name of the quadrotor model to use (cf2x or other)
   obstacles_description: [NONE]  # List of obstacles to include in the simulation, if none then [NONE]

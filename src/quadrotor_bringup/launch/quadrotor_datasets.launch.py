@@ -17,14 +17,14 @@ def generate_launch_description():
             parameters = yaml.safe_load(stream)
         except yaml.YAMLError as exc:
             parameters = dict()
-    pybullet_simulation_parameters = parameters['PybulletSimulation']
+    pybullet_simulation_dataset_parameters = parameters['PybulletSimulationDataset']
     dataset_controller_parameters = parameters['Dataset']
 
     simulation_node = Node(
         package='quadrotor_simulation',
-        executable='quadrotor_pybullet',
+        executable='quadrotor_pybullet_dataset',
         output='screen',
-        parameters=[pybullet_simulation_parameters]
+        parameters=[pybullet_simulation_dataset_parameters]
     )
     dataset_controller_node = Node(
         package='quadrotor_control',

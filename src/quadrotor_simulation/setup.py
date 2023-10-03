@@ -24,7 +24,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'quadrotor_pybullet = quadrotor_simulation.quadrotor_pybullet:main'
+            'quadrotor_pybullet = quadrotor_simulation.quadrotor_pybullet:main',
+            'quadrotor_pybullet_dataset = quadrotor_simulation.quadrotor_pybullet_dataset:main'
         ],
     },
 )
