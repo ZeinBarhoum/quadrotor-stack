@@ -72,7 +72,7 @@ class QuadrotorPybulletDataset(Node):
                                             ('state_topic', 'quadrotor_state'),
                                             ('ff_state_topic', 'quadrotor_ff_state'),
                                             ('image_topic', 'quadrotor_img'),
-                                            ('model_error_topic', 'quadrotor_model_error'),
+                                            ('model_error_topic', 'quadrotor_model_errors'),
                                             ('rotor_speeds_topic', 'quadrotor_rotor_speeds'),
                                             ('view_follow', True),
                                             ('view_distance', DEFAULT_VIEW_DISTANCE),

@@ -32,8 +32,14 @@ def generate_launch_description():
         output='screen',
         parameters=[dataset_controller_parameters]
     )
+    model_error_visualizer_node = Node(
+        package='quadrotor_dashboard',
+        executable='quadrotor_model_errors_visualizer',
+        output='screen',
+    )
 
     return LaunchDescription([
         simulation_node,
         dataset_controller_node,
+        model_error_visualizer_node,
     ])

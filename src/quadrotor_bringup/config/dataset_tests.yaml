@@ -58,6 +58,7 @@ PybulletSimulationDataset:
   state_topic: quadrotor_state  # Topic name for the quadrotor state messages
   image_topic: quadrotor_img  # Topic name for the quadrotor image messages
   rotor_speeds_topic: quadrotor_rotor_speeds  # Topic name for the quadrotor rotor speeds messages
+  model_error_topic: quadrotor_model_errors # Topic name for the quadrotor model error messages
   view_follow: False
   view_distance: 5.0  # Distance from the quadrotor to the camera (in the pybullet view)
   view_yaw: 75.0  # Yaw angle of the camera (in the pybullet view)
