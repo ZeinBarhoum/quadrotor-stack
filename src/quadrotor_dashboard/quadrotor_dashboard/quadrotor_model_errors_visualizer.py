@@ -1,12 +1,21 @@
 import rclpy
 from rclpy.node import Node
-from quadrotor_interfaces.msg import ModelErrors
+from quadrotor_interfaces.msg import ModelError
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-DEFAULT_FREQUENCY = 10.0
-DEFAULT_WINDOW = 10.0
+try:
+    import IPython.core.ultratb
+except ImportError:
+    # No IPython. Use default exception printing.
+    pass
+else:
+    import sys
+    sys.excepthook = IPython.core.ultratb.ColorTB()
+
+DEFAULT_FREQUENCY = 0.5
+DEFAULT_WINDOW = 50.0
 
 
 class QuadrotorModelErrorsVisualizer(Node):
@@ -21,7 +30,7 @@ class QuadrotorModelErrorsVisualizer(Node):
         self.plot_window = self.get_parameter('plot_window').get_parameter_value().double_value
         self.model_error_topic = self.get_parameter('model_error_topic').get_parameter_value().string_value
 
-        self.subscription = self.create_subscription(ModelErrors,
+        self.subscription = self.create_subscription(ModelError,
                                                      self.model_error_topic,
                                                      self.model_errors_callback,
                                                      10)
@@ -47,40 +56,74 @@ class QuadrotorModelErrorsVisualizer(Node):
         self.torque_body_axes = self.axes[5, :]
 
     def initialize_data(self):
-        self.model_error = ModelErrors()
+        self.model_error = ModelError()
         self.t = []
-        self.accel_world = []
-        self.accel_body = []
-        self.anaccel_body = []
-        self.force_body = []
-        self.force_world = []
-        self.torque_body = []
+        self.error_accel_world = []
+        self.error_accel_body = []
+        self.error_anaccel_body = []
+        self.error_force_body = []
+        self.error_force_world = []
+        self.error_torque_body = []
+        self.actual_accel_world = []
+        self.actual_accel_body = []
+        self.actual_anaccel_body = []
+        self.actual_force_body = []
+        self.actual_force_world = []
+        self.actual_torque_body = []
+        self.dataset_accel_world = []
+        self.dataset_accel_body = []
+        self.dataset_anaccel_body = []
+        self.dataset_force_body = []
+        self.dataset_force_world = []
+        self.dataset_torque_body = []
 
     def model_errors_callback(self, msg):
-        self.model_error = msg
+        self.error = msg.error
+        self.actual = msg.actual
+        self.dataset = msg.dataset
+
         self.t.append((self.get_clock().now().nanoseconds - self.start_time.nanoseconds)/1e9)
-        self.accel_world.append(list(self.model_error.accel_world))
-        self.accel_body.append(list(self.model_error.accel_body))
-        self.anaccel_body.append(list(self.model_error.anaccel_body))
-        self.force_body.append(list(self.model_error.force_body))
-        self.force_world.append(list(self.model_error.force_world))
-        self.torque_body.append(list(self.model_error.torque_body))
+        self.error_accel_world.append(list(self.error.accel_world))
+        self.error_accel_body.append(list(self.error.accel_body))
+        self.error_anaccel_body.append(list(self.error.anaccel_body))
+        self.error_force_body.append(list(self.error.force_body))
+        self.error_force_world.append(list(self.error.force_world))
+        self.error_torque_body.append(list(self.error.torque_body))
+
+        self.actual_accel_world.append(list(self.actual.accel_world))
+        self.actual_accel_body.append(list(self.actual.accel_body))
+        self.actual_anaccel_body.append(list(self.actual.anaccel_body))
+        self.actual_force_body.append(list(self.actual.force_body))
+        self.actual_force_world.append(list(self.actual.force_world))
+        self.actual_torque_body.append(list(self.actual.torque_body))
+
+        self.dataset_accel_world.append(list(self.dataset.accel_world))
+        self.dataset_accel_body.append(list(self.dataset.accel_body))
+        self.dataset_anaccel_body.append(list(self.dataset.anaccel_body))
+        self.dataset_force_body.append(list(self.dataset.force_body))
+        self.dataset_force_world.append(list(self.dataset.force_world))
+        self.dataset_torque_body.append(list(self.dataset.torque_body))
 
     def refresh_callback(self):
         self.clear_plots()
 
-        self.plot_vector(self.accel_world_axes, np.array(self.accel_world), r'error a^W', ['x', 'y', 'z'])
-        self.plot_vector(self.force_world_axes, np.array(self.force_world), r'error F^W', ['x', 'y', 'z'])
-        self.plot_vector(self.accel_body_axes, np.array(self.accel_body), r'error a^B', ['x', 'y', 'z'])
-        self.plot_vector(self.force_body_axes, np.array(self.force_body), r'error F^B', ['x', 'y', 'z'])
-        self.plot_vector(self.anaccel_body_axes, np.array(self.anaccel_body), r'error \alpha^B', ['x', 'y', 'z'])
-        self.plot_vector(self.torque_body_axes, np.array(self.torque_body), r'error \tau^B', ['x', 'y', 'z'])
+        self.plot_vector(self.accel_world_axes, r'a^W', ['x', 'y', 'z'], np.array(self.actual_accel_world), np.array(self.dataset_accel_world))
+        self.plot_vector(self.force_world_axes, r'f^W', ['x', 'y', 'z'], np.array(self.actual_force_world), np.array(self.dataset_force_world))
+        self.plot_vector(self.accel_body_axes, r'a^B', ['x', 'y', 'z'], np.array(self.actual_accel_body), np.array(self.dataset_accel_body))
+        self.plot_vector(self.force_body_axes, r'f^B', ['x', 'y', 'z'], np.array(self.actual_force_body), np.array(self.dataset_force_body))
+        self.plot_vector(self.anaccel_body_axes, r'\alpha^B', ['x', 'y', 'z'], np.array(self.actual_anaccel_body), np.array(self.dataset_anaccel_body))
+        self.plot_vector(self.torque_body_axes, r'\tau^B', ['x', 'y', 'z'], np.array(self.actual_torque_body), np.array(self.dataset_torque_body))
 
         self.update_plots()
 
-    def plot_vector(self, axes, data, base_label, subscripts):
+    def plot_vector(self, axes, base_label, subscripts, data_actual, data_dataset=None):
         for i in range(3):
-            axes[i].plot(self.t, data[:, i], label=r'${}_{}$'.format(base_label, subscripts[i]))
+            axes[i].set_xlim([max(0, self.t[-1] - self.plot_window), self.t[-1]])
+            if (data_dataset is None):
+                axes[i].plot(self.t, data_actual[:, i], label=r'$error {}_{}$'.format(base_label, subscripts[i]))
+            else:
+                axes[i].plot(self.t, data_actual[:, i], label=r'${}_{}actual$'.format(base_label, subscripts[i]))
+                axes[i].plot(self.t, data_dataset[:, i], label=r'${}_{}dataset$'.format(base_label, subscripts[i]))
 
     def clear_plots(self):
         [self.accel_body_axes[i].clear() for i in range(3)]

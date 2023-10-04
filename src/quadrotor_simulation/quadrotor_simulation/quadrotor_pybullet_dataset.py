@@ -5,7 +5,7 @@ from rclpy.time import Time
 
 from ament_index_python.packages import get_package_share_directory
 
-from quadrotor_interfaces.msg import RotorCommand, State, StateData, ModelErrors
+from quadrotor_interfaces.msg import RotorCommand, State, StateData, ModelError, ModelOutput
 from geometry_msgs.msg import Pose, Point, Quaternion, Vector3, Twist
 from std_msgs.msg import Float64, Float64MultiArray
 from sensor_msgs.msg import Image
@@ -123,7 +123,7 @@ class QuadrotorPybulletDataset(Node):
         self.image_publisher = self.create_publisher(msg_type=Image,
                                                      topic=self.image_topic,
                                                      qos_profile=DEFAULT_QOS_PROFILE)
-        self.model_error_publisher = self.create_publisher(msg_type=ModelErrors,
+        self.model_error_publisher = self.create_publisher(msg_type=ModelError,
                                                            topic=self.model_error_topic,
                                                            qos_profile=DEFAULT_QOS_PROFILE)
 
@@ -264,7 +264,7 @@ class QuadrotorPybulletDataset(Node):
         # published data
         self.state = State()
         self.ros_img = Image()
-        self.model_error = ModelErrors()
+        self.model_error = ModelError()
 
     def receive_commands_callback(self, msg):
         self.rotor_speeds = np.array(msg.rotor_speeds)
@@ -324,9 +324,11 @@ class QuadrotorPybulletDataset(Node):
         self.quad_vel, self.quad_avel = vel0, avel0_B
         self.quad_accel, self.quad_anaccel = accel, anaccel
 
-    def inverse_rigid_body_dynamics(self, m, g, J, pos, quat, vel, anvel, accel, anaccel, force_body_frame=True):
+    def inverse_rigid_body_dynamics(self, m, g, J, pos, quat, vel, anvel, accel, anaccel, force_body_frame=True, including_gravity=True):
         R = Rotation.from_quat(quat)
-        F_world = m*(accel + np.array([0, 0, -g]))
+        F_world = m*(accel)
+        if (including_gravity):
+            F_world -= np.array([0, 0, m*g])
         F_body = R.inv().apply(F_world)
         tau_body = J@anaccel + np.cross(anvel, J@anvel)
         if (force_body_frame):
@@ -348,18 +350,41 @@ class QuadrotorPybulletDataset(Node):
                                      cameraPitch=self.view_pitch, cameraTargetPosition=self.quad_pos)  # fix camera onto model
 
     def fill_model_error(self):
-        F_model, tau_model = self.inverse_rigid_body_dynamics(self.M, self.G, self.J, self.quad_pos,
-                                                              self.quad_quat, self.quad_vel, self.quad_avel, self.quad_accel, self.quad_anaccel)
-        F_ff, tau_ff = self.inverse_rigid_body_dynamics(self.M, self.G, self.J, self.quad_pos, self.quad_quat,
-                                                        self.quad_vel, self.quad_avel, self.ff_accel, self.ff_anaccel)
-        self.model_error.force_body = np.array(F_model - F_ff, dtype=np.float32)
-        self.model_error.torque_body = np.array(tau_model - tau_ff, dtype=np.float32)
-        self.model_error.accel_world = np.array(self.quad_accel - self.ff_accel, dtype=np.float32)
-        self.model_error.anaccel_body = np.array(self.quad_anaccel, dtype=np.float32)
-
+        F_model_body, tau_model = self.inverse_rigid_body_dynamics(self.M, self.G, self.J, self.quad_pos,
+                                                                   self.quad_quat, self.quad_vel, self.quad_avel,
+                                                                   self.quad_accel, self.quad_anaccel, force_body_frame=True)
+        F_ff_body, tau_ff = self.inverse_rigid_body_dynamics(self.M, self.G, self.J, self.quad_pos,
+                                                             self.quad_quat, self.quad_vel, self.quad_avel,
+                                                             self.ff_accel, self.ff_anaccel, force_body_frame=True)
+        F_model_world, tau_model = self.inverse_rigid_body_dynamics(self.M, self.G, self.J, self.quad_pos,
+                                                                    self.quad_quat, self.quad_vel, self.quad_avel,
+                                                                    self.quad_accel, self.quad_anaccel, force_body_frame=False)
+        F_ff_world, tau_ff = self.inverse_rigid_body_dynamics(self.M, self.G, self.J, self.quad_pos,
+                                                              self.quad_quat, self.quad_vel, self.quad_avel,
+                                                              self.ff_accel, self.ff_anaccel, force_body_frame=False)
         rot = Rotation.from_quat(self.quad_quat)
-        self.model_error.force_world = np.array(rot.apply(F_model) - rot.apply(F_ff), dtype=np.float32)
-        self.model_error.accel_body = np.array(rot.inv().apply(self.quad_accel) - rot.inv().apply(self.ff_accel), dtype=np.float32)
+
+        self.model_error.dataset.force_world = np.array(F_ff_world, dtype=np.float32)
+        self.model_error.dataset.force_body = np.array(F_ff_body, dtype=np.float32)
+        self.model_error.dataset.accel_world = np.array(self.ff_accel, dtype=np.float32)
+        self.model_error.dataset.accel_body = np.array(rot.inv().apply(self.ff_accel), dtype=np.float32)
+        self.model_error.dataset.torque_body = np.array(tau_ff, dtype=np.float32)
+        self.model_error.dataset.anaccel_body = np.array(self.ff_anaccel, dtype=np.float32)
+
+        self.model_error.actual.force_world = np.array(F_model_world, dtype=np.float32)
+        self.model_error.actual.force_body = np.array(F_model_body, dtype=np.float32)
+        self.model_error.actual.accel_world = np.array(self.quad_accel, dtype=np.float32)
+        self.model_error.actual.accel_body = np.array(rot.inv().apply(self.quad_accel), dtype=np.float32)
+        self.model_error.actual.torque_body = np.array(tau_model, dtype=np.float32)
+        self.model_error.actual.anaccel_body = np.array(self.quad_anaccel, dtype=np.float32)
+
+        self.model_error.error.force_body = np.array(F_model_body - F_ff_body, dtype=np.float32)
+        self.model_error.error.torque_body = np.array(tau_model - tau_ff, dtype=np.float32)
+        self.model_error.error.accel_world = np.array(self.quad_accel - self.ff_accel, dtype=np.float32)
+        self.model_error.error.anaccel_body = np.array(self.quad_anaccel, dtype=np.float32)
+
+        self.model_error.error.force_world = np.array(F_model_world - F_ff_world, dtype=np.float32)
+        self.model_error.error.accel_body = np.array(rot.inv().apply(self.quad_accel) - rot.inv().apply(self.ff_accel), dtype=np.float32)
 
     def fill_State(self):
         self.state.header.stamp = self.get_clock().now().to_msg()

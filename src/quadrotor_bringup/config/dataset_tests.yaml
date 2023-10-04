@@ -1,7 +1,8 @@
 Dataset:
   dataset_package: quadrotor_control
   dataset_folder: resource/datasets/NeuroBEM
-  dataset_name: merged_2021-02-23-10-48-03_seg_
+  # dataset_name: merged_2021-02-23-10-48-03_seg_
+  dataset_name: merged_2021-02-18-17-42-11_seg_
   time_field: t
   command_fields:
     - mot 2 # right front
@@ -59,7 +60,7 @@ PybulletSimulationDataset:
   image_topic: quadrotor_img  # Topic name for the quadrotor image messages
   rotor_speeds_topic: quadrotor_rotor_speeds  # Topic name for the quadrotor rotor speeds messages
   model_error_topic: quadrotor_model_errors # Topic name for the quadrotor model error messages
-  view_follow: False
+  view_follow: true
   view_distance: 5.0  # Distance from the quadrotor to the camera (in the pybullet view)
   view_yaw: 75.0  # Yaw angle of the camera (in the pybullet view)
   view_pitch: -20.0  # Pitch angle of the camera (in the pybullet view)
