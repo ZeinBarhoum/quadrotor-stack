@@ -5,7 +5,7 @@ from rclpy.time import Time
 
 from ament_index_python.packages import get_package_share_directory
 
-from quadrotor_interfaces.msg import RotorCommand, State, StateData
+from quadrotor_interfaces.msg import RotorCommand, State, StateData, ModelErrors
 from geometry_msgs.msg import Pose, Point, Quaternion, Vector3, Twist
 from std_msgs.msg import Float64, Float64MultiArray
 from sensor_msgs.msg import Image
@@ -58,6 +58,7 @@ class QuadrotorPybulletDataset(Node):
         # Declare the parameters
         self.declare_parameters(parameters=[('physics_server', 'GUI'),  # GUI, DIRECT
                                             ('quadrotor_description', 'cf2x'),
+                                            ('quadrotor_ghost_description', 'cf2x'),
                                             ('obstacles_description', ['NONE']),
                                             ('obstacles_poses', [0.0]),
                                             ('render_ground', True),
@@ -73,9 +74,11 @@ class QuadrotorPybulletDataset(Node):
                                             ('image_topic', 'quadrotor_img'),
                                             ('model_error_topic', 'quadrotor_model_error'),
                                             ('rotor_speeds_topic', 'quadrotor_rotor_speeds'),
+                                            ('view_follow', True),
                                             ('view_distance', DEFAULT_VIEW_DISTANCE),
                                             ('view_yaw', DEFAULT_VIEW_YAW),
-                                            ('view_pitch', DEFAULT_VIEW_PITCH)
+                                            ('view_pitch', DEFAULT_VIEW_PITCH),
+                                            ('use_ff_state', False),
                                             ],
                                 namespace='',
                                 )
@@ -83,6 +86,7 @@ class QuadrotorPybulletDataset(Node):
         # Get the parameters
         self.physics_server = self.get_parameter_value('physics_server', 'str')
         self.quadrotor_description_file_name = self.get_parameter_value('quadrotor_description', 'str')
+        self.quadrotor_ghost_description_file_name = self.get_parameter_value('quadrotor_ghost_description', 'str')
         self.obstacles_description_file_names = self.get_parameter_value('obstacles_description', 'list[str]')
         self.obstacles_poses = self.get_parameter_value('obstacles_poses', 'list[float]')
         self.render_ground = self.get_parameter_value('render_ground', 'bool')
@@ -98,9 +102,11 @@ class QuadrotorPybulletDataset(Node):
         self.image_topic = self.get_parameter_value('image_topic', 'str')
         self.model_error_topic = self.get_parameter_value('model_error_topic', 'str')
         self.rotor_speeds_topic = self.get_parameter_value('rotor_speeds_topic', 'str')
+        self.view_follow = self.get_parameter_value('view_follow', 'bool')
         self.view_distance = self.get_parameter_value('view_distance', 'float')
         self.view_yaw = self.get_parameter_value('view_yaw', 'float')
         self.view_pitch = self.get_parameter_value('view_pitch', 'float')
+        self.use_ff_state = self.get_parameter_value('use_ff_state', 'bool')
 
         # Subscribers and Publishers
         self.rotor_speeds_subscriber = self.create_subscription(msg_type=RotorCommand,
@@ -117,7 +123,7 @@ class QuadrotorPybulletDataset(Node):
         self.image_publisher = self.create_publisher(msg_type=Image,
                                                      topic=self.image_topic,
                                                      qos_profile=DEFAULT_QOS_PROFILE)
-        self.model_error_publisher = self.create_publisher(msg_type=Float64,
+        self.model_error_publisher = self.create_publisher(msg_type=ModelErrors,
                                                            topic=self.model_error_topic,
                                                            qos_profile=DEFAULT_QOS_PROFILE)
 
@@ -181,6 +187,8 @@ class QuadrotorPybulletDataset(Node):
         self.M = parameters['Inertia']['M']  # kg
         self.J = np.diag([parameters['Inertia']['IXX'], parameters['Inertia']['IYY'], parameters['Inertia']['IZZ']])  # kg.m^2
         self.W = self.M*self.G  # N
+        self.Config = parameters['Config']
+        self.Rotor_Dirs = parameters['Rotor_Dirs']
         # self.HOVER_RPM = np.sqrt(self.W/(4*self.KF))  # rpm
         # self.get_logger().info(f"HOVER RPM IS : {self.HOVER_RPM} rpm")
 
@@ -192,6 +200,14 @@ class QuadrotorPybulletDataset(Node):
         with open(new_file, 'w+') as f:
             f.write(quadrotor_description_content)
         self.quadrotor_urdf_file = new_file
+
+        quadrotor_ghost_description_folder = os.path.join(get_package_share_directory('quadrotor_description'), 'description')
+        quadrotor_ghost_description_file = os.path.join(quadrotor_description_folder, self.quadrotor_ghost_description_file_name+'.urdf.xacro')
+        quadrotor_ghost_description_content = xacro.process_file(quadrotor_ghost_description_file).toxml()
+        new_file = os.path.join(quadrotor_description_folder, self.quadrotor_ghost_description_file_name+'.urdf')
+        with open(new_file, 'w+') as f:
+            f.write(quadrotor_ghost_description_content)
+        self.quadrotor_ghost_urdf_file = new_file
 
         # Retreive the obstacle urdf file and save it for pybullet to read
         obstacles_description_folder = os.path.join(get_package_share_directory('quadrotor_simulation'), 'world')
@@ -222,7 +238,10 @@ class QuadrotorPybulletDataset(Node):
         self.obstacleIds = []
         for (i, obstacle_urdf_file) in enumerate(self.obstacle_urdf_files):
             self.obstacleIds.append(p.loadURDF(obstacle_urdf_file, self.obstacles_poses[i*7: i*7+3], self.obstacles_poses[i*7+3: i*7+7], useFixedBase=1))
-        self.quadrotor_id = p.loadURDF(self.quadrotor_urdf_file, [0, 0, 4], flags=p.URDF_USE_INERTIA_FROM_FILE)
+        self.quadrotor_id = p.loadURDF(self.quadrotor_urdf_file, [0, 0, 1], flags=p.URDF_USE_INERTIA_FROM_FILE)
+        # self.quadrotor_ghost_id = p.loadURDF(self.quadrotor_ghost_urdf_file, [0, 0, 1], flags=p.URDF_USE_INERTIA_FROM_FILE)
+        # self.quadrotor_ghost_id2 = p.loadURDF(self.quadrotor_ghost_urdf_file, [0, 0, 1], flags=p.URDF_USE_INERTIA_FROM_FILE)
+
         # Disable default damping of pybullet!
         p.changeDynamics(self.quadrotor_id, -1, linearDamping=0, angularDamping=0, lateralFriction=0)
         p.changeDynamics(self.quadrotor_id, 0, linearDamping=0, angularDamping=0, lateralFriction=0)
@@ -245,7 +264,7 @@ class QuadrotorPybulletDataset(Node):
         # published data
         self.state = State()
         self.ros_img = Image()
-        self.model_error = Float64()
+        self.model_error = ModelErrors()
 
     def receive_commands_callback(self, msg):
         self.rotor_speeds = np.array(msg.rotor_speeds)
@@ -270,7 +289,9 @@ class QuadrotorPybulletDataset(Node):
         rotor_speeds = self.rotor_speeds
         rotor_thrusts = [self.get_rotor_thrust_quadratic(speed) for speed in rotor_speeds]
         rotor_torques = [self.get_rotor_torque_quadratic(speed) for speed in rotor_speeds]
-        torque_z = -rotor_torques[0]+rotor_torques[1]-rotor_torques[2]+rotor_torques[3]
+        torque_z = -(self.Rotor_Dirs[0]*rotor_torques[0] + self.Rotor_Dirs[1]*rotor_torques[1] +
+                     self.Rotor_Dirs[2]*rotor_torques[2] + self.Rotor_Dirs[3]*rotor_torques[3])
+
         for i in range(4):
             p.applyExternalForce(self.quadrotor_id, i, forceObj=[0, 0, rotor_thrusts[i]], posObj=[0, 0, 0], flags=p.LINK_FRAME)
         # applying Tz on the center of mass, the only one that depend on the drag and isn't simulated by the forces before
@@ -278,23 +299,29 @@ class QuadrotorPybulletDataset(Node):
 
     def apply_ff_state(self):
         pos, quat = self.ff_pos, self.ff_quat
-        vel, anvel = self.ff_vel, self.ff_anvel
+        vel, anvel_B = self.ff_vel, self.ff_anvel
+        anvel_W = Rotation.from_quat(quat).apply(anvel_B)
+        # for the actual quadrotor
         p.resetBasePositionAndOrientation(self.quadrotor_id, pos, quat)
-        p.resetBaseVelocity(self.quadrotor_id, vel, anvel)
+        p.resetBaseVelocity(self.quadrotor_id, vel, anvel_W)
 
     def apply_simulation_step(self):
-        vel0, avel0 = p.getBaseVelocity(self.quadrotor_id)
-        vel0, avel0 = np.array(vel0), np.array(avel0)
-        p.stepSimulation()
-        vel, avel = p.getBaseVelocity(self.quadrotor_id)
-        vel, avel = np.array(vel), np.array(avel)
-        accel, anaccel = (vel-vel0)/self.simulation_step_period, (avel-avel0)/self.simulation_step_period
         pos, quat = p.getBasePositionAndOrientation(self.quadrotor_id)
         pos, quat = np.array(pos), np.array(quat)
+        vel0, avel0_W = p.getBaseVelocity(self.quadrotor_id)
+        vel0, avel0_B = np.array(vel0), Rotation.from_quat(quat).inv().apply(np.array(avel0_W))
+
+        p.stepSimulation()
+
+        pos, quat = p.getBasePositionAndOrientation(self.quadrotor_id)
+        pos, quat = np.array(pos), np.array(quat)
+        vel, avel_W = p.getBaseVelocity(self.quadrotor_id)
+        vel, avel_B = np.array(vel), Rotation.from_quat(quat).inv().apply(np.array(avel_W))
+        accel, anaccel = (vel-vel0)/self.simulation_step_period, (avel_B-avel0_B)/self.simulation_step_period
 
         self.quad_pos, self.quad_quat = pos, quat
         # self.quad_vel, self.quad_avel = vel, avel
-        self.quad_vel, self.quad_avel = vel0, avel0
+        self.quad_vel, self.quad_avel = vel0, avel0_B
         self.quad_accel, self.quad_anaccel = accel, anaccel
 
     def inverse_rigid_body_dynamics(self, m, g, J, pos, quat, vel, anvel, accel, anaccel, force_body_frame=True):
@@ -325,7 +352,14 @@ class QuadrotorPybulletDataset(Node):
                                                               self.quad_quat, self.quad_vel, self.quad_avel, self.quad_accel, self.quad_anaccel)
         F_ff, tau_ff = self.inverse_rigid_body_dynamics(self.M, self.G, self.J, self.quad_pos, self.quad_quat,
                                                         self.quad_vel, self.quad_avel, self.ff_accel, self.ff_anaccel)
-        self.model_error.data = self.quad_anaccel[2]
+        self.model_error.force_body = np.array(F_model - F_ff, dtype=np.float32)
+        self.model_error.torque_body = np.array(tau_model - tau_ff, dtype=np.float32)
+        self.model_error.accel_world = np.array(self.quad_accel - self.ff_accel, dtype=np.float32)
+        self.model_error.anaccel_body = np.array(self.quad_anaccel, dtype=np.float32)
+
+        rot = Rotation.from_quat(self.quad_quat)
+        self.model_error.force_world = np.array(rot.apply(F_model) - rot.apply(F_ff), dtype=np.float32)
+        self.model_error.accel_body = np.array(rot.inv().apply(self.quad_accel) - rot.inv().apply(self.ff_accel), dtype=np.float32)
 
     def fill_State(self):
         self.state.header.stamp = self.get_clock().now().to_msg()
@@ -337,10 +371,15 @@ class QuadrotorPybulletDataset(Node):
         self.state.state.accel.angular = Vector3(x=self.quad_anaccel[0], y=self.quad_anaccel[1], z=self.quad_anaccel[2])
 
     def simulation_step_callback(self):
-        self.apply_ff_state()
+        if (self.use_ff_state):
+            self.apply_ff_state()
+
         self.apply_forces_torques()
+
         self.apply_simulation_step()
-        self.adjust_visualization()
+
+        if (self.view_follow):
+            self.adjust_visualization()
         self.fill_State()
         self.fill_model_error()
 

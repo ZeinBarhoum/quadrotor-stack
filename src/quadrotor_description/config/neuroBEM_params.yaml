@@ -1,12 +1,18 @@
 # KF: 1.562522e-06
 # KM: 1.908873e-08
-KM: 0.0
+KM: 1.908873e-08
 KF: 1.562522e-06
 Inertia:
   M: 0.772
   IXX: 0.00254
   IYY: 0.00214
   IZZ: 0.00436
+Config: Cross
+Rotor_Dirs:
+  - 1
+  - -1
+  - 1
+  - -1
 ARM_X: 0.078
 ARM_Y: 0.1
 ARM_Z: 0.027

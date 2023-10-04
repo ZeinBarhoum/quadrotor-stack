@@ -28,6 +28,14 @@ Dataset:
     - ang acc x
     - ang acc y
     - ang acc z
+  state_frames:
+    - world #position , not used
+    - world #quaternions, not used
+    - body #velocity
+    - body #angular vel
+    - body #acceleration
+    - body #angular acceleration
+  including_gravity: true
   interpolation_method: previous
   rotor_speeds_topic: quadrotor_rotor_speeds
   command_publish_frequency: 240
@@ -35,6 +43,7 @@ Dataset:
 PybulletSimulationDataset:
   physics_server: GUI  # Physics server to use (GUI or DIRECT)
   quadrotor_description: neuroBEM  # Name of the quadrotor model to use (cf2x or other)
+  quadrotor_ghost_description: neuroBEM_no_collision # Name of the quadrotor model without collisions (for additional visualization)
   obstacles_description: [NONE]  # List of obstacles to include in the simulation, if none then [NONE]
   obstacles_poses: [0.0]  # List of poses, if None then [0.0]
   render_ground: true  # Whether to render the ground plane
@@ -49,6 +58,8 @@ PybulletSimulationDataset:
   state_topic: quadrotor_state  # Topic name for the quadrotor state messages
   image_topic: quadrotor_img  # Topic name for the quadrotor image messages
   rotor_speeds_topic: quadrotor_rotor_speeds  # Topic name for the quadrotor rotor speeds messages
+  view_follow: False
   view_distance: 5.0  # Distance from the quadrotor to the camera (in the pybullet view)
   view_yaw: 75.0  # Yaw angle of the camera (in the pybullet view)
   view_pitch: -20.0  # Pitch angle of the camera (in the pybullet view)
+  use_ff_state: True

@@ -5,6 +5,7 @@ from quadrotor_interfaces.msg import RotorCommand, State
 import numpy as np
 import pandas as pd
 import scipy as sp
+from scipy.spatial.transform import Rotation as R
 from glob import glob
 import os
 import time
@@ -40,6 +41,8 @@ class QuadrotorDataset(Node):
                                                               'ang vel x', 'ang vel y', 'ang vel z',
                                                               'acc x', 'acc y', 'acc z',
                                                               'ang acc x', 'ang acc y', 'ang acc z']),
+                                            ('state_frames', ['world', 'world', 'world', 'world', 'world', 'world']),
+                                            ('including_gravity', True),
                                             ("interpolation_method", 'linear'),
                                             ('rotor_speeds_topic', 'quadrotor_rotor_speeds'),
                                             ('state_topic', 'quadrotor_ff_state'),
@@ -53,6 +56,8 @@ class QuadrotorDataset(Node):
         self.time_field = self.get_parameter('time_field').get_parameter_value().string_value
         self.command_fields = self.get_parameter('command_fields').get_parameter_value().string_array_value
         self.state_fields = self.get_parameter('state_fields').get_parameter_value().string_array_value
+        self.state_frames = self.get_parameter('state_frames').get_parameter_value().string_array_value
+        self.including_gravity = self.get_parameter('including_gravity').get_parameter_value().bool_value
         self.interpolation_method = self.get_parameter('interpolation_method').get_parameter_value().string_value
         self.rotor_speeds_topic = self.get_parameter('rotor_speeds_topic').get_parameter_value().string_value
         self.state_topic = self.get_parameter('state_topic').get_parameter_value().string_value
@@ -92,6 +97,44 @@ class QuadrotorDataset(Node):
         t = df_total[self.time_field].to_numpy()
         commands = df_total[self.command_fields].to_numpy()
         state = df_total[self.state_fields].to_numpy()
+        for i in range(len(state)):
+            pos = state[i, 0:3]
+            quat = state[i, 3:7]
+            rot = R.from_quat(quat)
+            v = state[i, 7:10]
+            anvel = state[i, 10:13]
+            accel = state[i, 13:16]
+            anaccel = state[i, 16:19]
+
+            # ensure that pos is position of o_b in W
+            if self.state_frames[0] == 'body':
+                pos = -pos
+            # ensure that statisfies p_w = R * p_b
+            if self.state_frames[1] == 'body':
+                rot = rot.inv()
+            # ensure that v is in W
+            if self.state_frames[2] == 'body':
+                v = rot.apply(v)
+            # ensure that anvel is in B
+            if self.state_frames[3] == 'world':
+                anvel = rot.inv().apply(anvel)
+            # ensure that accel is in W
+            if self.state_frames[4] == 'body':
+                accel = rot.apply(accel)
+            # ensure that anaccel is in B
+            if self.state_frames[5] == 'world':
+                anaccel = rot.inv().apply(anaccel)
+            # remove the gravity acceleration
+            if self.including_gravity:
+                accel[2] = accel[2] - 9.81
+
+            state[i, 0:3] = pos
+            state[i, 3:7] = rot.as_quat()
+            state[i, 7:10] = v
+            state[i, 10:13] = anvel
+            state[i, 13:16] = accel
+            state[i, 16:19] = anaccel
+
         if (t[0] > 0):
             t = t - t[0]
         self.LUT_command = sp.interpolate.interp1d(t, commands, axis=0, kind=self.interpolation_method)
@@ -126,7 +169,7 @@ class QuadrotorDataset(Node):
         state_msg.state.twist.angular.z = state[12]
         state_msg.state.accel.linear.x = state[13]
         state_msg.state.accel.linear.y = state[14]
-        state_msg.state.accel.linear.z = state[15] - 9.81
+        state_msg.state.accel.linear.z = state[15]
         state_msg.state.accel.angular.x = state[16]
         state_msg.state.accel.angular.y = state[17]
         state_msg.state.accel.angular.z = state[18]

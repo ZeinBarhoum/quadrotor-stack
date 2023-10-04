@@ -12,19 +12,19 @@
   
   <link name="base_link">
 
-    <inertial>
+    <!-- <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <mass value="${MASS}"/>
       <inertia ixx="${IXX}" ixy="0.0" ixz="0.0" iyy="${IYY}" iyz="0.0" izz="${IZZ}"/>
-    </inertial> 
+    </inertial>  -->
 
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
         <sphere radius="${0.1*sqrt(ARM_X**2+ARM_Y**2)}"/>
       </geometry>  
-      <material name="black">
-        <color rgba="0.0 0.0 0.0 1.0"/>
+      <material name="red">
+        <color rgba="1.0 0.0 0.0 1.0"/>
       </material>
     </visual>
 
@@ -83,13 +83,6 @@
         <cylinder radius="${0.1*ARM_Z}" length="${ARM_Z}"/>
       </geometry>
     </visual>
-    
-    <collision>
-      <origin rpy="0 0 ${ARM_Z/2}" xyz="0 0 0"/>
-      <geometry>
-        <cylinder radius="${sqrt(ARM_X**2+ARM_Y**2)}" length="${ARM_Z}"/>
-      </geometry>
-    </collision>
 
   </link>
 
