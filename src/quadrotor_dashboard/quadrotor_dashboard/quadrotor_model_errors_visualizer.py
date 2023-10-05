@@ -122,7 +122,7 @@ class QuadrotorModelErrorsVisualizer(Node):
             if (data_dataset is None):
                 axes[i].plot(self.t, data_actual[:, i], label=r'$error {}_{}$'.format(base_label, subscripts[i]))
             else:
-                axes[i].plot(self.t, data_actual[:, i], label=r'${}_{}actual$'.format(base_label, subscripts[i]))
+                axes[i].plot(self.t, data_actual[:, i], label=r'${}_{}model$'.format(base_label, subscripts[i]))
                 axes[i].plot(self.t, data_dataset[:, i], label=r'${}_{}dataset$'.format(base_label, subscripts[i]))
 
     def clear_plots(self):

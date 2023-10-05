@@ -328,7 +328,7 @@ class QuadrotorPybulletDataset(Node):
         R = Rotation.from_quat(quat)
         F_world = m*(accel)
         if (including_gravity):
-            F_world -= np.array([0, 0, m*g])
+            F_world -= m*np.array([0, 0, -g])
         F_body = R.inv().apply(F_world)
         tau_body = J@anaccel + np.cross(anvel, J@anvel)
         if (force_body_frame):
