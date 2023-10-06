@@ -15,7 +15,7 @@ else:
     sys.excepthook = IPython.core.ultratb.ColorTB()
 
 DEFAULT_FREQUENCY = 0.5
-DEFAULT_WINDOW = 50.0
+DEFAULT_WINDOW = 10.0
 
 
 class QuadrotorModelErrorsVisualizer(Node):
@@ -46,14 +46,16 @@ class QuadrotorModelErrorsVisualizer(Node):
 
     def initialize_plot(self):
         plt.ion()
-        self.num_subplots = (6, 3)
-        self.fig, self.axes = plt.subplots(*self.num_subplots)
-        self.accel_world_axes = self.axes[0, :]
-        self.force_world_axes = self.axes[1, :]
-        self.accel_body_axes = self.axes[2, :]
-        self.force_body_axes = self.axes[3, :]
-        self.anaccel_body_axes = self.axes[4, :]
-        self.torque_body_axes = self.axes[5, :]
+        self.fig1, self.axes1 = plt.subplots(3, 3)
+        self.fig2, self.axes2 = plt.subplots(3, 3)
+
+        self.accel_world_axes = self.axes1[0, :]
+        self.accel_body_axes = self.axes1[1, :]
+        self.anaccel_body_axes = self.axes1[2, :]
+
+        self.force_world_axes = self.axes2[0, :]
+        self.force_body_axes = self.axes2[1, :]
+        self.torque_body_axes = self.axes2[2, :]
 
     def initialize_data(self):
         self.model_error = ModelError()
@@ -140,8 +142,10 @@ class QuadrotorModelErrorsVisualizer(Node):
         [self.force_world_axes[i].legend() for i in range(3)]
         [self.anaccel_body_axes[i].legend() for i in range(3)]
         [self.torque_body_axes[i].legend() for i in range(3)]
-        self.fig.canvas.draw()
-        self.fig.canvas.flush_events()
+        self.fig1.canvas.draw()
+        self.fig1.canvas.flush_events()
+        self.fig2.canvas.draw()
+        self.fig2.canvas.flush_events()
 
 
 def main():
