@@ -80,6 +80,8 @@ class QuadrotorPybulletDataset(Node):
                                             ('view_pitch', DEFAULT_VIEW_PITCH),
                                             ('use_ff_state', False),
                                             ('enable_collision', False),
+                                            ('drag', True),
+                                            ('manual_tau_xy_calculation', True)
                                             ],
                                 namespace='',
                                 )
@@ -109,6 +111,8 @@ class QuadrotorPybulletDataset(Node):
         self.view_pitch = self.get_parameter_value('view_pitch', 'float')
         self.use_ff_state = self.get_parameter_value('use_ff_state', 'bool')
         self.enable_collision = self.get_parameter_value('enable_collision', 'bool')
+        self.drag = self.get_parameter_value('drag', 'bool')
+        self.manual_tau_xy_calculation = self.get_parameter_value('manual_tau_xy_calculation', 'bool')
 
         # Subscribers and Publishers
         self.rotor_speeds_subscriber = self.create_subscription(msg_type=RotorCommand,
@@ -194,6 +198,12 @@ class QuadrotorPybulletDataset(Node):
         self.ARM_X = parameters['ARM_X']
         self.ARM_Y = parameters['ARM_Y']
         self.ARM_Z = parameters['ARM_Z']
+        self.CXY = parameters['CXY']
+        self.CZ = parameters['CZ']
+        self.AX = parameters['AX']
+        self.AY = parameters['AY']
+        self.AZ = parameters['AZ']
+        self.RHO = parameters['RHO']
         # self.HOVER_RPM = np.sqrt(self.W/(4*self.KF))  # rpm
         # self.get_logger().info(f"HOVER RPM IS : {self.HOVER_RPM} rpm")
 
@@ -304,11 +314,26 @@ class QuadrotorPybulletDataset(Node):
         # if (self.Config == 'Cross'):
         torque_x = self.ARM_Y * (-rotor_thrusts[0] + rotor_thrusts[1] + rotor_thrusts[2] - rotor_thrusts[3])
         torque_y = self.ARM_X * (-rotor_thrusts[0] - rotor_thrusts[1] + rotor_thrusts[2] + rotor_thrusts[3])
+        if (self.manual_tau_xy_calculation):
+            for i in range(4):
+                p.applyExternalForce(self.quadrotor_id, -1, forceObj=[0, 0, rotor_thrusts[i]], posObj=[0, 0, 0], flags=p.LINK_FRAME)
+            # applying Tz on the center of mass, the only one that depend on the drag and isn't simulated by the forces before
+            p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=[torque_x, torque_y, torque_z], flags=p.LINK_FRAME)
+        else:
+            for i in range(4):
+                p.applyExternalForce(self.quadrotor_id, i, forceObj=[0, 0, rotor_thrusts[i]], posObj=[0, 0, 0], flags=p.LINK_FRAME)
+            # applying Tz on the center of mass, the only one that depend on the drag and isn't simulated by the forces before
+            p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=[0, 0, torque_z], flags=p.LINK_FRAME)
 
-        for i in range(4):
-            p.applyExternalForce(self.quadrotor_id, -1, forceObj=[0, 0, rotor_thrusts[i]], posObj=[0, 0, 0], flags=p.LINK_FRAME)
-        # applying Tz on the center of mass, the only one that depend on the drag and isn't simulated by the forces before
-        p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=[torque_x, torque_y, torque_z], flags=p.LINK_FRAME)
+        if (self.drag):
+            vel_B = Rotation.from_quat(self.quad_quat).inv().apply(self.quad_vel)
+            norm_vel_B = np.linalg.norm(vel_B)
+            drag = -0.5*self.RHO*vel_B*norm_vel_B
+            drag_x = drag[0] * self.CXY*self.AX
+            drag_y = drag[1] * self.CXY*self.AY
+            drag_z = drag[2] * self.CZ*self.AZ
+
+            p.applyExternalForce(self.quadrotor_id, -1, forceObj=[drag_x, drag_y, drag_z], posObj=[0, 0, 0], flags=p.LINK_FRAME)
 
     def apply_ff_state(self):
         pos, quat = self.ff_pos, self.ff_quat
