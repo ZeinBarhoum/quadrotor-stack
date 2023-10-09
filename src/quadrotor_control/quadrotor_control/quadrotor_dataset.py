@@ -68,7 +68,7 @@ class QuadrotorDataset(Node):
         self.LUT_state: sp.interpolate.interp1d = None
         self.t_max = None
         self.initialize_dataset()
-        time.sleep(2)
+        # time.sleep(2)
         # Initialize Publisher
         self.command_publisher = self.create_publisher(msg_type=RotorCommand,
                                                        topic=self.rotor_speeds_topic,

@@ -79,6 +79,7 @@ class QuadrotorPybulletDataset(Node):
                                             ('view_yaw', DEFAULT_VIEW_YAW),
                                             ('view_pitch', DEFAULT_VIEW_PITCH),
                                             ('use_ff_state', False),
+                                            ('enable_collision', False),
                                             ],
                                 namespace='',
                                 )
@@ -107,6 +108,7 @@ class QuadrotorPybulletDataset(Node):
         self.view_yaw = self.get_parameter_value('view_yaw', 'float')
         self.view_pitch = self.get_parameter_value('view_pitch', 'float')
         self.use_ff_state = self.get_parameter_value('use_ff_state', 'bool')
+        self.enable_collision = self.get_parameter_value('enable_collision', 'bool')
 
         # Subscribers and Publishers
         self.rotor_speeds_subscriber = self.create_subscription(msg_type=RotorCommand,
@@ -189,6 +191,9 @@ class QuadrotorPybulletDataset(Node):
         self.W = self.M*self.G  # N
         self.Config = parameters['Config']
         self.Rotor_Dirs = parameters['Rotor_Dirs']
+        self.ARM_X = parameters['ARM_X']
+        self.ARM_Y = parameters['ARM_Y']
+        self.ARM_Z = parameters['ARM_Z']
         # self.HOVER_RPM = np.sqrt(self.W/(4*self.KF))  # rpm
         # self.get_logger().info(f"HOVER RPM IS : {self.HOVER_RPM} rpm")
 
@@ -249,6 +254,10 @@ class QuadrotorPybulletDataset(Node):
         p.changeDynamics(self.quadrotor_id, 2, linearDamping=0, angularDamping=0, lateralFriction=0)
         p.changeDynamics(self.quadrotor_id, 3, linearDamping=0, angularDamping=0, lateralFriction=0)
 
+        # Disable collision
+        if not self.enable_collision:
+            p.setCollisionFilterGroupMask(self.quadrotor_id, -1, 0, 0)
+
     def initialize_data(self):
         # received data
         self.rotor_speeds = np.array([0] * 4)
@@ -292,10 +301,14 @@ class QuadrotorPybulletDataset(Node):
         torque_z = -(self.Rotor_Dirs[0]*rotor_torques[0] + self.Rotor_Dirs[1]*rotor_torques[1] +
                      self.Rotor_Dirs[2]*rotor_torques[2] + self.Rotor_Dirs[3]*rotor_torques[3])
 
+        # if (self.Config == 'Cross'):
+        torque_x = self.ARM_Y * (-rotor_thrusts[0] + rotor_thrusts[1] + rotor_thrusts[2] - rotor_thrusts[3])
+        torque_y = self.ARM_X * (-rotor_thrusts[0] - rotor_thrusts[1] + rotor_thrusts[2] + rotor_thrusts[3])
+
         for i in range(4):
-            p.applyExternalForce(self.quadrotor_id, i, forceObj=[0, 0, rotor_thrusts[i]], posObj=[0, 0, 0], flags=p.LINK_FRAME)
+            p.applyExternalForce(self.quadrotor_id, -1, forceObj=[0, 0, rotor_thrusts[i]], posObj=[0, 0, 0], flags=p.LINK_FRAME)
         # applying Tz on the center of mass, the only one that depend on the drag and isn't simulated by the forces before
-        p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=[0, 0, torque_z], flags=p.LINK_FRAME)
+        p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=[torque_x, torque_y, torque_z], flags=p.LINK_FRAME)
 
     def apply_ff_state(self):
         pos, quat = self.ff_pos, self.ff_quat
@@ -306,10 +319,10 @@ class QuadrotorPybulletDataset(Node):
         p.resetBaseVelocity(self.quadrotor_id, vel, anvel_W)
 
     def apply_simulation_step(self):
-        pos, quat = p.getBasePositionAndOrientation(self.quadrotor_id)
-        pos, quat = np.array(pos), np.array(quat)
+        pos0, quat0 = p.getBasePositionAndOrientation(self.quadrotor_id)
+        pos0, quat0 = np.array(pos0), np.array(quat0)
         vel0, avel0_W = p.getBaseVelocity(self.quadrotor_id)
-        vel0, avel0_B = np.array(vel0), Rotation.from_quat(quat).inv().apply(np.array(avel0_W))
+        vel0, avel0_B = np.array(vel0), Rotation.from_quat(quat0).inv().apply(np.array(avel0_W))
 
         p.stepSimulation()
 
@@ -319,16 +332,14 @@ class QuadrotorPybulletDataset(Node):
         vel, avel_B = np.array(vel), Rotation.from_quat(quat).inv().apply(np.array(avel_W))
         accel, anaccel = (vel-vel0)/self.simulation_step_period, (avel_B-avel0_B)/self.simulation_step_period
 
-        self.quad_pos, self.quad_quat = pos, quat
+        self.quad_pos, self.quad_quat = pos0, quat0
         # self.quad_vel, self.quad_avel = vel, avel
         self.quad_vel, self.quad_avel = vel0, avel0_B
         self.quad_accel, self.quad_anaccel = accel, anaccel
 
-    def inverse_rigid_body_dynamics(self, m, g, J, pos, quat, vel, anvel, accel, anaccel, force_body_frame=True, including_gravity=True):
+    def inverse_rigid_body_dynamics(self, m, g, J, pos, quat, vel, anvel, accel, anaccel, force_body_frame=True):
         R = Rotation.from_quat(quat)
-        F_world = m*(accel)
-        if (including_gravity):
-            F_world -= m*np.array([0, 0, -g])
+        F_world = m*(accel) - m*np.array([0, 0, -self.G])
         F_body = R.inv().apply(F_world)
         tau_body = J@anaccel + np.cross(anvel, J@anvel)
         if (force_body_frame):
@@ -341,7 +352,7 @@ class QuadrotorPybulletDataset(Node):
             F_world = R.apply(F)
         else:
             F_world = F
-        accel = F_world/m + np.array([0, 0, -g])
+        accel = F_world/m + np.array([0, 0, -self.G])
         anaccel = np.linalg.inv(J)@(tau - np.cross(anvel, J@anvel))
         return accel, anaccel
 

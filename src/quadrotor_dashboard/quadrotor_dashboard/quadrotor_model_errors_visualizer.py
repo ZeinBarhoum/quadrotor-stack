@@ -46,8 +46,12 @@ class QuadrotorModelErrorsVisualizer(Node):
 
     def initialize_plot(self):
         plt.ion()
-        self.fig1, self.axes1 = plt.subplots(3, 3)
-        self.fig2, self.axes2 = plt.subplots(3, 3)
+        diag = 27
+        width = diag * 1920/2203  # 2203 = sqrt(1920^2 + 1080^2)
+        height = diag * 1080/2203  # 2203 = sqrt(1920^2 + 1080^2)
+
+        self.fig1, self.axes1 = plt.subplots(3, 3, figsize=(width, height))
+        self.fig2, self.axes2 = plt.subplots(3, 3, figsize=(width, height))
 
         self.accel_world_axes = self.axes1[0, :]
         self.accel_body_axes = self.axes1[1, :]

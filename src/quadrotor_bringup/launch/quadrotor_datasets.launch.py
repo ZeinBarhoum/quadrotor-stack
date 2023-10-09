@@ -19,6 +19,7 @@ def generate_launch_description():
             parameters = dict()
     pybullet_simulation_dataset_parameters = parameters['PybulletSimulationDataset']
     dataset_controller_parameters = parameters['Dataset']
+    model_error_vis_parameters = parameters['ModelErrorVis']
 
     simulation_node = Node(
         package='quadrotor_simulation',
@@ -36,6 +37,7 @@ def generate_launch_description():
         package='quadrotor_dashboard',
         executable='quadrotor_model_errors_visualizer',
         output='screen',
+        parameters=[model_error_vis_parameters],
     )
 
     return LaunchDescription([
