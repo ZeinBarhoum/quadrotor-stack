@@ -67,9 +67,9 @@ PybulletSimulationDataset:
   use_ff_state: True
   enable_collision: false
   drag: True
-  manual_tau_xy_calculation: True
+  manual_tau_xy_calculation: False
 
 ModelErrorVis:
-  refresh_rate: 0.5
+  refresh_rate: 0.02
   plot_window: 50.0
   model_error_topic: quadrotor_model_errors
