@@ -46,16 +46,31 @@ Next, navigate to your preferable folder and download the repository
 ```bash
 cd /path/to/work/folder
 mkdir quadrotor_ws && cd quadrotor_ws
-git clone https://github.com/ZeinBarhoum/quadrotor-plan-control.git
+#git clone https://github.com/ZeinBarhoum/quadrotor-plan-control.git #when it becomes public
+git clone git@github.com:ZeinBarhoum/quadrotor-plan-control.git
+```
+
+Install dependencies:
+```bash
+cd quadrotor-plan-control && rosdep install --from-paths src --ignore-src
 ```
 
 Finally, build the workspace and source the install-file.
 
 ```bash
 colcon build
-source install/setup.bash
+```
+for development, it's better to use symlink-install
+
+```bash
+colcon build --symlink-install
 ```
 
+Don't forget to source this workspace before usage
+
+```bash
+source install/setup.bash
+```
 ## Usage
 
 To start the simulation with the controller, path finding and trajectory planning nodes configured, run the following:
