@@ -27,16 +27,23 @@ def generate_launch_description():
         except yaml.YAMLError as exc:
             parameters = dict()
     path_visualizer_parameters = parameters['QuadrotorPathVisualizer']
-    pybullet_simulation_parameters = parameters['PybulletPhysicsSimulation']
+    pybullet_physics_simulation_parameters = parameters['PybulletPhysicsSimulation']
+    pybullet_camera_simulation_parameters = parameters['PybulletCameraSimulation']
     pid_controller_parameters = parameters['PIDController']
     dfbc_controller_parameters = parameters['DFBCController']
     poly_traj_optimizer_parameters = parameters['PolyTrajOptimizer']
 
-    simulation_node = Node(
+    simulation_physics_node = Node(
         package='quadrotor_simulation',
         executable='quadrotor_pybullet_physics',
         output='screen',
-        parameters=[pybullet_simulation_parameters]
+        parameters=[pybullet_physics_simulation_parameters]
+    )
+    simulation_camera_node = Node(
+        package='quadrotor_simulation',
+        executable='quadrotor_pybullet_camera',
+        output='screen',
+        parameters=[pybullet_camera_simulation_parameters]
     )
 
     controller = LaunchConfiguration("controller")
@@ -92,7 +99,8 @@ def generate_launch_description():
 
     return LaunchDescription(
         decalred_arguments+[
-            simulation_node,
+            simulation_physics_node,
+            # simulation_camera_node,
             # pid_controller_node,
             dfbc_controller_node,
             reference_publisher_node,

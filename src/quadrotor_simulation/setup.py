@@ -26,6 +26,7 @@ setup(
         'console_scripts': [
             'quadrotor_pybullet = quadrotor_simulation.quadrotor_pybullet:main',
             'quadrotor_pybullet_physics = quadrotor_simulation.quadrotor_pybullet_physics:main',
+            'quadrotor_pybullet_camera = quadrotor_simulation.quadrotor_pybullet_camera:main',
         ],
     },
 )
