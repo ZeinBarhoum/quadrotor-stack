@@ -24,6 +24,8 @@ from timeit import timeit
 
 from typing import Union, List
 
+from scipy.spatial.transform import Rotation
+
 try:
     import IPython.core.ultratb
 except ImportError:
@@ -363,6 +365,7 @@ class QuadrotorPybullet(Node):
         self.quad_quat = quad_quat
 
         quad_v, quad_w = p.getBaseVelocity(self.quadrotor_id)
+        quad_w = Rotation.from_quat(quad_quat).inv().apply(quad_w)
 
         pose = Pose()
         pose.position = Point(x=quad_pos[0], y=quad_pos[1], z=quad_pos[2])
