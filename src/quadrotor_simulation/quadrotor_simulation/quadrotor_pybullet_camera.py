@@ -20,6 +20,8 @@ import os
 import numpy as np
 import yaml
 
+import threading
+
 from timeit import timeit
 
 from typing import Union, List
@@ -57,6 +59,7 @@ class QuadrotorPybulletCamera(Node):
         self.declare_parameter('image_publishing_frequency', DEFAULT_FREQUENCY_IMG)
         self.declare_parameter('state_topic', 'quadrotor_state')
         self.declare_parameter('image_topic', 'quadrotor_img')
+        self.declare_parameter('threading', False)
 
         # Get the parameters
         self.physics_server = self.get_parameter_value('physics_server', 'str')
@@ -70,6 +73,7 @@ class QuadrotorPybulletCamera(Node):
         self.image_publishing_frequency = self.get_parameter_value('image_publishing_frequency', 'int')
         self.state_topic = self.get_parameter_value('state_topic', 'str')
         self.image_topic = self.get_parameter_value('image_topic', 'str')
+        self.threading = self.get_parameter_value('threading', 'bool')
 
         # Subscribers and Publishers
         self.state_subscriber = self.create_subscription(msg_type=State,
@@ -192,11 +196,10 @@ class QuadrotorPybulletCamera(Node):
             self.obstacleIds.append(p.loadURDF(obstacle_urdf_file, self.obstacles_poses[i*7: i*7+3], self.obstacles_poses[i*7+3: i*7+7], useFixedBase=1))
         self.quadrotor_id = p.loadURDF(self.quadrotor_urdf_file, [0, 0, 0.25])
         # Disable default damping of pybullet!
-        p.changeDynamics(self.quadrotor_id, -1, linearDamping=0, angularDamping=0)
-        p.changeDynamics(self.quadrotor_id, 0, linearDamping=0, angularDamping=0)
-        p.changeDynamics(self.quadrotor_id, 1, linearDamping=0, angularDamping=0)
-        p.changeDynamics(self.quadrotor_id, 2, linearDamping=0, angularDamping=0)
-        p.changeDynamics(self.quadrotor_id, 3, linearDamping=0, angularDamping=0)
+        p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
+        p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW, 0)
+        p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW, 0)
+        p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW, 0)
 
     def initialize_data(self):
         """
@@ -219,6 +222,12 @@ class QuadrotorPybulletCamera(Node):
         self.state = msg
 
     def publish_image_callback(self):
+        if (self.threading):
+            threading.Thread(target=self.publish_image_callback_thread).start()
+        else:
+            self.publish_image_callback_thread()
+
+    def publish_image_callback_thread(self):
         """
         Publishes an image from the quadrotor's camera to a ROS topic.
 

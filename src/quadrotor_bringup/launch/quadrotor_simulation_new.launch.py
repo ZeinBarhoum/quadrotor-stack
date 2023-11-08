@@ -100,7 +100,7 @@ def generate_launch_description():
     return LaunchDescription(
         decalred_arguments+[
             simulation_physics_node,
-            # simulation_camera_node,
+            simulation_camera_node,
             # pid_controller_node,
             dfbc_controller_node,
             reference_publisher_node,
@@ -108,5 +108,5 @@ def generate_launch_description():
             mapping_node,
             path_finding_node,
             path_visualizer_node,
-            rqt_gui_node,
+            # rqt_gui_node,
         ])

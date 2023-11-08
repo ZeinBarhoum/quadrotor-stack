@@ -221,6 +221,11 @@ class QuadrotorPybulletPhysics(Node):
         p.changeDynamics(self.quadrotor_id, 2, linearDamping=0, angularDamping=0)
         p.changeDynamics(self.quadrotor_id, 3, linearDamping=0, angularDamping=0)
 
+        p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
+        p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW, 0)
+        p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW, 0)
+        p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW, 0)
+
     def initialize_data(self):
         """
         Initializes the data required for the quadrotor simulation.
