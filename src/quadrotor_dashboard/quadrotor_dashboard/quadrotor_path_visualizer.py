@@ -19,7 +19,7 @@ else:
 
 class QuadrotorPathVisualizer(Node):
     def __init__(self):
-        super().__init__('quadrotor_dashboard')
+        super().__init__('quadrotor_path_visualizer')
         self.subscriber_waypoints = self.create_subscription(msg_type=PathWayPoints,
                                                              topic='quadrotor_waypoints',
                                                              callback=self.waypoints_callback,
