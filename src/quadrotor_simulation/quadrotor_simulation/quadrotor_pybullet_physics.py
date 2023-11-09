@@ -45,24 +45,43 @@ class QuadrotorPybulletPhysics(Node):
         super().__init__('quadrotor_pybullet_physics_node')
 
         # Declare the parameters
-        self.declare_parameter('physics_server', 'DIRECT')  # GUI, DIRECT
-        self.declare_parameter('quadrotor_description', 'cf2x')
-        self.declare_parameter('obstacles_description', ['NONE'])
-        self.declare_parameter('obstacles_poses', [0.0])
-        self.declare_parameter('render_ground', True)
-        self.declare_parameter('simulation_step_frequency', DEFAULT_FREQUENCY)
-        self.declare_parameter('state_topic', 'quadrotor_state')
-        self.declare_parameter('rotor_speeds_topic', 'quadrotor_rotor_speeds')
-
+        self.declare_parameters(namespace='', parameters=[('physics_server', 'DIRECT'),  # GUI, DIRECT
+                                                          ('quadrotor_description', 'cf2x'),
+                                                          ('obstacles_description', ['NONE']),
+                                                          ('obstacles_poses', [0.0]),
+                                                          ('render_ground', True),
+                                                          ('simulation_step_frequency', DEFAULT_FREQUENCY),
+                                                          ('state_topic', 'quadrotor_state'),
+                                                          ('rotor_speeds_topic', 'quadrotor_rotor_speeds')])
         # Get the parameters
-        self.physics_server = self.get_parameter_value('physics_server', 'str')
-        self.quadrotor_description_file_name = self.get_parameter_value('quadrotor_description', 'str')
-        self.obstacles_description_file_names = self.get_parameter_value('obstacles_description', 'list[str]')
-        self.obstacles_poses = self.get_parameter_value('obstacles_poses', 'list[float]')
-        self.render_ground = self.get_parameter_value('render_ground', 'bool')
-        self.simulation_step_frequency = self.get_parameter_value('simulation_step_frequency', 'int')
-        self.state_topic = self.get_parameter_value('state_topic', 'str')
-        self.rotor_speeds_topic = self.get_parameter_value('rotor_speeds_topic', 'str')
+        self.physics_server = self.get_parameter('physics_server').get_parameter_value().string_value
+        self.quadrotor_description_file_name = self.get_parameter('quadrotor_description').get_parameter_value().string_value
+        self.obstacles_description_file_names = self.get_parameter('obstacles_description').get_parameter_value().string_array_value
+        self.obstacles_poses = self.get_parameter('obstacles_poses').get_parameter_value().double_array_value
+        self.render_ground = self.get_parameter('render_ground').get_parameter_value().bool_value
+        self.simulation_step_frequency = self.get_parameter('simulation_step_frequency').get_parameter_value().integer_value
+        self.state_topic = self.get_parameter('state_topic').get_parameter_value().string_value
+        self.rotor_speeds_topic = self.get_parameter('rotor_speeds_topic').get_parameter_value().string_value
+
+        # # Declare the parameters
+        # self.declare_parameter('physics_server', 'DIRECT')  # GUI, DIRECT
+        # self.declare_parameter('quadrotor_description', 'cf2x')
+        # self.declare_parameter('obstacles_description', ['NONE'])
+        # self.declare_parameter('obstacles_poses', [0.0])
+        # self.declare_parameter('render_ground', True)
+        # self.declare_parameter('simulation_step_frequency', DEFAULT_FREQUENCY)
+        # self.declare_parameter('state_topic', 'quadrotor_state')
+        # self.declare_parameter('rotor_speeds_topic', 'quadrotor_rotor_speeds')
+
+        # # Get the parameters
+        # self.physics_server = self.get_parameter_value('physics_server', 'str')
+        # self.quadrotor_description_file_name = self.get_parameter_value('quadrotor_description', 'str')
+        # self.obstacles_description_file_names = self.get_parameter_value('obstacles_description', 'list[str]')
+        # self.obstacles_poses = self.get_parameter_value('obstacles_poses', 'list[float]')
+        # self.render_ground = self.get_parameter_value('render_ground', 'bool')
+        # self.simulation_step_frequency = self.get_parameter_value('simulation_step_frequency', 'int')
+        # self.state_topic = self.get_parameter_value('state_topic', 'str')
+        # self.rotor_speeds_topic = self.get_parameter_value('rotor_speeds_topic', 'str')
 
         # Subscribers and Publishers
         self.rotor_speeds_subscriber = self.create_subscription(msg_type=RotorCommand,
@@ -91,40 +110,6 @@ class QuadrotorPybulletPhysics(Node):
         self.start_time = self.get_clock().now()  # For logging purposes
         self.get_logger().info(f'QuadrotorPybulletPhysics node initialized at {self.start_time.seconds_nanoseconds()}')
 
-    def get_parameter_value(self, parameter_name: str, parameter_type: str) -> Union[bool, int, float, str, List[str]]:
-        """
-        Get the value of a parameter with the given name and type.
-
-        Args:
-            parameter_name: The name of the parameter to retrieve.
-            parameter_type: The type of the parameter to retrieve. Supported types are 'bool', 'int', 'float', 'str',
-                'list[float]' and 'list[str]'.
-
-        Returns:
-            The value of the parameter, cast to the specified type.
-
-        Raises:
-            ValueError: If the specified parameter type is not supported.
-        """
-
-        parameter = self.get_parameter(parameter_name)
-        parameter_value = parameter.get_parameter_value()
-
-        if parameter_type == 'bool':
-            return parameter_value.bool_value
-        elif parameter_type == 'int':
-            return parameter_value.integer_value
-        elif parameter_type == 'float':
-            return parameter_value.double_value
-        elif parameter_type == 'str':
-            return parameter_value.string_value
-        elif parameter_type == 'list[str]':
-            return parameter_value.string_array_value
-        elif parameter_type == 'list[float]':
-            return parameter_value.double_array_value
-        else:
-            raise ValueError(f"Unsupported parameter type: {parameter_type}")
-
     def initialize_constants(self):
         """ Initializes the physical constants of the quadrotor model by loading them from a configuration file.
         The configuration file is expected to be located in the 'quadrotor_description/config' folder and named '<name>_params.yaml' 
@@ -152,7 +137,7 @@ class QuadrotorPybulletPhysics(Node):
         self.KM = CF2X_PARAMS['KM']  # Nm/(rad/s)^2
         self.M = CF2X_PARAMS['M']  # kg
         self.W = self.M*self.G  # N
-        self.HOVER_RPM = np.sqrt(self.W/(4*self.KF))  # rpm
+        self.HOVER_RPM = np.sqrt(self.W/(4*self.KF))  # rad/s
 
     def initialize_urdf(self):
         """

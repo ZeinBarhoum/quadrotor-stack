@@ -4,3 +4,5 @@ CF2X_PARAMS:
   M: 0.027
   ARM: 0.028
   T2W: 2.5
+  T_ROT: 0.033
+  AL_ROT:  20000

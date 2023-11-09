@@ -46,7 +46,7 @@ PybulletCameraSimulation:
   obstacles_poses: [4.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0,
                     8.0, 4.0, 1.0, 0.0, 0.0, -0.7, 0.7,
                     8.0, 4.0, 3.0, 0.0, 0.0, -0.7, 0.7,
-                    4.0, 1.0, 2.0, 0.0, 0.0, 0.0, 1.0,]  # List of poses, if None then [0.0]
+                    4.0, 2.0, 2.0, 0.0, 0.0, 0.0, 1.0,]  # List of poses, if None then [0.0]
   render_ground: true  # Whether to render the ground plane
   render_architecture: true  # Whether to render the architecture
   # Dimensions of the published images
@@ -91,7 +91,7 @@ DFBCController:
 PolyTrajOptimizer:
   time_allocation: distance_proportional  # distance_proportional, constant or optimization
   segment_time: 0.1  # segment time in seconds for constant time allocation
-  avg_velocity: 1.5  # average velocity in m/s for distance proportional time allocation
+  avg_velocity: 3.5  # average velocity in m/s for distance proportional time allocation
   quadrotor_description: cf2x  # quadrotor description file name (without extension)
   one_segment: false  # if true, the trajectory will be a single segment
   high_order_constraints: 2  # number of constraints for the high order derivatives (velocity = 1 and so on)

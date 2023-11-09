@@ -10,7 +10,7 @@
         <visual name='v1'>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <mesh filename="$(find quadrotor_simulation)/meshes/hoop.dae" scale="1.0 1.0 1.0"/>                
+                <mesh filename="$(find quadrotor_simulation)/meshes/hoop.dae" scale="1.5 1.5 1.5"/>                
             </geometry>
             <material name="blue">
                 <color rgba="1.0 .0 .0 1"/>
