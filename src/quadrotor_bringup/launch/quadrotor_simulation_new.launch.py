@@ -114,5 +114,5 @@ def generate_launch_description():
             path_finding_node,
             path_visualizer_node,
             image_visualizer_node,
-            # rqt_gui_node,
+            rqt_gui_node,
         ])
