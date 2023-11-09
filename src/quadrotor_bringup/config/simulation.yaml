@@ -52,7 +52,7 @@ PybulletCameraSimulation:
   # Dimensions of the published images
   image_width: 640
   image_height: 480
-  image_publishing_frequency: 40  # Frequency at which images are published
+  image_publishing_frequency: 60  # Frequency at which images are published
   state_topic: quadrotor_state  # Topic name for the quadrotor state messages
   image_topic: quadrotor_img  # Topic name for the quadrotor image messages
   threading: false
@@ -81,7 +81,7 @@ DFBCController:
   KP_XYZ: [5.0, 5.0, 40.0]  # For position
   KD_XYZ: [5.0, 5.0, 12.0]  # For position
   KP_RPY: [0.005, 0.005, 0.005]  # For roll, pitch and yaw
-  KD_RPY: [0.001, 0.001, 0.02]  # For roll, pitch and yaw
+  KD_RPY: [0.001, 0.001, 0.001]  # For roll, pitch and yaw
   quadrotor_description: cf2x  # quadrotor name (for config file)
   state_topic: quadrotor_state
   reference_topic: quadrotor_reference

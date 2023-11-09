@@ -21,7 +21,7 @@
     <visual>
       <origin rpy="0 0 55" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="$(find quadrotor_description)/meshes/cf2.dae" scale="2 2 2"/>
+        <mesh filename="$(find quadrotor_description)/meshes/cf2.dae" scale="1 1 1"/>
       </geometry>
       <material name="grey">
         <color rgba=".5 .5 .5 1"/>

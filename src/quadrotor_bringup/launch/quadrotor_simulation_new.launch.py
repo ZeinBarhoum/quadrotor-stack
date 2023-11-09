@@ -91,6 +91,11 @@ def generate_launch_description():
             {'refresh_rate': path_visualizer_parameters['refresh_rate']}],
         output='screen'
     )
+    image_visualizer_node = Node(
+        package='quadrotor_dashboard',
+        executable='quadrotor_image_visualizer',
+        output='screen'
+    )
     rqt_gui_node = Node(
         package='rqt_gui',
         executable='rqt_gui',
@@ -108,5 +113,6 @@ def generate_launch_description():
             mapping_node,
             path_finding_node,
             path_visualizer_node,
+            image_visualizer_node,
             # rqt_gui_node,
         ])
