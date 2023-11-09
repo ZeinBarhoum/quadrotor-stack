@@ -47,33 +47,33 @@ class QuadrotorPybulletCamera(Node):
         """ Initializes the node."""
         super().__init__('quadrotor_pybullet_camera_node')
 
-        # Declare the parameters
-        self.declare_parameter('physics_server', 'GUI')  # GUI, DIRECT
-        self.declare_parameter('quadrotor_description', 'cf2x')
-        self.declare_parameter('obstacles_description', ['NONE'])
-        self.declare_parameter('obstacles_poses', [0.0])
-        self.declare_parameter('render_ground', True)
-        self.declare_parameter('render_architecture', True)
-        self.declare_parameter('image_width', 800)
-        self.declare_parameter('image_height', 600)
-        self.declare_parameter('image_publishing_frequency', DEFAULT_FREQUENCY_IMG)
-        self.declare_parameter('state_topic', 'quadrotor_state')
-        self.declare_parameter('image_topic', 'quadrotor_img')
-        self.declare_parameter('threading', False)
+        # Declare parameters
+        self.declare_parameters(namespace='', parameters=[('physics_server', 'GUI'),
+                                                          ('quadrotor_description', 'cf2x'),
+                                                          ('obstacles_description', ['NONE']),
+                                                          ('obstacles_poses', [0.0]),
+                                                          ('render_ground', True),
+                                                          ('render_architecture', True),
+                                                          ('image_width', 800),
+                                                          ('image_height', 600),
+                                                          ('image_publishing_frequency', DEFAULT_FREQUENCY_IMG),
+                                                          ('state_topic', 'quadrotor_state'),
+                                                          ('image_topic', 'quadrotor_img'),
+                                                          ('threading', False)])
 
         # Get the parameters
-        self.physics_server = self.get_parameter_value('physics_server', 'str')
-        self.quadrotor_description_file_name = self.get_parameter_value('quadrotor_description', 'str')
-        self.obstacles_description_file_names = self.get_parameter_value('obstacles_description', 'list[str]')
-        self.obstacles_poses = self.get_parameter_value('obstacles_poses', 'list[float]')
-        self.render_ground = self.get_parameter_value('render_ground', 'bool')
-        self.render_architecture = self.get_parameter_value('render_architecture', 'bool')
-        self.image_width = self.get_parameter_value('image_width', 'int')
-        self.image_height = self.get_parameter_value('image_height', 'int')
-        self.image_publishing_frequency = self.get_parameter_value('image_publishing_frequency', 'int')
-        self.state_topic = self.get_parameter_value('state_topic', 'str')
-        self.image_topic = self.get_parameter_value('image_topic', 'str')
-        self.threading = self.get_parameter_value('threading', 'bool')
+        self.physics_server = self.get_parameter('physics_server').get_parameter_value().string_value
+        self.quadrotor_description_file_name = self.get_parameter('quadrotor_description').get_parameter_value().string_value
+        self.obstacles_description_file_names = self.get_parameter('obstacles_description').get_parameter_value().string_array_value
+        self.obstacles_poses = self.get_parameter('obstacles_poses').get_parameter_value().double_array_value
+        self.render_ground = self.get_parameter('render_ground').get_parameter_value().bool_value
+        self.render_architecture = self.get_parameter('render_architecture').get_parameter_value().bool_value
+        self.image_width = self.get_parameter('image_width').get_parameter_value().integer_value
+        self.image_height = self.get_parameter('image_height').get_parameter_value().integer_value
+        self.image_publishing_frequency = self.get_parameter('image_publishing_frequency').get_parameter_value().integer_value
+        self.state_topic = self.get_parameter('state_topic').get_parameter_value().string_value
+        self.image_topic = self.get_parameter('image_topic').get_parameter_value().string_value
+        self.threading = self.get_parameter('threading').get_parameter_value().bool_value
 
         # Subscribers and Publishers
         self.state_subscriber = self.create_subscription(msg_type=State,
@@ -101,53 +101,8 @@ class QuadrotorPybulletCamera(Node):
         self.start_time = self.get_clock().now()  # For logging purposes
         self.get_logger().info(f'QuadrotorPybullet node initialized at {self.start_time.seconds_nanoseconds()}')
 
-    def get_parameter_value(self, parameter_name: str, parameter_type: str) -> Union[bool, int, float, str, List[str]]:
-        """
-        Get the value of a parameter with the given name and type.
-
-        Args:
-            parameter_name: The name of the parameter to retrieve.
-            parameter_type: The type of the parameter to retrieve. Supported types are 'bool', 'int', 'float', 'str',
-                'list[float]' and 'list[str]'.
-
-        Returns:
-            The value of the parameter, cast to the specified type.
-
-        Raises:
-            ValueError: If the specified parameter type is not supported.
-        """
-
-        parameter = self.get_parameter(parameter_name)
-        parameter_value = parameter.get_parameter_value()
-
-        if parameter_type == 'bool':
-            return parameter_value.bool_value
-        elif parameter_type == 'int':
-            return parameter_value.integer_value
-        elif parameter_type == 'float':
-            return parameter_value.double_value
-        elif parameter_type == 'str':
-            return parameter_value.string_value
-        elif parameter_type == 'list[str]':
-            return parameter_value.string_array_value
-        elif parameter_type == 'list[float]':
-            return parameter_value.double_array_value
-        else:
-            raise ValueError(f"Unsupported parameter type: {parameter_type}")
-
     def initialize_urdf(self):
-        """
-        Initializes the quadrotor and obstacle URDF files for PyBullet simulation.
 
-        This method uses Xacro to convert the quadrotor's Xacro file to a URDF file and saves it for PyBullet to read.
-        It also retrieves the obstacle URDF files and saves them for PyBullet to read.
-
-        Args:
-            None
-
-        Returns:
-            None
-        """
         quadrotor_description_folder = os.path.join(get_package_share_directory('quadrotor_description'), 'description')
         quadrotor_description_file = os.path.join(quadrotor_description_folder, self.quadrotor_description_file_name+'.urdf.xacro')
         quadrotor_description_content = xacro.process_file(quadrotor_description_file).toxml()
@@ -171,17 +126,7 @@ class QuadrotorPybulletCamera(Node):
             self.obstacle_urdf_files.append(new_file)
 
     def initialize_pybullet(self):
-        """
-        Initializes the PyBullet physics engine and loads the necessary URDF files for the quadrotor simulation.
-        If the physics server is set to 'DIRECT', the simulation runs without a GUI, otherwise a GUI is displayed.
-        The simulation time step period, gravity, ground and obstacles are also set up.
 
-        Args:
-            None
-
-        Returns:
-            None
-        """
         if (self.physics_server == 'DIRECT'):
             self.physicsClient = p.connect(p.DIRECT)
         else:
@@ -195,30 +140,17 @@ class QuadrotorPybulletCamera(Node):
         for (i, obstacle_urdf_file) in enumerate(self.obstacle_urdf_files):
             self.obstacleIds.append(p.loadURDF(obstacle_urdf_file, self.obstacles_poses[i*7: i*7+3], self.obstacles_poses[i*7+3: i*7+7], useFixedBase=1))
         self.quadrotor_id = p.loadURDF(self.quadrotor_urdf_file, [0, 0, 0.25])
-        # Disable default damping of pybullet!
+        # Configure the debug visualizer
         p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
         p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW, 0)
         p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW, 0)
         p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW, 0)
 
     def initialize_data(self):
-        """
-        Initializes the data required for the quadrotor simulation.
-
-        Sets the initial rotor speeds to the hover RPM, initializes the state of the quadrotor, and creates an empty ROS image.
-
-        Args:
-            None
-
-        Returns:
-            None
-        """
-
         self.state = State()
         self.ros_img = Image()
 
     def receive_state_callback(self, msg):
-
         self.state = msg
 
     def publish_image_callback(self):
@@ -228,16 +160,6 @@ class QuadrotorPybulletCamera(Node):
             self.publish_image_callback_thread()
 
     def publish_image_callback_thread(self):
-        """
-        Publishes an image from the quadrotor's camera to a ROS topic.
-
-        The image is captured using PyBullet's getCameraImage function, which
-        simulates the quadrotor's camera. The image is then converted to ROS format
-        and published to the image_publisher topic.
-
-        Returns:
-            None
-        """
         bridge = CvBridge()
         pose = self.state.state.pose
         quad_pos = [pose.position.x, pose.position.y, pose.position.z]
@@ -256,7 +178,7 @@ class QuadrotorPybulletCamera(Node):
         view_matrix = p.computeViewMatrix(
             quad_pos, quad_pos + 0.1 * camera_vector, up_vector)
 
-        projection_matrix = p.computeProjectionMatrixFOV(fov=60, aspect=float(self.image_width) / self.image_height, nearVal=0.1, farVal=1000.0)
+        projection_matrix = p.computeProjectionMatrixFOV(fov=60, aspect=float(self.image_width) / self.image_height, nearVal=0.1, farVal=100.0)
 
         _, _, px, _, _ = p.getCameraImage(
             width=self.image_width,
@@ -278,13 +200,8 @@ class QuadrotorPybulletCamera(Node):
 
 
 def main(args=None):
-    """
-    Initializes the ROS 2 node for the quadrotor simulation using PyBullet physics engine.
-    Args:
-        args: List of strings representing command line arguments.
-    """
-    rclpy.init(args=args)
 
+    rclpy.init(args=args)
     node = QuadrotorPybulletCamera()
     rclpy.spin(node)
     node.destroy_node()

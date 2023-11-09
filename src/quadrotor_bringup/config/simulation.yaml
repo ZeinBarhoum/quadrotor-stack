@@ -52,7 +52,7 @@ PybulletCameraSimulation:
   # Dimensions of the published images
   image_width: 640
   image_height: 480
-  image_publishing_frequency: 120  # Frequency at which images are published
+  image_publishing_frequency: 40  # Frequency at which images are published
   state_topic: quadrotor_state  # Topic name for the quadrotor state messages
   image_topic: quadrotor_img  # Topic name for the quadrotor image messages
   threading: false
