@@ -22,16 +22,12 @@ In real life, the simulation node would be replaced with multiple nodes, namely 
 - [ ] Tracking: quadrotor_control
   - [x] PID: quadrotor_pid
   - [x] DFBC
-  - [ ] MPC
-- [ ] Mapping
 - [ ] Path Planning : quadrotor_path_finding
   - [x] RRT : quadrotor_rrt
-  - [ ] RRT-star
 - [ ] Trajectory Generation : quadrotor_trajectory_generation
   - [x] 3rd order polynomials (no optimization) - quadrotor_poly_optimizer
   - [x] Higher order polynomials (with optimization)
-  - [ ] B-splines
-  - [ ] Bézier
+
 
 ## Installation
 
@@ -50,36 +46,43 @@ Next, navigate to your preferable folder and download the repository
 ```bash
 cd /path/to/work/folder
 mkdir quadrotor_ws && cd quadrotor_ws
-git clone https://github.com/ZeinBarhoum/quadrotor-plan-control.git
+#git clone https://github.com/ZeinBarhoum/quadrotor-plan-control.git #when it becomes public
+git clone git@github.com:ZeinBarhoum/quadrotor-plan-control.git
+```
+
+Install dependencies:
+```bash
+cd quadrotor-plan-control && rosdep install --from-paths src --ignore-src
 ```
 
 Finally, build the workspace and source the install-file.
 
 ```bash
 colcon build
+```
+for development, it's better to use symlink-install
+
+```bash
+colcon build --symlink-install
+```
+
+Don't forget to source this workspace before usage
+
+```bash
 source install/setup.bash
 ```
-
 ## Usage
 
-To start the simulation node run the following
+To start the simulation with the controller, path finding and trajectory planning nodes configured, run the following:
 
 ```bash
-ros2 run quadrotor_simulation quadrotor_pybullet
-```
-
-This node listens to the `/quadrotor_rotor_speeds` topic and publishes to `/quadrotor_state` topic.
-
-To launch a simulation with PID controller and simple reference publisher, use the following command.
-
-```bash
-ros2 launch quadrotor_bringup quadrotor_simulation.launch.py controller:=quadrotor_pid
+ros2 launch quadrotor_bringup quadrotor_simulation.launch.py
 ```
 
 To command the quadrotor to follow a circle, the following command publishes the polynomial trajectory approximation of a circle to the `/quadrotor_polynomial_trajectory`. The node `quadrotor_reference_publisher` publishes the reference state to `/quadrotor_reference` topic in fixed rate following the polynomial function.
 
 ```bash
-ros2 topic pub --once /quadrotor_polynomial_trajectory quadrotor_interfaces/msg/PolynomialTrajectory "{header: {}, poly_x: [1.51383985371781e-07, -7.14571397410070e-06, 0.000130239969470174, -0.00109778199648815, 0.00371446637221780, -0.000980038295903419, 0.0134900091914051, -0.176415378615748, 0.00200274735664833, 1.00066799320626, -0.000130544080559754], poly_y: [2.21841764793139e-07, -6.96929094200916e-06, 7.42738645341275e-05, -0.000215896450055789, -0.000777698773923802, -0.00112904042577661, 0.0429934777291669,  -0.000934805450807571, -0.499647157157789, -5.69214830909161e-05, 1.00000216767309], poly_z: [2.0], t_clip: 6.28}"
+ros2 topic pub --once /quadrotor_polynomial_trajectory quadrotor_interfaces/msg/PolynomialTrajectory "{header: {}, n: 1, segments: [{poly_x: [1.51383985371781e-07, -7.14571397410070e-06, 0.000130239969470174, -0.00109778199648815, 0.00371446637221780, -0.000980038295903419, 0.0134900091914051, -0.176415378615748, 0.00200274735664833, 1.00066799320626, -0.000130544080559754], poly_y: [2.21841764793139e-07, -6.96929094200916e-06, 7.42738645341275e-05, -0.000215896450055789, -0.000777698773923802, -0.00112904042577661, 0.0429934777291669,  -0.000934805450807571, -0.499647157157789, -5.69214830909161e-05, 1.00000216767309], poly_z: [2.0], poly_yaw: [0.0], start_time: 0.0, end_time: 6.28}]}"
 ```
 
 To command the quadrotor to follow a sequence of waypoints, the node quadrotor_poly_optimizer is responsible to publish to the `/quadrotor_polynomial_trajectory` after receiving a sequence of waypoints on the topic `quadrotor_waypoints`. For now, it's not much an optimization task as it's a trajectory generation task with fixed 1 seconds between each two waypoints,
@@ -87,10 +90,8 @@ To command the quadrotor to follow a sequence of waypoints, the node quadrotor_p
 An example of commanding the quadrotor to follow a triangle is:
 
 ```bash
-ros2 topic pub --once /quadrotor_waypoints quadrotor_interfaces/msg/PathWayPoints "{waypoints: [{x: 1, y: 1, z: 1}, {x: 2, y: 2, z: 2}, {x: 1, y: 1, z: 2}]}"
+ros2 topic pub --once /quadrotor_waypoints quadrotor_interfaces/msg/PathWayPoints "{waypoints: [{x: 1, y: 1, z: 1}, {x: 4, y: 4, z: 1}, {x: 1, y: 4, z: 2}], heading_angles: [0.0, 0.0, 0.0]}"
 ```
-
-Note: The waypoints are considered circular, which means after completing the last one, it returns to the first.
 
 To plan a collision free path from the current position (retrieved from the `/quadrotor_state` topic) to a target position published to the `/quadrotor_plan_command`, we can use the RRT planner node `quadrotor_rrt` from the `quadrotor_path_finding` package as follows:
 
@@ -99,6 +100,7 @@ ros2 topic pub /quadrotor_plan_command geometry_msgs/msg/Point "{x : 5.0, y : 5.
 ```
 
 The planner make use of the OccupancyMap published to the `/quadrotor_map` topic.
+
 
 ## Modularity
 

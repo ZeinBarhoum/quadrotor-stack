@@ -2,10 +2,15 @@
 
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="hoop">
     <link name="base_link">
+        <inertial>
+            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+            <mass value="0.0"/>
+            <inertia ixx="0.0" ixy="0.0" ixz="0.0" iyy="0.0" iyz="0.0" izz="0.0"/>
+        </inertial>
         <visual name='v1'>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <mesh filename="$(find quadrotor_simulation)/meshes/hoop.dae" scale="1.0"/>                
+                <mesh filename="$(find quadrotor_simulation)/meshes/hoop.dae" scale="1.5 1.5 1.5"/>                
             </geometry>
             <material name="blue">
                 <color rgba="1.0 .0 .0 1"/>
