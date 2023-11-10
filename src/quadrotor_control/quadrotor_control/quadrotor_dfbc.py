@@ -158,6 +158,11 @@ class QuadrotorDFBC(Node):
         self.MAX_RPM = math.sqrt(self.MAX_THRUST / (4 * self.KF))
         self.MAX_TORQUE_XY = self.ARM * self.KF * self.MAX_RPM ** 2
         self.MAX_TORQUE_Z = 2 * self.KM * self.MAX_RPM ** 2
+        self.ROTOR_DIRS = quadrotor_params['ROTOR_DIRS']
+        self.ARM_X = quadrotor_params['ARM_X']
+        self.ARM_Y = quadrotor_params['ARM_Y']
+        self.ARM_Z = quadrotor_params['ARM_Z']
+        self.J = np.array(quadrotor_params['J'])
 
     def initialize_errors(self):
         """ Initializes the integral control errors for position and rotation.
@@ -299,11 +304,10 @@ class QuadrotorDFBC(Node):
         #               [0, self.ARM*self.KF, 0, -self.ARM*self.KF],
         #               [-self.ARM*self.KF, 0, self.ARM*self.KF, 0],
         #               [self.KM, -self.KM, self.KM, -self.KM]])
-        arm_angle = math.pi / 4
         A = np.array([[self.KF, self.KF, self.KF, self.KF],
-                      self.KF*self.ARM*np.array([math.cos(arm_angle), math.sin(arm_angle), -math.cos(arm_angle), -math.sin(arm_angle)]),
-                      self.KF*self.ARM*np.array([-math.sin(arm_angle), math.cos(arm_angle), math.sin(arm_angle), -math.cos(arm_angle)]),
-                      [-self.KM, self.KM, -self.KM, self.KM]])
+                      self.KF*self.ARM_Y*np.array([-1, 1, 1, -1]),
+                      self.KF*self.ARM_X*np.array([-1, -1, 1, 1]),
+                      [-self.ROTOR_DIRS[0]*self.KM, -self.ROTOR_DIRS[1]*self.KM, -self.ROTOR_DIRS[2]*self.KM, -self.ROTOR_DIRS[3]*self.KM]])
 
         # rotor_speeds_squared = np.matmul(np.linalg.inv(A), np.array([thrust, torques[0], torques[1], torques[2]]))
         # rotor_speeds_squared = np.clip(rotor_speeds_squared, 0, self.MAX_RPM**2)
