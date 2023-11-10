@@ -22,6 +22,7 @@ setup(
         'console_scripts': [
             'quadrotor_path_visualizer = quadrotor_dashboard.quadrotor_path_visualizer:main',
             'quadrotor_image_visualizer = quadrotor_dashboard.quadrotor_image_visualizer:main',
+            'quadrotor_model_errors_visualizer = quadrotor_dashboard.quadrotor_model_errors_visualizer:main',
             'rqt_plan_command = quadrotor_dashboard.main:main',
             'rqt_publish_waypoints = quadrotor_dashboard.plugin_publish_waypoints:main',
         ],

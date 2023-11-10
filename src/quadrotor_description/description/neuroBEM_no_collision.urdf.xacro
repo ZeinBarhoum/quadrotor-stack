@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="neuroBEM" >
+  <xacro:property name="ARM_X" value="0.078"/>
+  <xacro:property name="ARM_Y" value="0.1"/>
+  <xacro:property name="ARM_Z" value="0.027"/>
+  <xacro:property name="MASS" value="0.772"/>
+  <xacro:property name="IXX" value="0.00254"/>
+  <xacro:property name="IYY" value="0.00214"/>
+  <xacro:property name="IZZ" value="0.00436"/>
+
+  
+  <link name="base_link">
+
+    <!-- <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="${MASS}"/>
+      <inertia ixx="${IXX}" ixy="0.0" ixz="0.0" iyy="${IYY}" iyz="0.0" izz="${IZZ}"/>
+    </inertial>  -->
+
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <sphere radius="${0.1*sqrt(ARM_X**2+ARM_Y**2)}"/>
+      </geometry>  
+      <material name="red">
+        <color rgba="1.0 0.0 0.0 1.0"/>
+      </material>
+    </visual>
+
+    <!-- Rotor 1 -->
+    <visual>
+      <origin xyz="${ARM_X/2} ${ARM_Y/2} 0" rpy="0 0 ${-atan(ARM_X/ARM_Y)}"/>
+      <geometry>
+        <box size="${0.1* sqrt(ARM_X**2+ARM_Y**2)} ${sqrt(ARM_X**2+ARM_Y**2)} ${0.1*ARM_Z}"/>
+      </geometry>
+    </visual>    
+    <visual>
+      <origin xyz="${ARM_X} ${ARM_Y} ${ARM_Z/2}" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${0.1*ARM_Z}" length="${ARM_Z}"/>
+      </geometry>
+    </visual>
+
+    <!-- Rotor 2 -->
+    <visual>
+      <origin xyz="${-ARM_X/2} ${ARM_Y/2} 0" rpy="0 0 ${-atan(-ARM_X/ARM_Y)}"/>
+      <geometry>
+        <box size="${0.1* sqrt(ARM_X**2+ARM_Y**2)} ${sqrt(ARM_X**2+ARM_Y**2)} ${0.1*ARM_Z}"/>
+      </geometry>
+    </visual>    
+    <visual>
+      <origin xyz="${-ARM_X} ${ARM_Y} ${ARM_Z/2}" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${0.1*ARM_Z}" length="${ARM_Z}"/>
+      </geometry>
+    </visual>
+
+    <!-- Rotor 3 -->
+    <visual>
+      <origin xyz="${-ARM_X/2} ${-ARM_Y/2} 0" rpy="0 0 ${-atan(ARM_X/ARM_Y)}"/>
+      <geometry>
+        <box size="${0.1* sqrt(ARM_X**2+ARM_Y**2)} ${sqrt(ARM_X**2+ARM_Y**2)} ${0.1*ARM_Z}"/>
+      </geometry>
+    </visual>    
+    <visual>
+      <origin xyz="${-ARM_X} ${-ARM_Y} ${ARM_Z/2}" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${0.1*ARM_Z}" length="${ARM_Z}"/>
+      </geometry>
+    </visual>
+
+    <!-- Rotor 4 -->
+    <visual>
+      <origin xyz="${ARM_X/2} ${-ARM_Y/2} 0" rpy="0 0 ${-atan(-ARM_X/ARM_Y)}"/>
+      <geometry>
+        <box size="${0.1* sqrt(ARM_X**2+ARM_Y**2)} ${sqrt(ARM_X**2+ARM_Y**2)} ${0.1*ARM_Z}"/>
+      </geometry>
+    </visual>    
+    <visual>
+      <origin xyz="${ARM_X} ${-ARM_Y} ${ARM_Z/2}" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${0.1*ARM_Z}" length="${ARM_Z}"/>
+      </geometry>
+    </visual>
+
+  </link>
+
+  <link name="prop0_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="${ARM_X} -${ARM_Y} ${ARM_Z}" />
+      <mass value="0" />
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
+    </inertial>
+  </link> 
+  <joint name="prop0_joint" type="fixed">
+      <parent link="base_link" />
+      <child link="prop0_link" />
+  </joint>
+  
+
+  <link name="prop1_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="${ARM_X} ${ARM_Y} ${ARM_Z}"/>
+      <mass value="0"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+  </link>
+  <joint name="prop1_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="prop1_link"/>
+  </joint>
+
+  <link name="prop2_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="-${ARM_X} ${ARM_Y} ${ARM_Z}"/>
+      <mass value="0"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+  </link>
+  <joint name="prop2_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="prop2_link"/>
+  </joint>
+
+  <link name="prop3_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="-${ARM_X} -${ARM_Y} ${ARM_Z}"/>
+      <mass value="0"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+  </link>
+  
+  <joint name="prop3_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="prop3_link"/>
+  </joint>
+
+</robot>

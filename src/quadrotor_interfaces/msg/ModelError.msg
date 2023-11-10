@@ -1,0 +1,3 @@
+quadrotor_interfaces/ModelOutput dataset
+quadrotor_interfaces/ModelOutput actual
+quadrotor_interfaces/ModelOutput error
