@@ -52,7 +52,8 @@ class QuadrotorPybulletPhysics(Node):
                                                           ('render_ground', True),
                                                           ('simulation_step_frequency', DEFAULT_FREQUENCY),
                                                           ('state_topic', 'quadrotor_state'),
-                                                          ('rotor_speeds_topic', 'quadrotor_rotor_speeds')])
+                                                          ('rotor_speeds_topic', 'quadrotor_rotor_speeds'),
+                                                          ('use_rotor_dynamics', True)])
         # Get the parameters
         self.physics_server = self.get_parameter('physics_server').get_parameter_value().string_value
         self.quadrotor_description_file_name = self.get_parameter('quadrotor_description').get_parameter_value().string_value
@@ -62,27 +63,7 @@ class QuadrotorPybulletPhysics(Node):
         self.simulation_step_frequency = self.get_parameter('simulation_step_frequency').get_parameter_value().integer_value
         self.state_topic = self.get_parameter('state_topic').get_parameter_value().string_value
         self.rotor_speeds_topic = self.get_parameter('rotor_speeds_topic').get_parameter_value().string_value
-
-        # # Declare the parameters
-        # self.declare_parameter('physics_server', 'DIRECT')  # GUI, DIRECT
-        # self.declare_parameter('quadrotor_description', 'cf2x')
-        # self.declare_parameter('obstacles_description', ['NONE'])
-        # self.declare_parameter('obstacles_poses', [0.0])
-        # self.declare_parameter('render_ground', True)
-        # self.declare_parameter('simulation_step_frequency', DEFAULT_FREQUENCY)
-        # self.declare_parameter('state_topic', 'quadrotor_state')
-        # self.declare_parameter('rotor_speeds_topic', 'quadrotor_rotor_speeds')
-
-        # # Get the parameters
-        # self.physics_server = self.get_parameter_value('physics_server', 'str')
-        # self.quadrotor_description_file_name = self.get_parameter_value('quadrotor_description', 'str')
-        # self.obstacles_description_file_names = self.get_parameter_value('obstacles_description', 'list[str]')
-        # self.obstacles_poses = self.get_parameter_value('obstacles_poses', 'list[float]')
-        # self.render_ground = self.get_parameter_value('render_ground', 'bool')
-        # self.simulation_step_frequency = self.get_parameter_value('simulation_step_frequency', 'int')
-        # self.state_topic = self.get_parameter_value('state_topic', 'str')
-        # self.rotor_speeds_topic = self.get_parameter_value('rotor_speeds_topic', 'str')
-
+        self.use_rotor_dynamics = self.get_parameter('use_rotor_dynamics').get_parameter_value().bool_value
         # Subscribers and Publishers
         self.rotor_speeds_subscriber = self.create_subscription(msg_type=RotorCommand,
                                                                 topic=self.rotor_speeds_topic,
@@ -111,16 +92,6 @@ class QuadrotorPybulletPhysics(Node):
         self.get_logger().info(f'QuadrotorPybulletPhysics node initialized at {self.start_time.seconds_nanoseconds()}')
 
     def initialize_constants(self):
-        """ Initializes the physical constants of the quadrotor model by loading them from a configuration file.
-        The configuration file is expected to be located in the 'quadrotor_description/config' folder and named '<name>_params.yaml' 
-        where <name> is the name of the quadrotor description file.
-        The loaded parameters are stored as instance variables for later use in the simulation.
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
         config_folder = os.path.join(get_package_share_directory('quadrotor_description'), 'config')
         config_file = os.path.join(config_folder, self.quadrotor_description_file_name+'_params.yaml')
         with open(config_file, "r") as stream:
@@ -131,27 +102,19 @@ class QuadrotorPybulletPhysics(Node):
                     f"Cofiguration File {config_file} Couldn't Be Loaded, Raised Error {exc}")
                 parameters = dict()
         # self.get_logger().info(f'{parameters=}')
-        CF2X_PARAMS = parameters['CF2X_PARAMS']
+        quadrotor_params = parameters[f'{self.quadrotor_description_file_name.upper()}_PARAMS']
         self.G = 9.81  # m/s^2
-        self.KF = CF2X_PARAMS['KF']  # N/(rad/s)^2
-        self.KM = CF2X_PARAMS['KM']  # Nm/(rad/s)^2
-        self.M = CF2X_PARAMS['M']  # kg
-        self.W = self.M*self.G  # N
-        self.HOVER_RPM = np.sqrt(self.W/(4*self.KF))  # rad/s
+        self.KF = quadrotor_params['KF']
+        self.KM = quadrotor_params['KM']
+        self.M = quadrotor_params['M']
+        self.W = self.M*self.G
+        self.ROT_HOVER_VEL = np.sqrt(self.W/(4*self.KF))
+        self.T2W = quadrotor_params['T2W']
+        self.ROT_MAX_VEL = np.sqrt(self.T2W*self.W/(4*self.KF))
+        self.ROT_MAX_ACC = quadrotor_params['ROT_MAX_ACC']
+        self.ROT_TIME_STEP = quadrotor_params['ROT_TIME_STEP']
 
     def initialize_urdf(self):
-        """
-        Initializes the quadrotor and obstacle URDF files for PyBullet simulation.
-
-        This method uses Xacro to convert the quadrotor's Xacro file to a URDF file and saves it for PyBullet to read.
-        It also retrieves the obstacle URDF files and saves them for PyBullet to read.
-
-        Args:
-            None
-
-        Returns:
-            None
-        """
         quadrotor_description_folder = os.path.join(get_package_share_directory('quadrotor_description'), 'description')
         quadrotor_description_file = os.path.join(quadrotor_description_folder, self.quadrotor_description_file_name+'.urdf.xacro')
         quadrotor_description_content = xacro.process_file(quadrotor_description_file).toxml()
@@ -175,17 +138,6 @@ class QuadrotorPybulletPhysics(Node):
             self.obstacle_urdf_files.append(new_file)
 
     def initialize_pybullet(self):
-        """
-        Initializes the PyBullet physics engine and loads the necessary URDF files for the quadrotor simulation.
-        If the physics server is set to 'DIRECT', the simulation runs without a GUI, otherwise a GUI is displayed.
-        The simulation time step period, gravity, ground and obstacles are also set up.
-
-        Args:
-            None
-
-        Returns:
-            None
-        """
         if (self.physics_server == 'DIRECT'):
             self.physicsClient = p.connect(p.DIRECT)
         else:
@@ -212,33 +164,22 @@ class QuadrotorPybulletPhysics(Node):
         p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW, 0)
 
     def initialize_data(self):
-        """
-        Initializes the data required for the quadrotor simulation.
-
-        Sets the initial rotor speeds to the hover RPM, initializes the state of the quadrotor, and creates an empty ROS image.
-
-        Args:
-            None
-
-        Returns:
-            None
-        """
-
-        self.rotor_speeds = np.array([self.HOVER_RPM] * 4)
+        self.rotor_speeds = np.array([self.ROT_HOVER_VEL] * 4)
         self.state = State()
         self.ros_img = Image()
+        self.current_time = self.get_clock().now()
 
     def receive_commands_callback(self, msg):
-        """
-        Callback function to receive commands from a ROS topic.
-
-        Args:
-            msg: A ROS message containing the rotor speeds.
-
-        Returns:
-            None
-        """
-        self.rotor_speeds = np.array(msg.rotor_speeds)
+        if not self.use_rotor_dynamics:
+            self.rotor_speeds = np.array(msg.rotor_speeds)
+            return
+        dt = (self.get_clock().now() - self.current_time).nanoseconds / 1e9
+        self.current_time = self.get_clock().now()
+        command_rotor_speeds = np.array(msg.rotor_speeds)
+        rotor_acceleration = (command_rotor_speeds - self.rotor_speeds) / self.ROT_TIME_STEP
+        rotor_acceleration = np.clip(rotor_acceleration, -self.ROT_MAX_ACC, self.ROT_MAX_ACC)
+        self.rotor_speeds += rotor_acceleration * dt
+        self.rotor_speeds = np.clip(self.rotor_speeds, 0, self.ROT_MAX_VEL)
 
     def get_F_T(self):
         """
@@ -250,9 +191,8 @@ class QuadrotorPybulletPhysics(Node):
             The first two components of T are always zero, since the torques aroung these axes are simulated by the forces applied to the rotors.
             The third component of T represents the net torque (due to aerodynamic drag) around the z axis, which controls the quadrotor's yaw rotation.
         """
-        w_rpm = self.rotor_speeds
-        F = np.array(w_rpm**2)*self.KF
-        T = np.array(w_rpm**2)*self.KM
+        F = np.array(self.rotor_speeds**2)*self.KF
+        T = np.array(self.rotor_speeds**2)*self.KM
         Tz = (-T[0] + T[1] - T[2] + T[3])
         return F, np.array([0, 0, Tz])
 
@@ -260,9 +200,6 @@ class QuadrotorPybulletPhysics(Node):
         """
         Callback function that is called at each simulation step. Calculates the forces and torques to be applied to the quadrotor,
         applies them to the simulation, and updates the quadrotor's state. The state is then stored in the `self.state` attribute.
-
-        Returns:
-            None
         """
         F, T = self.get_F_T()  # calculate the forces and torques
         for i in range(4):  # for each rotor
