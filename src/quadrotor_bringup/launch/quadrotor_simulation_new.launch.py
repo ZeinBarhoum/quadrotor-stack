@@ -107,7 +107,7 @@ def generate_launch_description():
             simulation_physics_node,
             simulation_camera_node,
             # pid_controller_node,
-            dfbc_controller_node,
+            # dfbc_controller_node,
             reference_publisher_node,
             trajectory_poly_optimizer_node,
             mapping_node,
