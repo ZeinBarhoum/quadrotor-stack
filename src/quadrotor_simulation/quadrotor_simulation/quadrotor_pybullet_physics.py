@@ -4,24 +4,16 @@ from rclpy.node import Node
 
 from ament_index_python.packages import get_package_share_directory
 
-from quadrotor_interfaces.msg import RotorCommand, State
-from geometry_msgs.msg import Pose, Point, Quaternion, Vector3, Twist, Vector3Stamped
-from sensor_msgs.msg import Image
+from quadrotor_interfaces.msg import RotorCommand, State, ModelError
+from geometry_msgs.msg import Vector3Stamped
 
 import pybullet as p
 import pybullet_data
-
-import cv2
-from cv_bridge import CvBridge
 
 import xacro
 import os
 import numpy as np
 import yaml
-
-from timeit import timeit
-
-from typing import Union, List
 
 from scipy.spatial.transform import Rotation
 
@@ -52,12 +44,17 @@ class QuadrotorPybulletPhysics(Node):
                                                           ('render_ground', True),
                                                           ('simulation_step_frequency', DEFAULT_FREQUENCY),
                                                           ('state_topic', 'quadrotor_state'),
+                                                          ('ff_state_topic', 'quadrotor_ff_state'),
                                                           ('rotor_speeds_topic', 'quadrotor_rotor_speeds'),
                                                           ('wind_speed_topic', 'quadrotor_wind_speed'),
-                                                          ('use_rotor_dynamics', True),
+                                                          ('model_error_topic', 'quadrotor_model_error'),
                                                           ('calculate_linear_drag', True),
                                                           ('calculate_quadratic_drag', True),
-                                                          ('use_wind_speed', True),])
+                                                          ('use_rotor_dynamics', True),
+                                                          ('use_wind_speed', True),
+                                                          ('use_ff_state', False),
+                                                          ('manual_tau_xy_calculation', False),
+                                                          ('publish_model_errors', False)])
         # Get the parameters
         self.physics_server = self.get_parameter('physics_server').get_parameter_value().string_value
         self.quadrotor_description_file_name = self.get_parameter('quadrotor_description').get_parameter_value().string_value
@@ -66,12 +63,17 @@ class QuadrotorPybulletPhysics(Node):
         self.render_ground = self.get_parameter('render_ground').get_parameter_value().bool_value
         self.simulation_step_frequency = self.get_parameter('simulation_step_frequency').get_parameter_value().integer_value
         self.state_topic = self.get_parameter('state_topic').get_parameter_value().string_value
+        self.ff_state_topic = self.get_parameter('ff_state_topic').get_parameter_value().string_value
         self.rotor_speeds_topic = self.get_parameter('rotor_speeds_topic').get_parameter_value().string_value
         self.wind_speed_topic = self.get_parameter('wind_speed_topic').get_parameter_value().string_value
+        self.model_error_topic = self.get_parameter('model_error_topic').get_parameter_value().string_value
         self.use_rotor_dynamics = self.get_parameter('use_rotor_dynamics').get_parameter_value().bool_value
         self.calculate_linear_drag = self.get_parameter('calculate_linear_drag').get_parameter_value().bool_value
         self.calulate_quadratic_drag = self.get_parameter('calculate_quadratic_drag').get_parameter_value().bool_value
         self.use_wind_speed = self.get_parameter('use_wind_speed').get_parameter_value().bool_value
+        self.use_ff_state = self.get_parameter('use_ff_state').get_parameter_value().bool_value
+        self.manual_tau_xy_calculation = self.get_parameter('manual_tau_xy_calculation').get_parameter_value().bool_value
+        self.publish_model_errors = self.get_parameter('publish_model_errors').get_parameter_value().bool_value
 
         # Subscribers and Publishers
         self.rotor_speeds_subscriber = self.create_subscription(msg_type=RotorCommand,
@@ -83,11 +85,21 @@ class QuadrotorPybulletPhysics(Node):
                                                                   topic=self.wind_speed_topic,
                                                                   callback=self.receive_wind_speed_callback,
                                                                   qos_profile=DEFAULT_QOS_PROFILE)
+        if (self.use_ff_state):
+            self.ff_state_subscriber = self.create_subscription(msg_type=State,
+                                                                topic=self.ff_state_topic,
+                                                                callback=self.receive_ff_state_callback,
+                                                                qos_profile=DEFAULT_QOS_PROFILE)
         self.state_publisher = self.create_publisher(msg_type=State,
                                                      topic=self.state_topic,
                                                      qos_profile=DEFAULT_QOS_PROFILE)
 
-        # Control the frequencies of simulation and pbulishing
+        if (self.publish_model_errors):
+            self.model_error_publisher = self.create_publisher(msg_type=ModelError,
+                                                               topic=self.model_error_topic,
+                                                               qos_profile=DEFAULT_QOS_PROFILE)
+
+        # Control the frequencies of simulation
         self.simulation_step_period = 1.0 / self.simulation_step_frequency  # seconds
 
         # initialize the constants, the urdf file and the pybullet client
@@ -115,9 +127,9 @@ class QuadrotorPybulletPhysics(Node):
                 self.get_logger().error(
                     f"Cofiguration File {config_file} Couldn't Be Loaded, Raised Error {exc}")
                 parameters = dict()
-        # self.get_logger().info(f'{parameters=}')
+
         quadrotor_params = parameters[f'{self.quadrotor_description_file_name.upper()}_PARAMS']
-        self.G = 9.81  # m/s^2
+        self.G = 9.81
         self.KF = quadrotor_params['KF']
         self.KM = quadrotor_params['KM']
         self.M = quadrotor_params['M']
@@ -129,6 +141,11 @@ class QuadrotorPybulletPhysics(Node):
         self.ROT_TIME_STEP = quadrotor_params['ROT_TIME_STEP']
         self.DRAG_MAT_LIN = np.array(quadrotor_params['DRAG_MAT_LIN'])
         self.DRAG_MAT_QUAD = np.array(quadrotor_params['DRAG_MAT_QUAD'])
+        self.ROTOR_DIRS = quadrotor_params['ROTOR_DIRS']
+        self.ARM_X = quadrotor_params['ARM_X']
+        self.ARM_Y = quadrotor_params['ARM_Y']
+        self.ARM_Z = quadrotor_params['ARM_Z']
+        self.J = np.array(quadrotor_params['J'])
 
     def initialize_urdf(self):
         quadrotor_description_folder = os.path.join(get_package_share_directory('quadrotor_description'), 'description')
@@ -166,7 +183,7 @@ class QuadrotorPybulletPhysics(Node):
         self.obstacleIds = []
         for (i, obstacle_urdf_file) in enumerate(self.obstacle_urdf_files):
             self.obstacleIds.append(p.loadURDF(obstacle_urdf_file, self.obstacles_poses[i*7: i*7+3], self.obstacles_poses[i*7+3: i*7+7], useFixedBase=1))
-        self.quadrotor_id = p.loadURDF(self.quadrotor_urdf_file, [0, 0, 0.25])
+        self.quadrotor_id = p.loadURDF(self.quadrotor_urdf_file, [0, 0, 0.25], flags=p.URDF_USE_INERTIA_FROM_FILE)
         # Disable default damping of pybullet!
         p.changeDynamics(self.quadrotor_id, -1, linearDamping=0, angularDamping=0)
         p.changeDynamics(self.quadrotor_id, 0, linearDamping=0, angularDamping=0)
@@ -182,11 +199,16 @@ class QuadrotorPybulletPhysics(Node):
     def initialize_data(self):
         self.rotor_speeds = np.array([self.ROT_HOVER_VEL] * 4)
         self.wind_speed = np.array([0, 0, 0])
+        self.ff_state = State()
         self.state = State()
-        self.ros_img = Image()
-        self.current_time = self.get_clock().now()
+        self.model_error = ModelError()
+        if self.use_rotor_dynamics:
+            self.current_time = self.get_clock().now()  # for rotor dynamics integration
 
-    def receive_commands_callback(self, msg):
+    def receive_ff_state_callback(self, msg: State):
+        self.ff_state = msg
+
+    def receive_commands_callback(self, msg: RotorCommand):
         if not self.use_rotor_dynamics:
             self.rotor_speeds = np.array(msg.rotor_speeds)
             return
@@ -198,25 +220,27 @@ class QuadrotorPybulletPhysics(Node):
         self.rotor_speeds += rotor_acceleration * dt
         self.rotor_speeds = np.clip(self.rotor_speeds, 0, self.ROT_MAX_VEL)
 
-    def receive_wind_speed_callback(self, msg):
+    def receive_wind_speed_callback(self, msg: Vector3Stamped):
         self.wind_speed = np.array([msg.vector.x, msg.vector.y, msg.vector.z])
 
-    def get_F_T(self):
-        """
-        Computes the total force and torque generated by the quadrotor's rotors, based on their current speeds.
+    def apply_ff_state(self):
+        pos = np.array([self.ff_state.state.pose.position.x, self.ff_state.state.pose.position.y, self.ff_state.state.pose.position.z])
+        quat = np.array([self.ff_state.state.pose.orientation.x, self.ff_state.state.pose.orientation.y,
+                        self.ff_state.state.pose.orientation.z, self.ff_state.state.pose.orientation.w])
+        v = np.array([self.ff_state.state.twist.linear.x, self.ff_state.state.twist.linear.y, self.ff_state.state.twist.linear.z])
+        w = np.array([self.ff_state.state.twist.angular.x, self.ff_state.state.twist.angular.y, self.ff_state.state.twist.angular.z])
+        w_W = Rotation.from_quat(quat).apply(w)
+        p.resetBasePositionAndOrientation(self.quadrotor_id, pos, quat)
+        p.resetBaseVelocity(self.quadrotor_id, v, w_W)
 
-        Returns:
-        - F: a 1D numpy array of shape (4,), representing the total force generated by the rotors, in Newtons.
-        - T: a 1D numpy array of shape (3,), representing the total torque generated by the rotors (along z-axis), in Newton-meters.
-            The first two components of T are always zero, since the torques aroung these axes are simulated by the forces applied to the rotors.
-            The third component of T represents the net torque (due to aerodynamic drag) around the z axis, which controls the quadrotor's yaw rotation.
-        """
+    def get_F_T(self):  # not used
         F = np.array(self.rotor_speeds**2)*self.KF
         T = np.array(self.rotor_speeds**2)*self.KM
         Tz = (-T[0] + T[1] - T[2] + T[3])
         return F, np.array([0, 0, Tz])
 
     def calculate_drag(self):
+        # calculate both linear (rotor) and quadratic (fuselage) drag
         quat = np.array([self.state.state.pose.orientation.x, self.state.state.pose.orientation.y,
                         self.state.state.pose.orientation.z, self.state.state.pose.orientation.w])
         vel_W = np.array([self.state.state.twist.linear.x, self.state.state.twist.linear.y, self.state.state.twist.linear.z])
@@ -224,57 +248,161 @@ class QuadrotorPybulletPhysics(Node):
         v_rel_norm = np.linalg.norm(v_rel_B)
         drag = np.zeros(3)
         if (self.calculate_linear_drag):
-            drag += (self.DRAG_MAT_LIN @ v_rel_B.reshape(-1, 1)).flatten()
+            drag -= (self.DRAG_MAT_LIN @ v_rel_B.reshape(-1, 1)).flatten()
         if (self.calulate_quadratic_drag):
-            drag += (v_rel_norm * self.DRAG_MAT_QUAD @ v_rel_B.reshape(-1, 1)).flatten()
+            drag -= (v_rel_norm * self.DRAG_MAT_QUAD @ v_rel_B.reshape(-1, 1)).flatten()
         return drag
 
-    def simulation_step_callback(self):
-        """
-        Callback function that is called at each simulation step. Calculates the forces and torques to be applied to the quadrotor,
-        applies them to the simulation, and updates the quadrotor's state. The state is then stored in the `self.state` attribute.
-        """
-        F, T = self.get_F_T()  # calculate the forces and torques
-        drag = self.calculate_drag()
-        for i in range(4):  # for each rotor
-            p.applyExternalForce(self.quadrotor_id, i, forceObj=[0, 0, F[i]], posObj=[0, 0, 0], flags=p.LINK_FRAME)
+    def apply_forces_torques(self):
+        rotor_thrusts = np.array(self.rotor_speeds**2)*self.KF
+        rotor_torques = np.array(self.rotor_speeds**2)*self.KM
+        torque_z = -(self.ROTOR_DIRS[0]*rotor_torques[0] + self.ROTOR_DIRS[1]*rotor_torques[1] +
+                     self.ROTOR_DIRS[2]*rotor_torques[2] + self.ROTOR_DIRS[3]*rotor_torques[3])
+        drag_force = self.calculate_drag()
+        if (self.manual_tau_xy_calculation):
+            torque_x = self.ARM_Y * (-rotor_thrusts[0] + rotor_thrusts[1] + rotor_thrusts[2] - rotor_thrusts[3])
+            torque_y = self.ARM_X * (-rotor_thrusts[0] - rotor_thrusts[1] + rotor_thrusts[2] + rotor_thrusts[3])
+            for i in range(4):
+                p.applyExternalForce(self.quadrotor_id, -1, forceObj=[0, 0, rotor_thrusts[i]], posObj=[0, 0, 0], flags=p.LINK_FRAME)
+            p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=[torque_x, torque_y, torque_z], flags=p.LINK_FRAME)
+        else:
+            for i in range(4):
+                p.applyExternalForce(self.quadrotor_id, i, forceObj=[0, 0, rotor_thrusts[i]], posObj=[0, 0, 0], flags=p.LINK_FRAME)
+            # applying Tz on the center of mass, the only one that depend on the drag and isn't simulated by the forces before
+            p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=[0, 0, torque_z], flags=p.LINK_FRAME)
 
-        # applying Tz on the center of mass, the only one that depend on the drag and isn't simulated by the forces before
-        p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=T, flags=p.LINK_FRAME)
-        p.applyExternalForce(self.quadrotor_id, 4, forceObj=drag, posObj=[0, 0, 0], flags=p.LINK_FRAME)
+        p.applyExternalForce(self.quadrotor_id, -1, forceObj=drag_force, posObj=[0, 0, 0], flags=p.LINK_FRAME)
+
+    def apply_simulation_step(self):
+        pos0, quat0 = p.getBasePositionAndOrientation(self.quadrotor_id)
+        pos0, quat0 = np.array(pos0), np.array(quat0)
+        vel0, avel0_W = p.getBaseVelocity(self.quadrotor_id)
+        vel0, avel0_B = np.array(vel0), Rotation.from_quat(quat0).inv().apply(np.array(avel0_W))
 
         p.stepSimulation()
 
-        quad_pos, quad_quat = p.getBasePositionAndOrientation(self.quadrotor_id)
+        pos, quat = p.getBasePositionAndOrientation(self.quadrotor_id)
+        pos, quat = np.array(pos), np.array(quat)
+        vel, avel_W = p.getBaseVelocity(self.quadrotor_id)
+        vel, avel_B = np.array(vel), Rotation.from_quat(quat).inv().apply(np.array(avel_W))
+        accel, anaccel = (vel-vel0)/self.simulation_step_period, (avel_B-avel0_B)/self.simulation_step_period
 
-        quad_v, quad_w = p.getBaseVelocity(self.quadrotor_id)
-        quad_w = Rotation.from_quat(quad_quat).inv().apply(quad_w)
-
-        pose = Pose()
-        pose.position = Point(x=quad_pos[0], y=quad_pos[1], z=quad_pos[2])
-        pose.orientation = Quaternion(x=quad_quat[0], y=quad_quat[1], z=quad_quat[2], w=quad_quat[3])
-
-        twist = Twist()
-        twist.linear = Vector3(x=quad_v[0], y=quad_v[1], z=quad_v[2])
-        twist.angular = Vector3(x=quad_w[0], y=quad_w[1], z=quad_w[2])
-
-        self.state = State()
         self.state.header.stamp = self.get_clock().now().to_msg()
-        self.state.state.pose = pose
-        self.state.state.twist = twist
+        self.state.state.pose.position.x = pos0[0]
+        self.state.state.pose.position.y = pos0[1]
+        self.state.state.pose.position.z = pos0[2]
+        self.state.state.pose.orientation.x = quat0[0]
+        self.state.state.pose.orientation.y = quat0[1]
+        self.state.state.pose.orientation.z = quat0[2]
+        self.state.state.pose.orientation.w = quat0[3]
+        self.state.state.twist.linear.x = vel0[0]
+        self.state.state.twist.linear.y = vel0[1]
+        self.state.state.twist.linear.z = vel0[2]
+        self.state.state.twist.angular.x = avel0_B[0]
+        self.state.state.twist.angular.y = avel0_B[1]
+        self.state.state.twist.angular.z = avel0_B[2]
+        self.state.state.accel.linear.x = accel[0]
+        self.state.state.accel.linear.y = accel[1]
+        self.state.state.accel.linear.z = accel[2]
+        self.state.state.accel.angular.x = anaccel[0]
+        self.state.state.accel.angular.y = anaccel[1]
+        self.state.state.accel.angular.z = anaccel[2]
         self.state.quadrotor_id = self.quadrotor_id
+
+    def inverse_rigid_body_dynamics(self, m, g, J, pos, quat, vel, anvel, accel, anaccel, force_body_frame=True):
+        R = Rotation.from_quat(quat)
+        F_world = m*(accel) - m*np.array([0, 0, -self.G])
+        F_body = R.inv().apply(F_world)
+        tau_body = J@anaccel + np.cross(anvel, J@anvel)
+        if (force_body_frame):
+            return F_body, tau_body
+        return F_world, tau_body
+
+    def forward_rigid_body_dynamics(self, m, g, J, pos, quat, vel, anvel, F, tau, force_body_frame=True):
+        R = Rotation.from_quat(quat)
+        if (force_body_frame):
+            F_world = R.apply(F)
+        else:
+            F_world = F
+        accel = F_world/m + np.array([0, 0, -self.G])
+        anaccel = np.linalg.inv(J)@(tau - np.cross(anvel, J@anvel))
+        return accel, anaccel
+
+    def fill_model_error(self):
+        quad_pos = np.array([self.state.state.pose.position.x, self.state.state.pose.position.y, self.state.state.pose.position.z])
+        quad_quat = np.array([self.state.state.pose.orientation.x, self.state.state.pose.orientation.y,
+                              self.state.state.pose.orientation.z, self.state.state.pose.orientation.w])
+        quad_vel = np.array([self.state.state.twist.linear.x, self.state.state.twist.linear.y, self.state.state.twist.linear.z])
+        quad_avel = np.array([self.state.state.twist.angular.x, self.state.state.twist.angular.y, self.state.state.twist.angular.z])
+        quad_accel = np.array([self.state.state.accel.linear.x, self.state.state.accel.linear.y, self.state.state.accel.linear.z])
+        quad_anaccel = np.array([self.state.state.accel.angular.x, self.state.state.accel.angular.y, self.state.state.accel.angular.z])
+
+        ff_pos = np.array([self.ff_state.state.pose.position.x, self.ff_state.state.pose.position.y, self.ff_state.state.pose.position.z])
+        ff_quat = np.array([self.ff_state.state.pose.orientation.x, self.ff_state.state.pose.orientation.y,
+                            self.ff_state.state.pose.orientation.z, self.ff_state.state.pose.orientation.w])
+        ff_vel = np.array([self.ff_state.state.twist.linear.x, self.ff_state.state.twist.linear.y, self.ff_state.state.twist.linear.z])
+        ff_avel = np.array([self.ff_state.state.twist.angular.x, self.ff_state.state.twist.angular.y, self.ff_state.state.twist.angular.z])
+        ff_accel = np.array([self.ff_state.state.accel.linear.x, self.ff_state.state.accel.linear.y, self.ff_state.state.accel.linear.z])
+        ff_anaccel = np.array([self.ff_state.state.accel.angular.x, self.ff_state.state.accel.angular.y, self.ff_state.state.accel.angular.z])
+
+        F_model_body, tau_model = self.inverse_rigid_body_dynamics(self.M, self.G, self.J, quad_pos,
+                                                                   quad_quat, quad_vel, quad_avel,
+                                                                   quad_accel, quad_anaccel, force_body_frame=True)
+        F_ff_body, tau_ff = self.inverse_rigid_body_dynamics(self.M, self.G, self.J, quad_pos,
+                                                             quad_quat, quad_vel, quad_avel,
+                                                             ff_accel, ff_anaccel, force_body_frame=True)
+        F_model_world, tau_model = self.inverse_rigid_body_dynamics(self.M, self.G, self.J, quad_pos,
+                                                                    quad_quat, quad_vel, quad_avel,
+                                                                    quad_accel, quad_anaccel, force_body_frame=False)
+        F_ff_world, tau_ff = self.inverse_rigid_body_dynamics(self.M, self.G, self.J, quad_pos,
+                                                              quad_quat, quad_vel, quad_avel,
+                                                              ff_accel, ff_anaccel, force_body_frame=False)
+
+        rot = Rotation.from_quat(quad_quat)
+
+        self.model_error.dataset.force_world = np.array(F_ff_world, dtype=np.float32)
+        self.model_error.dataset.force_body = np.array(F_ff_body, dtype=np.float32)
+        self.model_error.dataset.accel_world = np.array(ff_accel, dtype=np.float32)
+        self.model_error.dataset.accel_body = np.array(rot.inv().apply(ff_accel), dtype=np.float32)
+        self.model_error.dataset.torque_body = np.array(tau_ff, dtype=np.float32)
+        self.model_error.dataset.anaccel_body = np.array(ff_anaccel, dtype=np.float32)
+        self.model_error.dataset.position = np.array(quad_pos, dtype=np.float32)
+
+        self.model_error.actual.force_world = np.array(F_model_world, dtype=np.float32)
+        self.model_error.actual.force_body = np.array(F_model_body, dtype=np.float32)
+        self.model_error.actual.accel_world = np.array(quad_accel, dtype=np.float32)
+        self.model_error.actual.accel_body = np.array(rot.inv().apply(quad_accel), dtype=np.float32)
+        self.model_error.actual.torque_body = np.array(tau_model, dtype=np.float32)
+        self.model_error.actual.anaccel_body = np.array(quad_anaccel, dtype=np.float32)
+
+        self.model_error.error.force_world = np.array(F_model_world - F_ff_world, dtype=np.float32)
+        self.model_error.error.force_body = np.array(F_model_body - F_ff_body, dtype=np.float32)
+        self.model_error.error.accel_world = np.array(quad_accel - ff_accel, dtype=np.float32)
+        self.model_error.error.accel_body = np.array(rot.inv().apply(quad_accel) - rot.inv().apply(ff_accel), dtype=np.float32)
+        self.model_error.error.torque_body = np.array(tau_model - tau_ff, dtype=np.float32)
+        self.model_error.error.anaccel_body = np.array(quad_anaccel, dtype=np.float32)
+
+    def simulation_step_callback(self):
+        # first: apply feed-forward state (if it's enabled)
+        # second: calculate forces and apply them
+        # third: apply simulation step and calculate state
+        # fourth: publish the state
+        if (self.use_ff_state):
+            self.apply_ff_state()
+
+        self.apply_forces_torques()
+
+        self.apply_simulation_step()
 
         self.state_publisher.publish(self.state)
 
+        if (self.publish_model_errors and self.use_ff_state):
+            self.fill_model_error()
+            self.model_error_publisher.publish(self.model_error)
+
 
 def main(args=None):
-    """
-    Initializes the ROS 2 node for the quadrotor simulation using PyBullet physics engine.
-    Args:
-        args: List of strings representing command line arguments.
-    """
     rclpy.init(args=args)
-
     node = QuadrotorPybulletPhysics()
     rclpy.spin(node)
     node.destroy_node()

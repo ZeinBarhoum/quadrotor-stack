@@ -21,6 +21,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/OccupancyGrid3D.msg"
   "msg/PolynomialSegment.msg"
   "msg/PolynomialTrajectory.msg"
+  "msg/ModelOutput.msg"
+  "msg/ModelError.msg"
 
 DEPENDENCIES geometry_msgs
 )
