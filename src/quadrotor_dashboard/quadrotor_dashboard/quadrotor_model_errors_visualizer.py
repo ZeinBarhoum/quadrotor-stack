@@ -28,7 +28,7 @@ class QuadrotorModelErrorsVisualizer(Node):
         super().__init__('quadrotor_model_errors_visualizer')
         self.declare_parameters(parameters=[('refresh_rate', DEFAULT_FREQUENCY),
                                             ('plot_window', DEFAULT_WINDOW),
-                                            ('model_error_topic', 'quadrotor_model_errors'),
+                                            ('model_error_topic', 'quadrotor_model_error'),
                                             ],
                                 namespace='')
         self.refresh_rate = self.get_parameter('refresh_rate').get_parameter_value().double_value
@@ -68,7 +68,7 @@ class QuadrotorModelErrorsVisualizer(Node):
         self.force_body_axes = self.axes2[1, :]
         self.torque_body_axes = self.axes2[2, :]
 
-        self.input_axes = self.axes3
+        # self.input_axes = self.axes3
 
     def initialize_data(self):
         self.model_error = ModelError()
@@ -140,7 +140,7 @@ class QuadrotorModelErrorsVisualizer(Node):
         self.plot_vector(self.force_body_axes, r'f^B', ['x', 'y', 'z'], np.array(self.actual_force_body), np.array(self.dataset_force_body))
         self.plot_vector(self.anaccel_body_axes, r'\alpha^B', ['x', 'y', 'z'], np.array(self.actual_anaccel_body), np.array(self.dataset_anaccel_body))
         self.plot_vector(self.torque_body_axes, r'\tau^B', ['x', 'y', 'z'], np.array(self.actual_torque_body), np.array(self.dataset_torque_body))
-        self.plot_input(self.input_axes, r'u', ['1', '2', '3', '4'], np.array(self.actual_input), np.array(self.dataset_input))
+        # self.plot_input(self.input_axes, r'u', ['1', '2', '3', '4'], np.array(self.actual_input), np.array(self.dataset_input))
         self.plot_position(self.ax3d, np.array(self.pos))
         self.update_plots()
         self.calculate_errors_stats()
@@ -238,7 +238,7 @@ class QuadrotorModelErrorsVisualizer(Node):
         [self.force_world_axes[i].clear() for i in range(3)]
         [self.anaccel_body_axes[i].clear() for i in range(3)]
         [self.torque_body_axes[i].clear() for i in range(3)]
-        [self.input_axes[i, j].clear() for i in range(2) for j in range(2)]
+        # [self.input_axes[i, j].clear() for i in range(2) for j in range(2)]
         self.ax3d.clear()
 
     def update_plots(self):
@@ -248,15 +248,15 @@ class QuadrotorModelErrorsVisualizer(Node):
         [self.force_world_axes[i].legend() for i in range(3)]
         [self.anaccel_body_axes[i].legend() for i in range(3)]
         [self.torque_body_axes[i].legend() for i in range(3)]
-        [self.input_axes[i, j].legend() for i in range(2) for j in range(2)]
+        # [self.input_axes[i, j].legend() for i in range(2) for j in range(2)]
         self.ax3d.legend()
 
         self.fig1.canvas.draw()
         self.fig1.canvas.flush_events()
         self.fig2.canvas.draw()
         self.fig2.canvas.flush_events()
-        self.fig3.canvas.draw()
-        self.fig3.canvas.flush_events()
+        # self.fig3.canvas.draw()
+        # self.fig3.canvas.flush_events()
 
         self.fig3d.canvas.draw()
         self.fig3d.canvas.flush_events()

@@ -20,6 +20,7 @@ def generate_launch_description():
     pybullet_physics_simulation_parameters = parameters['PybulletPhysicsSimulation']
     pybullet_camera_simulation_parameters = parameters['PybulletCameraSimulation']
     dataset_controller_parameters = parameters['Dataset']
+    model_error_vis_parameters = parameters['ModelErrorVis']
 
     simulation_physics_node = Node(
         package='quadrotor_simulation',
@@ -39,9 +40,16 @@ def generate_launch_description():
         output='screen',
         parameters=[dataset_controller_parameters]
     )
+    model_error_visualizer_node = Node(
+        package='quadrotor_dashboard',
+        executable='quadrotor_model_errors_visualizer',
+        output='screen',
+        parameters=[model_error_vis_parameters],
+    )
 
     return LaunchDescription([
         simulation_physics_node,
         simulation_camera_node,
         dataset_controller_node,
+        model_error_visualizer_node
     ])

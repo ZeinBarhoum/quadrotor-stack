@@ -310,7 +310,7 @@ class QuadrotorPybulletDataset(Node):
         rotor_torques = [self.get_rotor_torque_quadratic(speed) for speed in rotor_speeds]
         torque_z = (self.Rotor_Dirs[0]*rotor_torques[0] + self.Rotor_Dirs[1]*rotor_torques[1] +
                     self.Rotor_Dirs[2]*rotor_torques[2] + self.Rotor_Dirs[3]*rotor_torques[3])
-
+        print(rotor_torques, torque_z)
         # if (self.Config == 'Cross'):
         torque_x = self.ARM_Y * (-rotor_thrusts[0] + rotor_thrusts[1] + rotor_thrusts[2] - rotor_thrusts[3])
         torque_y = self.ARM_X * (-rotor_thrusts[0] - rotor_thrusts[1] + rotor_thrusts[2] + rotor_thrusts[3])
