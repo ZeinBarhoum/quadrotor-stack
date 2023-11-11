@@ -50,6 +50,7 @@ class QuadrotorPybulletCamera(Node):
         # Declare parameters
         self.declare_parameters(namespace='', parameters=[('physics_server', 'GUI'),
                                                           ('quadrotor_description', 'cf2x'),
+                                                          ('quadrotor_scale', 1.0),
                                                           ('obstacles_description', ['NONE']),
                                                           ('obstacles_poses', [0.0]),
                                                           ('render_ground', True),
@@ -64,6 +65,7 @@ class QuadrotorPybulletCamera(Node):
         # Get the parameters
         self.physics_server = self.get_parameter('physics_server').get_parameter_value().string_value
         self.quadrotor_description_file_name = self.get_parameter('quadrotor_description').get_parameter_value().string_value
+        self.quadrotor_scale = self.get_parameter('quadrotor_scale').get_parameter_value().double_value
         self.obstacles_description_file_names = self.get_parameter('obstacles_description').get_parameter_value().string_array_value
         self.obstacles_poses = self.get_parameter('obstacles_poses').get_parameter_value().double_array_value
         self.render_ground = self.get_parameter('render_ground').get_parameter_value().bool_value
@@ -139,7 +141,7 @@ class QuadrotorPybulletCamera(Node):
         self.obstacleIds = []
         for (i, obstacle_urdf_file) in enumerate(self.obstacle_urdf_files):
             self.obstacleIds.append(p.loadURDF(obstacle_urdf_file, self.obstacles_poses[i*7: i*7+3], self.obstacles_poses[i*7+3: i*7+7], useFixedBase=1))
-        self.quadrotor_id = p.loadURDF(self.quadrotor_urdf_file, [0, 0, 0.25])
+        self.quadrotor_id = p.loadURDF(self.quadrotor_urdf_file, [0, 0, 0.25], globalScaling=self.quadrotor_scale)
         # Configure the debug visualizer
         p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
         p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW, 0)
