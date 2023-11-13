@@ -115,7 +115,8 @@ class QuadrotorPybulletPhysics(Node):
 
         # Announce that the node is initialized
         self.start_time = self.get_clock().now()  # For logging purposes
-        self.get_logger().info(f'QuadrotorPybulletPhysics node initialized at {self.start_time.seconds_nanoseconds()}')
+        self.get_logger().info(
+            f'QuadrotorPybulletPhysics node initialized at {self.start_time.seconds_nanoseconds()}. Frequency: {self.simulation_step_frequency} Hz')
 
     def initialize_constants(self):
         config_folder = os.path.join(get_package_share_directory('quadrotor_description'), 'config')
