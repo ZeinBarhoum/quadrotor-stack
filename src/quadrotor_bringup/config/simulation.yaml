@@ -60,6 +60,7 @@ DFBCController:
   KD_XYZ: [6.0, 6.0, 6.0]  # For position
   KP_RPY: [150, 150, 10.0]  # For roll, pitch and yaw
   KD_RPY: [20, 20, 8.0]  # For roll, pitch and yaw
+  Weights: [0.001, 10, 10, 0.1]
   quadrotor_description: neuroBEM  # quadrotor name (for config file)
   state_topic: quadrotor_state
   reference_topic: quadrotor_reference

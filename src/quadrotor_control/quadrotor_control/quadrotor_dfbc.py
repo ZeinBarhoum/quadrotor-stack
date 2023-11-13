@@ -43,6 +43,7 @@ class QuadrotorDFBC(Node):
                                             ('KD_XYZ', [1.0, 1.0, 1.0]),
                                             ('KP_RPY', [1.0, 1.0, 1.0]),
                                             ('KD_RPY', [1.0, 1.0, 1.0]),
+                                            ('Weights', [1.0, 1.0, 1.0, 1.0]),
                                             ('quadrotor_description', 'cf2x'),
                                             ('state_topic', 'quadrotor_state'),
                                             ('reference_topic', 'quadrotor_reference'),
@@ -55,6 +56,7 @@ class QuadrotorDFBC(Node):
         self.KD_XYZ = self.get_parameter_value('KD_XYZ', 'list[float]')
         self.KP_RPY = self.get_parameter_value('KP_RPY', 'list[float]')
         self.KD_RPY = self.get_parameter_value('KD_RPY', 'list[float]')
+        self.Weights = self.get_parameter_value('Weights', 'list[float]')
         self.quadrotor_description = self.get_parameter_value('quadrotor_description', 'str')
         self.state_topic = self.get_parameter_value('state_topic', 'str')
         self.reference_topic = self.get_parameter_value('reference_topic', 'str')
@@ -256,6 +258,7 @@ class QuadrotorDFBC(Node):
         KD_XYZ = np.array(self.KD_XYZ)
         KP_RPY = np.array(self.KP_RPY)
         KD_RPY = np.array(self.KD_RPY)
+        Weights = np.array(self.Weights)
 
         error_position = reference_position - actual_position
         error_velocity = reference_velocity - actual_velocity
@@ -290,9 +293,9 @@ class QuadrotorDFBC(Node):
         desired_torques = self.J @ desired_ang_acceleration + np.cross(actual_angular_velocity, self.J @ actual_angular_velocity)
 
         self.command.header.stamp = self.get_clock().now().to_msg()
-        self.command.rotor_speeds = self.calculate_rotor_speeds(desired_thrust, desired_torques)
+        self.command.rotor_speeds = self.calculate_rotor_speeds(desired_thrust, desired_torques, Weights)
 
-    def calculate_rotor_speeds(self, thrust: float, torques: np.ndarray) -> np.ndarray:
+    def calculate_rotor_speeds(self, thrust: float, torques: np.ndarray, Weights) -> np.ndarray:
         """ Claculate the rotor speeds using the thrust and torques. 
         Uses the following equation:
             [thrust, torques] = A * [w1^2, w2^2, w3^2, w4^2]
@@ -316,7 +319,10 @@ class QuadrotorDFBC(Node):
 
         # rotor_speeds_squared = np.matmul(np.linalg.inv(A), np.array([thrust, torques[0], torques[1], torques[2]]))
         # rotor_speeds_squared = np.clip(rotor_speeds_squared, 0, self.MAX_RPM**2)
-        rotor_speeds_squared = lsq_linear(A, np.array([thrust, torques[0], torques[1], torques[2]]), bounds=(0, self.MAX_RPM**2)).x
+        W = np.diag(np.sqrt(Weights))
+        # self.get_logger().info(f'{W=}')
+        rotor_speeds_squared = lsq_linear(W@A, (W@np.array([thrust, torques[0], torques[1], torques[2]]
+                                                           ).reshape(-1, 1)).flatten(), bounds=(0, self.MAX_RPM**2)).x
         # self.get_logger().info(f"{rotor_speeds_squared}")
         rotor_speeds = np.sqrt(rotor_speeds_squared)
         # actual_thrust = self.KF * np.sum(rotor_speeds_squared)
