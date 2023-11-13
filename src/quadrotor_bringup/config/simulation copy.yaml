@@ -1,6 +1,6 @@
 PybulletPhysicsSimulation:
   physics_server: DIRECT  # Physics server to use (GUI or DIRECT)
-  quadrotor_description: neuroBEM  # Name of the quadrotor model to use (cf2x or other)
+  quadrotor_description: cf2x  # Name of the quadrotor model to use (cf2x or other)
   # obstacles_description: [NONE]
 
   obstacles_description: [hoop, hoop, hoop, hoop]  # List of obstacles to include in the simulation, if none then [NONE]
@@ -12,14 +12,14 @@ PybulletPhysicsSimulation:
   simulation_step_frequency: 240  # Frequency at which the simulation is stepped
   state_topic: quadrotor_state  # Topic name for the quadrotor state messages
   rotor_speeds_topic: quadrotor_rotor_speeds  # Topic name for the quadrotor rotor speeds messages
-  use_rotor_dynamics: False
-  calculate_linear_drag: False
-  calculate_quadratic_drag: False
+  use_rotor_dynamics: True
+  calculate_linear_drag: True
+  calculate_quadratic_drag: True
   use_wind_speed: True
 
 PybulletCameraSimulation:
   physics_server: GUI  # Physics server to use (GUI or DIRECT)
-  quadrotor_description: neuroBEM  # Name of the quadrotor model to use (cf2x or other)
+  quadrotor_description: cf2x  # Name of the quadrotor model to use (cf2x or other)
   obstacles_description: [hoop, hoop, hoop, hoop]  # List of obstacles to include in the simulation, if none then [NONE]
   obstacles_poses: [4.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0,
                     8.0, 4.0, 1.0, 0.0, 0.0, -0.7, 0.7,
@@ -56,11 +56,11 @@ PIDController:
   command_publishing_frequency: 240
 
 DFBCController:
-  KP_XYZ: [10.0, 10.0, 10.0]  # For position
-  KD_XYZ: [6.0, 6.0, 6.0]  # For position
-  KP_RPY: [150, 150, 10.0]  # For roll, pitch and yaw
-  KD_RPY: [20, 20, 8.0]  # For roll, pitch and yaw
-  quadrotor_description: neuroBEM  # quadrotor name (for config file)
+  KP_XYZ: [5.0, 5.0, 40.0]  # For position
+  KD_XYZ: [5.0, 5.0, 12.0]  # For position
+  KP_RPY: [0.005, 0.005, 0.005]  # For roll, pitch and yaw
+  KD_RPY: [0.001, 0.001, 0.001]  # For roll, pitch and yaw
+  quadrotor_description: cf2x  # quadrotor name (for config file)
   state_topic: quadrotor_state
   reference_topic: quadrotor_reference
   rotor_speeds_topic: quadrotor_rotor_speeds
@@ -69,8 +69,8 @@ DFBCController:
 PolyTrajOptimizer:
   time_allocation: distance_proportional  # distance_proportional, constant or optimization
   segment_time: 0.1  # segment time in seconds for constant time allocation
-  avg_velocity: 3.5  # average velocity in m/s for distance proportional time allocation
-  quadrotor_description: neuroBEM  # quadrotor description file name (without extension)
+  avg_velocity: 1.5  # average velocity in m/s for distance proportional time allocation
+  quadrotor_description: cf2x  # quadrotor description file name (without extension)
   one_segment: false  # if true, the trajectory will be a single segment
   high_order_constraints: 2  # number of constraints for the high order derivatives (velocity = 1 and so on)
   optimize: true
