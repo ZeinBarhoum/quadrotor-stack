@@ -12,9 +12,9 @@ PybulletPhysicsSimulation:
   simulation_step_frequency: 240  # Frequency at which the simulation is stepped
   state_topic: quadrotor_state  # Topic name for the quadrotor state messages
   rotor_speeds_topic: quadrotor_rotor_speeds  # Topic name for the quadrotor rotor speeds messages
-  use_rotor_dynamics: False
-  calculate_linear_drag: False
-  calculate_quadratic_drag: False
+  use_rotor_dynamics: True
+  calculate_linear_drag: True
+  calculate_quadratic_drag: True
   use_wind_speed: True
 
 PybulletCameraSimulation:

@@ -13,30 +13,4 @@ NEUROBEM_PARAMS:
   ROT_TIME_STEP: 0.033
   ROT_MAX_ACC: 2000000000
   DRAG_MAT_LIN: [[0,0,0], [0,0,0], [0,0,0]]
-  DRAG_MAT_QUAD: [[0,0,0], [0,0,0], [0,0,0]]
-
-# KF: 1.562522e-06
-# KM: 1.908873e-08
-KM: 1.908873e-08
-KF: 1.562522e-06
-Inertia:
-  M: 0.772
-  IXX: 0.00254
-  IYY: 0.00214
-  IZZ: 0.00436
-Config: Cross
-Rotor_Dirs:
-  - 1
-  - -1
-  - 1
-  - -1
-ARM_X: 0.078
-ARM_Y: 0.1
-ARM_Z: 0.027
-T2W: 5.0
-CXY: 1.0
-CZ: 1.0
-AX: 0.0054
-AY: 0.009
-AZ: 0.006
-RHO: 1.204
+  DRAG_MAT_QUAD: [[0.0032508,0,0], [0,0.005418,0], [0,0,0.003612]]

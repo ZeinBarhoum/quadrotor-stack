@@ -69,7 +69,7 @@ class QuadrotorPybulletPhysics(Node):
         self.model_error_topic = self.get_parameter('model_error_topic').get_parameter_value().string_value
         self.use_rotor_dynamics = self.get_parameter('use_rotor_dynamics').get_parameter_value().bool_value
         self.calculate_linear_drag = self.get_parameter('calculate_linear_drag').get_parameter_value().bool_value
-        self.calulate_quadratic_drag = self.get_parameter('calculate_quadratic_drag').get_parameter_value().bool_value
+        self.calculate_quadratic_drag = self.get_parameter('calculate_quadratic_drag').get_parameter_value().bool_value
         self.use_wind_speed = self.get_parameter('use_wind_speed').get_parameter_value().bool_value
         self.use_ff_state = self.get_parameter('use_ff_state').get_parameter_value().bool_value
         self.manual_tau_xy_calculation = self.get_parameter('manual_tau_xy_calculation').get_parameter_value().bool_value
@@ -250,7 +250,7 @@ class QuadrotorPybulletPhysics(Node):
         drag = np.zeros(3)
         if (self.calculate_linear_drag):
             drag -= (self.DRAG_MAT_LIN @ v_rel_B.reshape(-1, 1)).flatten()
-        if (self.calulate_quadratic_drag):
+        if (self.calculate_quadratic_drag):
             drag -= (v_rel_norm * self.DRAG_MAT_QUAD @ v_rel_B.reshape(-1, 1)).flatten()
         return drag
 
