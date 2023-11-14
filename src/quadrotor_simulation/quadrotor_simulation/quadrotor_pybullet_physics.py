@@ -1,21 +1,18 @@
-#!/usr/bin/env python3
-import rclpy
-from rclpy.node import Node
-
-from ament_index_python.packages import get_package_share_directory
-
-from quadrotor_interfaces.msg import RotorCommand, State, ModelError
-from geometry_msgs.msg import Vector3Stamped
-
+import os
+import numpy as np
+from scipy.spatial.transform import Rotation
+import yaml
 import pybullet as p
 import pybullet_data
 
+import rclpy
+from rclpy.node import Node
+from ament_index_python.packages import get_package_share_directory
+from quadrotor_interfaces.msg import RotorCommand, State, ModelError
+from geometry_msgs.msg import Vector3Stamped
+from quadrotor_simulation.quadrotor_residuals import calculate_residuals, prepare_residuals_model
 import xacro
-import os
-import numpy as np
-import yaml
 
-from scipy.spatial.transform import Rotation
 
 try:
     import IPython.core.ultratb
@@ -25,6 +22,7 @@ except ImportError:
 else:
     import sys
     sys.excepthook = IPython.core.ultratb.ColorTB()
+
 
 DEFAULT_FREQUENCY = 240  # Hz
 DEFAULT_QOS_PROFILE = 10
@@ -50,6 +48,9 @@ class QuadrotorPybulletPhysics(Node):
                                                           ('model_error_topic', 'quadrotor_model_error'),
                                                           ('calculate_linear_drag', True),
                                                           ('calculate_quadratic_drag', True),
+                                                          ('calculate_residuals', False),
+                                                          ('residuals_model', 'NONE'),
+                                                          ('residuals_device', 'cuda'),
                                                           ('use_rotor_dynamics', True),
                                                           ('use_wind_speed', True),
                                                           ('use_ff_state', False),
@@ -70,6 +71,9 @@ class QuadrotorPybulletPhysics(Node):
         self.use_rotor_dynamics = self.get_parameter('use_rotor_dynamics').get_parameter_value().bool_value
         self.calculate_linear_drag = self.get_parameter('calculate_linear_drag').get_parameter_value().bool_value
         self.calculate_quadratic_drag = self.get_parameter('calculate_quadratic_drag').get_parameter_value().bool_value
+        self.calculate_residuals = self.get_parameter('calculate_residuals').get_parameter_value().bool_value
+        self.residuals_model = self.get_parameter('residuals_model').get_parameter_value().string_value
+        self.residuals_device = self.get_parameter('residuals_device').get_parameter_value().string_value
         self.use_wind_speed = self.get_parameter('use_wind_speed').get_parameter_value().bool_value
         self.use_ff_state = self.get_parameter('use_ff_state').get_parameter_value().bool_value
         self.manual_tau_xy_calculation = self.get_parameter('manual_tau_xy_calculation').get_parameter_value().bool_value
@@ -147,6 +151,10 @@ class QuadrotorPybulletPhysics(Node):
         self.ARM_Y = quadrotor_params['ARM_Y']
         self.ARM_Z = quadrotor_params['ARM_Z']
         self.J = np.array(quadrotor_params['J'])
+        if self.calculate_residuals:
+            self.RES_NET, self.RES_PARAMS = prepare_residuals_model(self.residuals_model)
+            self.RES_DEVICE = self.residuals_device
+            self.RES_NET.to(self.RES_DEVICE)
 
     def initialize_urdf(self):
         quadrotor_description_folder = os.path.join(get_package_share_directory('quadrotor_description'), 'description')
@@ -254,15 +262,28 @@ class QuadrotorPybulletPhysics(Node):
             drag -= (v_rel_norm * self.DRAG_MAT_QUAD @ v_rel_B.reshape(-1, 1)).flatten()
         return drag
 
-    def apply_forces_torques(self):
+    def calculate_nominal_thrust_torques(self):
         rotor_thrusts = np.array(self.rotor_speeds**2)*self.KF
         rotor_torques = np.array(self.rotor_speeds**2)*self.KM
         torque_z = -(self.ROTOR_DIRS[0]*rotor_torques[0] + self.ROTOR_DIRS[1]*rotor_torques[1] +
                      self.ROTOR_DIRS[2]*rotor_torques[2] + self.ROTOR_DIRS[3]*rotor_torques[3])
+        torque_x = self.ARM_Y * (-rotor_thrusts[0] + rotor_thrusts[1] + rotor_thrusts[2] - rotor_thrusts[3])
+        torque_y = self.ARM_X * (-rotor_thrusts[0] - rotor_thrusts[1] + rotor_thrusts[2] + rotor_thrusts[3])
+
+        return rotor_thrusts, torque_x, torque_y, torque_z
+
+    def calculate_residual_thrust_torques(self):
+        residuals = np.zeros(6)
+        if self.calculate_residuals:
+            residuals = calculate_residuals(self.state, RotorCommand(rotor_speeds=self.rotor_speeds), self.RES_NET, self.RES_DEVICE, self.RES_PARAMS)
+        return residuals
+
+    def apply_forces_torques(self):
+        rotor_thrusts, torque_x, torque_y, torque_z = self.calculate_nominal_thrust_torques()
         drag_force = self.calculate_drag()
+        residuals = self.calculate_residual_thrust_torques()
+
         if (self.manual_tau_xy_calculation):
-            torque_x = self.ARM_Y * (-rotor_thrusts[0] + rotor_thrusts[1] + rotor_thrusts[2] - rotor_thrusts[3])
-            torque_y = self.ARM_X * (-rotor_thrusts[0] - rotor_thrusts[1] + rotor_thrusts[2] + rotor_thrusts[3])
             for i in range(4):
                 p.applyExternalForce(self.quadrotor_id, -1, forceObj=[0, 0, rotor_thrusts[i]], posObj=[0, 0, 0], flags=p.LINK_FRAME)
             p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=[torque_x, torque_y, torque_z], flags=p.LINK_FRAME)
@@ -273,6 +294,8 @@ class QuadrotorPybulletPhysics(Node):
             p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=[0, 0, torque_z], flags=p.LINK_FRAME)
 
         p.applyExternalForce(self.quadrotor_id, -1, forceObj=drag_force, posObj=[0, 0, 0], flags=p.LINK_FRAME)
+        p.applyExternalForce(self.quadrotor_id, -1, forceObj=residuals[:3], posObj=[0, 0, 0], flags=p.LINK_FRAME)
+        p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=residuals[3:], flags=p.LINK_FRAME)
 
     def apply_simulation_step(self):
         pos0, quat0 = p.getBasePositionAndOrientation(self.quadrotor_id)

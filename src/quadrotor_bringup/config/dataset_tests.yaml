@@ -31,6 +31,8 @@ PybulletPhysicsSimulation:
   use_wind_speed: True
   use_ff_state: True
   publish_model_errors: True
+  calculate_residuals: True
+  residuals_model: '64_124_64'
 
 PybulletCameraSimulation:
   physics_server: GUI  # Physics server to use (GUI or DIRECT)
