@@ -9,16 +9,6 @@ import os
 
 
 def generate_launch_description():
-
-    decalred_arguments = []
-
-    decalred_arguments.append(
-        DeclareLaunchArgument(
-            name='controller',
-            default_value='quadrotor_pid',
-            description='Controller to use (default: quadrotor_pid)'
-        )
-    )
     config_folder = os.path.join('src', 'quadrotor_bringup', 'config')
     config_file = os.path.join(config_folder, 'simulation.yaml')
     with open(config_file, "r") as stream:
@@ -46,14 +36,6 @@ def generate_launch_description():
         parameters=[pybullet_camera_simulation_parameters]
     )
 
-    controller = LaunchConfiguration("controller")
-
-    pid_controller_node = Node(
-        package='quadrotor_control',
-        executable=controller,
-        output='screen',
-        parameters=[pid_controller_parameters]
-    )
     dfbc_controller_node = Node(
         package='quadrotor_control',
         executable='quadrotor_dfbc',
@@ -102,17 +84,14 @@ def generate_launch_description():
         output='screen',
     )
 
-    return LaunchDescription(
-        decalred_arguments+[
-            simulation_physics_node,
-            simulation_camera_node,
-            # pid_controller_node,
-            dfbc_controller_node,
-            reference_publisher_node,
-            trajectory_poly_optimizer_node,
-            mapping_node,
-            path_finding_node,
-            path_visualizer_node,
-            image_visualizer_node,
-            rqt_gui_node,
-        ])
+    return LaunchDescription([simulation_physics_node,
+                              simulation_camera_node,
+                              dfbc_controller_node,
+                              reference_publisher_node,
+                              trajectory_poly_optimizer_node,
+                              mapping_node,
+                              path_finding_node,
+                              path_visualizer_node,
+                              image_visualizer_node,
+                              #   rqt_gui_node,
+                              ])

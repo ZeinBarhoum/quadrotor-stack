@@ -14,6 +14,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'world'), glob('world/*')),
         (os.path.join('share', package_name, 'meshes'), glob('meshes/*')),
+        (os.path.join('share', package_name, 'models'), glob('models/*')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -24,10 +25,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'quadrotor_pybullet = quadrotor_simulation.quadrotor_pybullet:main',
             'quadrotor_pybullet_physics = quadrotor_simulation.quadrotor_pybullet_physics:main',
             'quadrotor_pybullet_camera = quadrotor_simulation.quadrotor_pybullet_camera:main',
-            'quadrotor_pybullet_dataset = quadrotor_simulation.quadrotor_pybullet_dataset:main'
+            'quadrotor_imu = quadrotor_simulation.quadrotor_imu:main'
         ],
     },
 )

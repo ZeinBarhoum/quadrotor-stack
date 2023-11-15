@@ -4,32 +4,9 @@ Dataset:
   # dataset_name: merged_2021-02-23-10-48-03_seg_
   dataset_name: merged_2021-02-18-17-42-11_seg_
   time_field: t
-  command_fields:
-    - mot 2 # right front
-    - mot 4 # left front
-    - mot 3 # left back
-    - mot 1 # right back
-  state_fields:
-    - pos x
-    - pos y
-    - pos z
-    - quat x
-    - quat y
-    - quat z
-    - quat w
-    - vel x
-    - vel y
-    - vel z
-    - ang vel x
-    - ang vel y
-    - ang vel z
-    - acc x
-    - acc y
-    - acc z
-    - ang acc x
-    - ang acc y
-    - ang acc z
-  state_frames:
+  command_fields: [mot 2, mot 4, mot 3, mot 1]
+  state_fields: [pos x, pos y, pos z, quat x, quat y, quat z, quat w, vel x, vel y, vel z, ang vel x, ang vel y, ang vel z, acc x, acc y, acc z, ang acc x, ang acc y, ang acc z]
+  state_frames: 
     - world #position , not used
     - world #quaternions, not used
     - body #velocity
@@ -54,6 +31,8 @@ PybulletPhysicsSimulation:
   use_wind_speed: True
   use_ff_state: True
   publish_model_errors: True
+  calculate_residuals: True
+  residuals_model: '64_124_64'
 
 PybulletCameraSimulation:
   physics_server: GUI  # Physics server to use (GUI or DIRECT)
@@ -73,31 +52,3 @@ ModelErrorVis:
   refresh_rate: 0.023
   plot_window: 45.0
   model_error_topic: quadrotor_model_error
-
-PybulletSimulationDataset:
-  physics_server: GUI  # Physics server to use (GUI or DIRECT)
-  quadrotor_description: neuroBEM  # Name of the quadrotor model to use (cf2x or other)
-  quadrotor_ghost_description: neuroBEM_no_collision # Name of the quadrotor model without collisions (for additional visualization)
-  obstacles_description: [NONE]  # List of obstacles to include in the simulation, if none then [NONE]
-  obstacles_poses: [0.0]  # List of poses, if None then [0.0]
-  render_ground: true  # Whether to render the ground plane
-  render_architecture: false  # Whether to render the architecture
-  publish_image: false  # Whether to publish images from the camera
-  # Dimensions of the published images
-  image_width: 400
-  image_height: 300
-  state_publishing_frequency: 240  # Frequency at which the state is published
-  image_publishing_frequency: 5  # Frequency at which images are published
-  simulation_step_frequency: 240  # Frequency at which the simulation is stepped
-  state_topic: quadrotor_state  # Topic name for the quadrotor state messages
-  image_topic: quadrotor_img  # Topic name for the quadrotor image messages
-  rotor_speeds_topic: quadrotor_rotor_speeds  # Topic name for the quadrotor rotor speeds messages
-  model_error_topic: quadrotor_model_error # Topic name for the quadrotor model error messages
-  view_follow: true
-  view_distance: 5.0  # Distance from the quadrotor to the camera (in the pybullet view)
-  view_yaw: 75.0  # Yaw angle of the camera (in the pybullet view)
-  view_pitch: -20.0  # Pitch angle of the camera (in the pybullet view)
-  use_ff_state: True
-  enable_collision: false
-  drag: False
-  manual_tau_xy_calculation: False

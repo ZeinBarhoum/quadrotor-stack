@@ -43,6 +43,7 @@ class QuadrotorDFBC(Node):
                                             ('KD_XYZ', [1.0, 1.0, 1.0]),
                                             ('KP_RPY', [1.0, 1.0, 1.0]),
                                             ('KD_RPY', [1.0, 1.0, 1.0]),
+                                            ('Weights', [1.0, 1.0, 1.0, 1.0]),
                                             ('quadrotor_description', 'cf2x'),
                                             ('state_topic', 'quadrotor_state'),
                                             ('reference_topic', 'quadrotor_reference'),
@@ -51,15 +52,16 @@ class QuadrotorDFBC(Node):
                                             ],
                                 namespace='')
         # Get the parameters:
-        self.KP_XYZ = self.get_parameter_value('KP_XYZ', 'list[float]')
-        self.KD_XYZ = self.get_parameter_value('KD_XYZ', 'list[float]')
-        self.KP_RPY = self.get_parameter_value('KP_RPY', 'list[float]')
-        self.KD_RPY = self.get_parameter_value('KD_RPY', 'list[float]')
-        self.quadrotor_description = self.get_parameter_value('quadrotor_description', 'str')
-        self.state_topic = self.get_parameter_value('state_topic', 'str')
-        self.reference_topic = self.get_parameter_value('reference_topic', 'str')
-        self.rotor_speeds_topic = self.get_parameter_value('rotor_speeds_topic', 'str')
-        self.command_publish_frequency = self.get_parameter_value('command_publish_frequency', 'int')
+        self.KP_XYZ = self.get_parameter('KP_XYZ').get_parameter_value().double_array_value
+        self.KD_XYZ = self.get_parameter('KD_XYZ').get_parameter_value().double_array_value
+        self.KP_RPY = self.get_parameter('KP_RPY').get_parameter_value().double_array_value
+        self.KD_RPY = self.get_parameter('KD_RPY').get_parameter_value().double_array_value
+        self.Weights = self.get_parameter('Weights').get_parameter_value().double_array_value
+        self.quadrotor_description = self.get_parameter('quadrotor_description').get_parameter_value().string_value
+        self.state_topic = self.get_parameter('state_topic').get_parameter_value().string_value
+        self.reference_topic = self.get_parameter('reference_topic').get_parameter_value().string_value
+        self.rotor_speeds_topic = self.get_parameter('rotor_speeds_topic').get_parameter_value().string_value
+        self.command_publish_frequency = self.get_parameter('command_publish_frequency').get_parameter_value().integer_value
 
         # Subscribers and Publishers
         self.state_subscriber = self.create_subscription(msg_type=State,
@@ -87,42 +89,6 @@ class QuadrotorDFBC(Node):
         self.start_time = self.get_clock().now()
         self.get_logger().info(f'DFBC node initialized at {self.start_time.seconds_nanoseconds()}')
 
-    def get_parameter_value(self, parameter_name: str, parameter_type: str) -> Union[bool, int, float, str, List[str | int | float]]:
-        """
-        Get the value of a parameter with the given name and type.
-
-        Args:
-            parameter_name (str): The name of the parameter to retrieve.
-            parameter_type (str): The type of the parameter to retrieve. Supported types are 'bool', 'int', 'float', 'str',
-                'list[float]', 'list[str]' and 'list[int]'.
-
-        Returns:
-            The value of the parameter, cast to the specified type.
-
-        Raises:
-            ValueError: If the specified parameter type is not supported.
-        """
-
-        parameter = self.get_parameter(parameter_name)
-        parameter_value = parameter.get_parameter_value()
-
-        if parameter_type == 'bool':
-            return parameter_value.bool_value
-        elif parameter_type == 'int':
-            return parameter_value.integer_value
-        elif parameter_type == 'float':
-            return parameter_value.double_value
-        elif parameter_type == 'str':
-            return parameter_value.string_value
-        elif parameter_type == 'list[str]':
-            return parameter_value.string_array_value
-        elif parameter_type == 'list[float]':
-            return parameter_value.double_array_value
-        elif parameter_type == 'list[int]':
-            return parameter_value.integer_array_value
-        else:
-            raise ValueError(f"Unsupported parameter type: {parameter_type}")
-
     def initialize_constants(self):
         """
         Initializes the constants used in the quadrotor DFBC controller.
@@ -149,20 +115,22 @@ class QuadrotorDFBC(Node):
         self.G = 9.81
         self.KF = quadrotor_params['KF']
         self.KM = quadrotor_params['KM']
-        self.ARM = quadrotor_params['ARM']
+        # self.ARM = quadrotor_params['ARM']
         self.M = quadrotor_params['M']
         self.T2W = quadrotor_params['T2W']
         self.W = self.G * self.M
         self.HOVER_RPM = math.sqrt(self.W / (4 * self.KF))
         self.MAX_THRUST = self.T2W * self.W
         self.MAX_RPM = math.sqrt(self.MAX_THRUST / (4 * self.KF))
-        self.MAX_TORQUE_XY = self.ARM * self.KF * self.MAX_RPM ** 2
-        self.MAX_TORQUE_Z = 2 * self.KM * self.MAX_RPM ** 2
+        # self.MAX_TORQUE_XY = self.ARM * self.KF * self.MAX_RPM ** 2
+        # self.MAX_TORQUE_Z = 2 * self.KM * self.MAX_RPM ** 2
         self.ROTOR_DIRS = quadrotor_params['ROTOR_DIRS']
         self.ARM_X = quadrotor_params['ARM_X']
         self.ARM_Y = quadrotor_params['ARM_Y']
         self.ARM_Z = quadrotor_params['ARM_Z']
         self.J = np.array(quadrotor_params['J'])
+
+        self.get_logger().info(f'{quadrotor_params=}')
 
     def initialize_errors(self):
         """ Initializes the integral control errors for position and rotation.
@@ -254,6 +222,7 @@ class QuadrotorDFBC(Node):
         KD_XYZ = np.array(self.KD_XYZ)
         KP_RPY = np.array(self.KP_RPY)
         KD_RPY = np.array(self.KD_RPY)
+        Weights = np.array(self.Weights)
 
         error_position = reference_position - actual_position
         error_velocity = reference_velocity - actual_velocity
@@ -267,27 +236,30 @@ class QuadrotorDFBC(Node):
         # desired_thrust = np.clip(desired_thrust, 0.0, self.MAX_THRUST)
 
         desired_zb = desired_force / np.linalg.norm(desired_force)
-
         desired_xc = np.array([math.cos(reference_orientation_euler[2]), math.sin(reference_orientation_euler[2]), 0])
         desired_yb = np.cross(desired_zb, desired_xc) / np.linalg.norm(np.cross(desired_zb, desired_xc))
         desired_xb = np.cross(desired_yb, desired_zb)
 
         desired_Rb = np.vstack([desired_xb, desired_yb, desired_zb]).transpose()
+        # desired_Rb = Rotation.from_euler('xyz', [0, 20, 0], degrees=True).as_matrix()
         actual_Rb = Rotation.from_quat(actual_orientation).as_matrix()
 
         error_rotation = -0.5*(desired_Rb.transpose() @ actual_Rb - actual_Rb.transpose() @ desired_Rb)
-
         error_rotation = np.array([error_rotation[2, 1], error_rotation[0, 2], error_rotation[1, 0]])
+        # error_rotation[0] = np.clip(error_rotation[0], -1, 1)
+        # error_rotation[1] = np.clip(error_rotation[1], -1, 1)
         # self.get_logger().info(f'{error_rotation=}')
+        # self.get_logger().info(f'{Rotation.from_matrix(actual_Rb).as_euler("xyz", degrees=True)}')
 
         error_angular_velocity = reference_angular_velocity - actual_angular_velocity
 
-        desired_torques = np.multiply(KP_RPY, error_rotation) + np.multiply(KD_RPY, error_angular_velocity)
+        desired_ang_acceleration = np.multiply(KP_RPY, error_rotation) + np.multiply(KD_RPY, error_angular_velocity)
+        desired_torques = self.J @ desired_ang_acceleration + np.cross(actual_angular_velocity, self.J @ actual_angular_velocity)
 
         self.command.header.stamp = self.get_clock().now().to_msg()
-        self.command.rotor_speeds = self.calculate_rotor_speeds(desired_thrust, desired_torques)
+        self.command.rotor_speeds = self.calculate_rotor_speeds(desired_thrust, desired_torques, Weights)
 
-    def calculate_rotor_speeds(self, thrust: float, torques: np.ndarray) -> np.ndarray:
+    def calculate_rotor_speeds(self, thrust: float, torques: np.ndarray, Weights) -> np.ndarray:
         """ Claculate the rotor speeds using the thrust and torques. 
         Uses the following equation:
             [thrust, torques] = A * [w1^2, w2^2, w3^2, w4^2]
@@ -311,13 +283,16 @@ class QuadrotorDFBC(Node):
 
         # rotor_speeds_squared = np.matmul(np.linalg.inv(A), np.array([thrust, torques[0], torques[1], torques[2]]))
         # rotor_speeds_squared = np.clip(rotor_speeds_squared, 0, self.MAX_RPM**2)
-        rotor_speeds_squared = lsq_linear(A, np.array([thrust, torques[0], torques[1], torques[2]]), bounds=(0, self.MAX_RPM**2)).x
+        W = np.diag(np.sqrt(Weights))
+        # self.get_logger().info(f'{W=}')
+        rotor_speeds_squared = lsq_linear(W@A, (W@np.array([thrust, torques[0], torques[1], torques[2]]
+                                                           ).reshape(-1, 1)).flatten(), bounds=(0, self.MAX_RPM**2)).x
         # self.get_logger().info(f"{rotor_speeds_squared}")
         rotor_speeds = np.sqrt(rotor_speeds_squared)
-        actual_thrust = self.KF * np.sum(rotor_speeds_squared)
-        actual_torques = np.array([self.ARM * self.KF * (rotor_speeds_squared[0] - rotor_speeds_squared[2]),
-                                   self.ARM * self.KF * (rotor_speeds_squared[1] - rotor_speeds_squared[3]),
-                                   self.KM * (rotor_speeds_squared[0] - rotor_speeds_squared[1] + rotor_speeds_squared[2] - rotor_speeds_squared[3])])
+        # actual_thrust = self.KF * np.sum(rotor_speeds_squared)
+        # actual_torques = np.array([self.ARM * self.KF * (rotor_speeds_squared[0] - rotor_speeds_squared[2]),
+        #                            self.ARM * self.KF * (rotor_speeds_squared[1] - rotor_speeds_squared[3]),
+        #                            self.KM * (rotor_speeds_squared[0] - rotor_speeds_squared[1] + rotor_speeds_squared[2] - rotor_speeds_squared[3])])
         rotor_speeds = rotor_speeds.astype(np.float32)
         return rotor_speeds
 

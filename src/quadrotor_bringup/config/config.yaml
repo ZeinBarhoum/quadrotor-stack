@@ -1,0 +1,43 @@
+QuadrotorSimulation:
+  PybulletPhysics:
+    physics_server: DIRECT  # Physics server to use (GUI or DIRECT)
+    quadrotor_description: neuroBEM  # Name of the quadrotor model to use (cf2x or other)
+    # obstacles_description: [NONE]
+
+    obstacles_description: [hoop, hoop, hoop, hoop]  # List of obstacles to include in the simulation, if none then [NONE]
+    obstacles_poses: [4.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0,
+                      8.0, 4.0, 1.0, 0.0, 0.0, -0.7, 0.7,
+                      8.0, 4.0, 3.0, 0.0, 0.0, -0.7, 0.7,
+                      4.0, 1.0, 2.0, 0.0, 0.0, 0.0, 1.0,]  # List of poses, if None then [0.0]
+    render_ground: false  # Whether to render the ground plane
+    simulation_step_frequency: 240  # Frequency at which the simulation is stepped
+    state_topic: quadrotor_state  # Topic name for the quadrotor state messages
+    rotor_speeds_topic: quadrotor_rotor_speeds  # Topic name for the quadrotor rotor speeds messages
+    use_rotor_dynamics: False
+    calculate_linear_drag: False
+    calculate_quadratic_drag: False
+    use_wind_speed: True
+
+  PybulletCamera:
+    physics_server: GUI  # Physics server to use (GUI or DIRECT)
+    quadrotor_description: neuroBEM  # Name of the quadrotor model to use (cf2x or other)
+    obstacles_description: [hoop, hoop, hoop, hoop]  # List of obstacles to include in the simulation, if none then [NONE]
+    obstacles_poses: [4.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0,
+                      8.0, 4.0, 1.0, 0.0, 0.0, -0.7, 0.7,
+                      8.0, 4.0, 3.0, 0.0, 0.0, -0.7, 0.7,
+                      4.0, 2.0, 2.0, 0.0, 0.0, 0.0, 1.0,]  # List of poses, if None then [0.0]
+    render_ground: true  # Whether to render the ground plane
+    render_architecture: true  # Whether to render the architecture
+    # Dimensions of the published images
+    image_width: 640
+    image_height: 480
+    image_publishing_frequency: 40  # Frequency at which images are published
+    state_topic: quadrotor_state  # Topic name for the quadrotor state messages
+    image_topic: quadrotor_img  # Topic name for the quadrotor image messages
+    threading: false
+  
+  IMU:
+    imu_topic: quadrotor_imu
+    state_topic: quadrotor_state
+    imu_publishing_frequency: 500.0
+    include_gravity: true

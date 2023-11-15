@@ -55,7 +55,9 @@ class QuadrotorPathVisualizer(Node):
         self.ax_error_pos = self.fig.add_subplot(*self.num_subplots, 3)
         self.ax_error_rot = self.fig.add_subplot(*self.num_subplots, 4)
         self.ax_yaw = self.fig.add_subplot(*self.num_subplots, 5)
+        self.ax_vel = self.fig.add_subplot(*self.num_subplots, 6)
 
+        self.vels = [0]
         self.references = [[0], [0], [0], [0]]
         self.references_yaw = [0]
         self.current_reference = [0, 0, 0, 0]
@@ -122,6 +124,14 @@ class QuadrotorPathVisualizer(Node):
         self.ax_yaw.plot(self.states[3], c='g', label='State')
         self.ax_yaw.legend()
 
+        self.ax_vel.clear()
+        self.ax_vel.set_xlabel('Time')
+        self.ax_vel.set_ylabel('Velocity')
+        self.ax_vel.set_xlim(0, self.times[-1], auto=True)
+        self.ax_vel.set_ylim(0, 10, auto=False)
+        self.ax_vel.plot(self.vels, c='g', label='Velocity')
+        self.ax_vel.legend()
+
         num_points = 50
         if (len(self.times) > num_points):
             times = self.times[-num_points:]
@@ -170,6 +180,8 @@ class QuadrotorPathVisualizer(Node):
         self.states[0].append(msg.state.pose.position.x)
         self.states[1].append(msg.state.pose.position.y)
         self.states[2].append(msg.state.pose.position.z)
+
+        self.vels.append(np.linalg.norm([msg.state.twist.linear.x, msg.state.twist.linear.y, msg.state.twist.linear.z]))
 
         quat = np.array([msg.state.pose.orientation.x, msg.state.pose.orientation.y,
                         msg.state.pose.orientation.z, msg.state.pose.orientation.w])

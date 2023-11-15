@@ -1,31 +1,6 @@
-PybulletSimulation:
-  physics_server: GUI  # Physics server to use (GUI or DIRECT)
-  quadrotor_description: cf2x  # Name of the quadrotor model to use (cf2x or other)
-  obstacles_description: [hoop, hoop, hoop, hoop]  # List of obstacles to include in the simulation, if none then [NONE]
-  obstacles_poses: [4.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0,
-                    8.0, 4.0, 1.0, 0.0, 0.0, -0.7, 0.7,
-                    8.0, 4.0, 3.0, 0.0, 0.0, -0.7, 0.7,
-                    4.0, 1.0, 2.0, 0.0, 0.0, 0.0, 1.0,]  # List of poses, if None then [0.0]
-  render_ground: false  # Whether to render the ground plane
-  render_architecture: true  # Whether to render the architecture
-  publish_image: true  # Whether to publish images from the camera
-  # Dimensions of the published images
-  image_width: 400
-  image_height: 300
-  state_publishing_frequency: 240  # Frequency at which the state is published
-  image_publishing_frequency: 5  # Frequency at which images are published
-  simulation_step_frequency: 240  # Frequency at which the simulation is stepped
-  state_topic: quadrotor_state  # Topic name for the quadrotor state messages
-  image_topic: quadrotor_img  # Topic name for the quadrotor image messages
-  rotor_speeds_topic: quadrotor_rotor_speeds  # Topic name for the quadrotor rotor speeds messages
-  view_distance: 15.0  # Distance from the quadrotor to the camera (in the pybullet view)
-  view_yaw: 75.0  # Yaw angle of the camera (in the pybullet view)
-  view_pitch: -20.0  # Pitch angle of the camera (in the pybullet view)
-
-
 PybulletPhysicsSimulation:
   physics_server: DIRECT  # Physics server to use (GUI or DIRECT)
-  quadrotor_description: cf2x  # Name of the quadrotor model to use (cf2x or other)
+  quadrotor_description: neuroBEM  # Name of the quadrotor model to use (cf2x or other)
   # obstacles_description: [NONE]
 
   obstacles_description: [hoop, hoop, hoop, hoop]  # List of obstacles to include in the simulation, if none then [NONE]
@@ -41,10 +16,12 @@ PybulletPhysicsSimulation:
   calculate_linear_drag: True
   calculate_quadratic_drag: True
   use_wind_speed: True
+  manual_tau_xy_calculation: False
+  calculate_residuals: False
 
 PybulletCameraSimulation:
   physics_server: GUI  # Physics server to use (GUI or DIRECT)
-  quadrotor_description: cf2x  # Name of the quadrotor model to use (cf2x or other)
+  quadrotor_description: neuroBEM  # Name of the quadrotor model to use (cf2x or other)
   obstacles_description: [hoop, hoop, hoop, hoop]  # List of obstacles to include in the simulation, if none then [NONE]
   obstacles_poses: [4.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0,
                     8.0, 4.0, 1.0, 0.0, 0.0, -0.7, 0.7,
@@ -81,35 +58,22 @@ PIDController:
   command_publishing_frequency: 240
 
 DFBCController:
-  KP_XYZ: [5.0, 5.0, 40.0]  # For position
-  KD_XYZ: [5.0, 5.0, 12.0]  # For position
-  KP_RPY: [0.005, 0.005, 0.005]  # For roll, pitch and yaw
-  KD_RPY: [0.001, 0.001, 0.001]  # For roll, pitch and yaw
-  quadrotor_description: cf2x  # quadrotor name (for config file)
+  KP_XYZ: [10.0, 10.0, 10.0]  # For position
+  KD_XYZ: [6.0, 6.0, 6.0]  # For position
+  KP_RPY: [150, 150, 10.0]  # For roll, pitch and yaw
+  KD_RPY: [20, 20, 8.0]  # For roll, pitch and yaw
+  Weights: [0.001, 10, 10, 0.1]
+  quadrotor_description: neuroBEM  # quadrotor name (for config file)
   state_topic: quadrotor_state
   reference_topic: quadrotor_reference
   rotor_speeds_topic: quadrotor_rotor_speeds
   command_publishing_frequency: 240
 
-Dataset:
-  dataset_package: quadrotor_control
-  dataset_folder: resource/datasets/NeuroBEM
-  dataset_name: merged_2021-02-03-16-54-28_
-  time_field: t
-  command_fields:
-    - mot 1
-    - mot 2
-    - mot 3
-    - mot 4
-  interpolation_method: linear
-  rotor_speeds_topic: quadrotor_rotor_speeds
-  command_publish_frequency: 240
-
 PolyTrajOptimizer:
   time_allocation: distance_proportional  # distance_proportional, constant or optimization
   segment_time: 0.1  # segment time in seconds for constant time allocation
-  avg_velocity: 1.5  # average velocity in m/s for distance proportional time allocation
-  quadrotor_description: cf2x  # quadrotor description file name (without extension)
+  avg_velocity: 3.5  # average velocity in m/s for distance proportional time allocation
+  quadrotor_description: neuroBEM  # quadrotor description file name (without extension)
   one_segment: false  # if true, the trajectory will be a single segment
   high_order_constraints: 2  # number of constraints for the high order derivatives (velocity = 1 and so on)
   optimize: true

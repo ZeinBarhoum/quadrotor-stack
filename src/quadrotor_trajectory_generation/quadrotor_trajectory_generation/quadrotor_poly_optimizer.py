@@ -155,7 +155,7 @@ class QuadrotorPolyTrajOptimizer(Node):
         self.G = 9.81
         self.KF = quadrotor_params['KF']
         self.KM = quadrotor_params['KM']
-        self.ARM = quadrotor_params['ARM']
+        # self.ARM = quadrotor_params['ARM']
         self.M = quadrotor_params['M']
         self.T2W = quadrotor_params['T2W']
         self.W = self.G * self.M
