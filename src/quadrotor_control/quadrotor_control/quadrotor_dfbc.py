@@ -52,16 +52,16 @@ class QuadrotorDFBC(Node):
                                             ],
                                 namespace='')
         # Get the parameters:
-        self.KP_XYZ = self.get_parameter_value('KP_XYZ', 'list[float]')
-        self.KD_XYZ = self.get_parameter_value('KD_XYZ', 'list[float]')
-        self.KP_RPY = self.get_parameter_value('KP_RPY', 'list[float]')
-        self.KD_RPY = self.get_parameter_value('KD_RPY', 'list[float]')
-        self.Weights = self.get_parameter_value('Weights', 'list[float]')
-        self.quadrotor_description = self.get_parameter_value('quadrotor_description', 'str')
-        self.state_topic = self.get_parameter_value('state_topic', 'str')
-        self.reference_topic = self.get_parameter_value('reference_topic', 'str')
-        self.rotor_speeds_topic = self.get_parameter_value('rotor_speeds_topic', 'str')
-        self.command_publish_frequency = self.get_parameter_value('command_publish_frequency', 'int')
+        self.KP_XYZ = self.get_parameter('KP_XYZ').get_parameter_value().double_array_value
+        self.KD_XYZ = self.get_parameter('KD_XYZ').get_parameter_value().double_array_value
+        self.KP_RPY = self.get_parameter('KP_RPY').get_parameter_value().double_array_value
+        self.KD_RPY = self.get_parameter('KD_RPY').get_parameter_value().double_array_value
+        self.Weights = self.get_parameter('Weights').get_parameter_value().double_array_value
+        self.quadrotor_description = self.get_parameter('quadrotor_description').get_parameter_value().string_value
+        self.state_topic = self.get_parameter('state_topic').get_parameter_value().string_value
+        self.reference_topic = self.get_parameter('reference_topic').get_parameter_value().string_value
+        self.rotor_speeds_topic = self.get_parameter('rotor_speeds_topic').get_parameter_value().string_value
+        self.command_publish_frequency = self.get_parameter('command_publish_frequency').get_parameter_value().integer_value
 
         # Subscribers and Publishers
         self.state_subscriber = self.create_subscription(msg_type=State,
@@ -88,42 +88,6 @@ class QuadrotorDFBC(Node):
         # Announce that the node is initialized
         self.start_time = self.get_clock().now()
         self.get_logger().info(f'DFBC node initialized at {self.start_time.seconds_nanoseconds()}')
-
-    def get_parameter_value(self, parameter_name: str, parameter_type: str) -> Union[bool, int, float, str, List[str | int | float]]:
-        """
-        Get the value of a parameter with the given name and type.
-
-        Args:
-            parameter_name (str): The name of the parameter to retrieve.
-            parameter_type (str): The type of the parameter to retrieve. Supported types are 'bool', 'int', 'float', 'str',
-                'list[float]', 'list[str]' and 'list[int]'.
-
-        Returns:
-            The value of the parameter, cast to the specified type.
-
-        Raises:
-            ValueError: If the specified parameter type is not supported.
-        """
-
-        parameter = self.get_parameter(parameter_name)
-        parameter_value = parameter.get_parameter_value()
-
-        if parameter_type == 'bool':
-            return parameter_value.bool_value
-        elif parameter_type == 'int':
-            return parameter_value.integer_value
-        elif parameter_type == 'float':
-            return parameter_value.double_value
-        elif parameter_type == 'str':
-            return parameter_value.string_value
-        elif parameter_type == 'list[str]':
-            return parameter_value.string_array_value
-        elif parameter_type == 'list[float]':
-            return parameter_value.double_array_value
-        elif parameter_type == 'list[int]':
-            return parameter_value.integer_array_value
-        else:
-            raise ValueError(f"Unsupported parameter type: {parameter_type}")
 
     def initialize_constants(self):
         """

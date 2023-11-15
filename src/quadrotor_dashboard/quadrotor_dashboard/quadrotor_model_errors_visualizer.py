@@ -20,8 +20,6 @@ else:
 DEFAULT_FREQUENCY = 0.5
 DEFAULT_WINDOW = 10.0
 
-export_path = '/home/zein/Project/Results/Quadrotor/ModelErrors/'
-
 
 class QuadrotorModelErrorsVisualizer(Node):
     def __init__(self):
@@ -29,11 +27,13 @@ class QuadrotorModelErrorsVisualizer(Node):
         self.declare_parameters(parameters=[('refresh_rate', DEFAULT_FREQUENCY),
                                             ('plot_window', DEFAULT_WINDOW),
                                             ('model_error_topic', 'quadrotor_model_error'),
+                                            ('export_path', 'NONE'),
                                             ],
                                 namespace='')
         self.refresh_rate = self.get_parameter('refresh_rate').get_parameter_value().double_value
         self.plot_window = self.get_parameter('plot_window').get_parameter_value().double_value
         self.model_error_topic = self.get_parameter('model_error_topic').get_parameter_value().string_value
+        self.export_path = self.get_parameter('export_path').get_parameter_value().string_value
 
         self.subscription = self.create_subscription(ModelError,
                                                      self.model_error_topic,
@@ -226,10 +226,9 @@ class QuadrotorModelErrorsVisualizer(Node):
         df.loc[len(df.index)] = ['input', '2', *self.calculate_stats(self.error_input)[:, 1], 'rpm']
         df.loc[len(df.index)] = ['input', '3', *self.calculate_stats(self.error_input)[:, 2], 'rpm']
         df.loc[len(df.index)] = ['input', '4', *self.calculate_stats(self.error_input)[:, 3], 'rpm']
-
-        df.to_csv(f"{export_path}stats_{datetime.datetime.now()}.csv", index=False)
-
-        df.to_csv(f"{export_path}Latest/stats.csv", index=False)
+        if self.export_path != 'NONE':
+            df.to_csv(f"{self.export_path}/stats_{datetime.datetime.now()}.csv", index=False)
+            df.to_csv(f"{self.export_path}/Latest/stats.csv", index=False)
 
     def clear_plots(self):
         [self.accel_body_axes[i].clear() for i in range(3)]
