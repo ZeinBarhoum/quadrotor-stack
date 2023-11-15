@@ -21,10 +21,13 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
+        <cylinder radius="${0.2*sqrt(ARM_X**2+ARM_Y**2)}" length="${0.7*ARM_Z}"/>
+      </geometry>
+      <!-- <geometry>
         <sphere radius="${0.1*sqrt(ARM_X**2+ARM_Y**2)}"/>
-      </geometry>  
-      <material name="black">
-        <color rgba="0.0 0.0 0.0 1.0"/>
+      </geometry>   -->
+      <material name="gray">
+        <color rgba="0.5 0.5 0.5 0.8"/>
       </material>
     </visual>
 
@@ -32,13 +35,13 @@
     <visual>
       <origin xyz="${ARM_X/2} ${ARM_Y/2} 0" rpy="0 0 ${-atan(ARM_X/ARM_Y)}"/>
       <geometry>
-        <box size="${0.1* sqrt(ARM_X**2+ARM_Y**2)} ${sqrt(ARM_X**2+ARM_Y**2)} ${0.1*ARM_Z}"/>
+        <box size="${0.15* sqrt(ARM_X**2+ARM_Y**2)} ${sqrt(ARM_X**2+ARM_Y**2)} ${0.5*ARM_Z}"/>
       </geometry>
     </visual>    
     <visual>
       <origin xyz="${ARM_X} ${ARM_Y} ${ARM_Z/2}" rpy="0 0 0"/>
       <geometry>
-        <cylinder radius="${0.1*ARM_Z}" length="${ARM_Z}"/>
+        <cylinder radius="${0.2*ARM_Z}" length="${ARM_Z}"/>
       </geometry>
     </visual>
 
@@ -46,13 +49,13 @@
     <visual>
       <origin xyz="${-ARM_X/2} ${ARM_Y/2} 0" rpy="0 0 ${-atan(-ARM_X/ARM_Y)}"/>
       <geometry>
-        <box size="${0.1* sqrt(ARM_X**2+ARM_Y**2)} ${sqrt(ARM_X**2+ARM_Y**2)} ${0.1*ARM_Z}"/>
+        <box size="${0.15* sqrt(ARM_X**2+ARM_Y**2)} ${sqrt(ARM_X**2+ARM_Y**2)} ${0.5*ARM_Z}"/>
       </geometry>
     </visual>    
     <visual>
       <origin xyz="${-ARM_X} ${ARM_Y} ${ARM_Z/2}" rpy="0 0 0"/>
       <geometry>
-        <cylinder radius="${0.1*ARM_Z}" length="${ARM_Z}"/>
+        <cylinder radius="${0.2*ARM_Z}" length="${ARM_Z}"/>
       </geometry>
     </visual>
 
@@ -60,13 +63,13 @@
     <visual>
       <origin xyz="${-ARM_X/2} ${-ARM_Y/2} 0" rpy="0 0 ${-atan(ARM_X/ARM_Y)}"/>
       <geometry>
-        <box size="${0.1* sqrt(ARM_X**2+ARM_Y**2)} ${sqrt(ARM_X**2+ARM_Y**2)} ${0.1*ARM_Z}"/>
+        <box size="${0.15* sqrt(ARM_X**2+ARM_Y**2)} ${sqrt(ARM_X**2+ARM_Y**2)} ${0.5*ARM_Z}"/>
       </geometry>
     </visual>    
     <visual>
       <origin xyz="${-ARM_X} ${-ARM_Y} ${ARM_Z/2}" rpy="0 0 0"/>
       <geometry>
-        <cylinder radius="${0.1*ARM_Z}" length="${ARM_Z}"/>
+        <cylinder radius="${0.2*ARM_Z}" length="${ARM_Z}"/>
       </geometry>
     </visual>
 
@@ -74,13 +77,13 @@
     <visual>
       <origin xyz="${ARM_X/2} ${-ARM_Y/2} 0" rpy="0 0 ${-atan(-ARM_X/ARM_Y)}"/>
       <geometry>
-        <box size="${0.1* sqrt(ARM_X**2+ARM_Y**2)} ${sqrt(ARM_X**2+ARM_Y**2)} ${0.1*ARM_Z}"/>
+        <box size="${0.15* sqrt(ARM_X**2+ARM_Y**2)} ${sqrt(ARM_X**2+ARM_Y**2)} ${0.5*ARM_Z}"/>
       </geometry>
     </visual>    
     <visual>
       <origin xyz="${ARM_X} ${-ARM_Y} ${ARM_Z/2}" rpy="0 0 0"/>
       <geometry>
-        <cylinder radius="${0.1*ARM_Z}" length="${ARM_Z}"/>
+        <cylinder radius="${0.2*ARM_Z}" length="${ARM_Z}"/>
       </geometry>
     </visual>
     
