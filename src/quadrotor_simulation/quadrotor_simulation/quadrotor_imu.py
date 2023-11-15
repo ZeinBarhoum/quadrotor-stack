@@ -59,8 +59,8 @@ class QuadrotorIMU(Node):
     def initialize_data(self):
         self.state = State()
         self.imu = Imu()
-        self.imu.angular_velocity_covariance = self.angular_velocity_covariance
-        self.imu.linear_acceleration_covariance = self.linear_acceleration_covariance
+        self.imu.angular_velocity_covariance = np.array(self.angular_velocity_covariance, dtype=np.float64)
+        self.imu.linear_acceleration_covariance = np.array(self.linear_acceleration_covariance, dtype= np.float64)
 
     def receive_state_callback(self, msg: State):
         self.state = msg
