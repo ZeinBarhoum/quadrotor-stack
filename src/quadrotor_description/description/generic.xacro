@@ -2,7 +2,7 @@
 
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
     <xacro:macro name="quadrotor_generic"
-        params="ARM_X:=0.1 ARM_Y:=0.1 ARM_Z:=0.03 MASS:=1.0 IXX:=0.0025 IYY:=0.0025 IZZ:=0.005">
+        params="ARM_X:=0.1 ARM_Y:=0.1 ARM_Z:=0.03 MASS:=1.0 IXX:=0.0025 IYY:=0.0025 IZZ:=0.005 base_color:='0.5 0.5 0.5 1.0' prop_color:='0.8 0.0 0.0 0.8'">
         <link name="base_link">
 
             <inertial>
@@ -16,11 +16,8 @@
                 <geometry>
                     <cylinder radius="${0.2*sqrt(ARM_X**2+ARM_Y**2)}" length="${0.7*ARM_Z}" />
                 </geometry>
-                <!-- <geometry>
-        <sphere radius="${0.1*sqrt(ARM_X**2+ARM_Y**2)}"/>
-      </geometry>   -->
-                <material name="gray">
-                    <color rgba="0.5 0.5 0.5 0.8" />
+                <material name="base_mat">
+                    <color rgba="${base_color}" />
                 </material>
             </visual>
 
@@ -99,6 +96,15 @@
                 <mass value="0" />
                 <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
             </inertial>
+            <visual>
+                <origin xyz="${ARM_X} -${ARM_Y} ${ARM_Z}" rpy="0.0 0.0 0.0" />
+                <geometry>
+                    <cylinder radius="${0.7*ARM_X}" length="${0.1*ARM_Z}" />
+                </geometry>
+                <material name='prop_mat'>
+                    <color rgba="${prop_color}" />
+                </material>
+            </visual>
         </link>
         <joint name="prop0_joint" type="fixed">
             <parent link="base_link" />
@@ -112,6 +118,15 @@
                 <mass value="0" />
                 <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
             </inertial>
+            <visual>
+                <origin xyz="${ARM_X} ${ARM_Y} ${ARM_Z}" rpy="0.0 0.0 0.0" />
+                <geometry>
+                    <cylinder radius="${0.7*ARM_X}" length="${0.1*ARM_Z}" />
+                </geometry>
+                <material name='prop_mat'>
+                    <color rgba="${prop_color}" />
+                </material>
+            </visual>
         </link>
         <joint name="prop1_joint" type="fixed">
             <parent link="base_link" />
@@ -124,6 +139,15 @@
                 <mass value="0" />
                 <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
             </inertial>
+            <visual>
+                <origin xyz="-${ARM_X} ${ARM_Y} ${ARM_Z}" rpy="0.0 0.0 0.0" />
+                <geometry>
+                    <cylinder radius="${0.7*ARM_X}" length="${0.1*ARM_Z}" />
+                </geometry>
+                <material name='prop_mat'>
+                    <color rgba="${prop_color}" />
+                </material>
+            </visual>
         </link>
         <joint name="prop2_joint" type="fixed">
             <parent link="base_link" />
@@ -136,6 +160,15 @@
                 <mass value="0" />
                 <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
             </inertial>
+            <visual>
+                <origin xyz="-${ARM_X} -${ARM_Y} ${ARM_Z}" rpy="0.0 0.0 0.0" />
+                <geometry>
+                    <cylinder radius="${0.7*ARM_X}" length="${0.1*ARM_Z}" />
+                </geometry>
+                <material name='prop_mat'>
+                    <color rgba="${prop_color}" />
+                </material>
+            </visual>
         </link>
 
         <joint name="prop3_joint" type="fixed">

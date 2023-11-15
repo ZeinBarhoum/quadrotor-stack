@@ -55,12 +55,20 @@ class QuadrotorPybulletCamera(Node):
                                                           ('obstacles_poses', [0.0]),
                                                           ('render_ground', True),
                                                           ('render_architecture', True),
-                                                          ('image_width', 800),
-                                                          ('image_height', 600),
                                                           ('image_publishing_frequency', DEFAULT_FREQUENCY_IMG),
                                                           ('state_topic', 'quadrotor_state'),
                                                           ('image_topic', 'quadrotor_img'),
-                                                          ('threading', False)])
+                                                          ('threading', False),
+                                                          ('image_width', 800),
+                                                          ('image_height', 600),
+                                                          ('camera_position', [0.0, 0.0, 0.0]),
+                                                          ('camera_main_axis', [1.0, 0.0, 0.0]),
+                                                          ('camera_up_axis', [0.0, 0.0, 1.0]),
+                                                          ('camera_focus_distance', 1.0),
+                                                          ('camera_fov', 60.0),
+                                                          ('camera_near_plane', 0.01),
+                                                          ('camera_far_plane', 100.0)
+                                                          ])
 
         # Get the parameters
         self.physics_server = self.get_parameter('physics_server').get_parameter_value().string_value
@@ -70,8 +78,6 @@ class QuadrotorPybulletCamera(Node):
         self.obstacles_poses = self.get_parameter('obstacles_poses').get_parameter_value().double_array_value
         self.render_ground = self.get_parameter('render_ground').get_parameter_value().bool_value
         self.render_architecture = self.get_parameter('render_architecture').get_parameter_value().bool_value
-        self.image_width = self.get_parameter('image_width').get_parameter_value().integer_value
-        self.image_height = self.get_parameter('image_height').get_parameter_value().integer_value
         self.image_publishing_frequency = self.get_parameter('image_publishing_frequency').get_parameter_value().integer_value
         self.state_topic = self.get_parameter('state_topic').get_parameter_value().string_value
         self.image_topic = self.get_parameter('image_topic').get_parameter_value().string_value
@@ -151,6 +157,7 @@ class QuadrotorPybulletCamera(Node):
     def initialize_data(self):
         self.state = State()
         self.ros_img = Image()
+        self.bridge = CvBridge()
 
     def receive_state_callback(self, msg):
         self.state = msg
@@ -162,7 +169,19 @@ class QuadrotorPybulletCamera(Node):
             self.publish_image_callback_thread()
 
     def publish_image_callback_thread(self):
-        bridge = CvBridge()
+        self.image_publishing_frequency = self.get_parameter('image_publishing_frequency').get_parameter_value().integer_value
+        self.image_publishing_timer.timer_period_ns = int(1e9 / self.image_publishing_frequency)
+
+        self.image_width = self.get_parameter('image_width').get_parameter_value().integer_value
+        self.image_height = self.get_parameter('image_height').get_parameter_value().integer_value
+        self.camera_position = self.get_parameter('camera_position').get_parameter_value().double_array_value
+        self.camera_main_axis = self.get_parameter('camera_main_axis').get_parameter_value().double_array_value
+        self.camera_up_axis = self.get_parameter('camera_up_axis').get_parameter_value().double_array_value
+        self.camera_focus_distance = self.get_parameter('camera_focus_distance').get_parameter_value().double_value
+        self.camera_fov = self.get_parameter('camera_fov').get_parameter_value().double_value
+        self.camera_near_plane = self.get_parameter('camera_near_plane').get_parameter_value().double_value
+        self.camera_far_plane = self.get_parameter('camera_far_plane').get_parameter_value().double_value
+
         pose = self.state.state.pose
         quad_pos = [pose.position.x, pose.position.y, pose.position.z]
         quad_quat = [pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w]
@@ -170,17 +189,21 @@ class QuadrotorPybulletCamera(Node):
 
         rot_matrix = p.getMatrixFromQuaternion(quad_quat)
         rot_matrix = np.array(rot_matrix).reshape(3, 3)
-        # Initial vectors
-        init_camera_vector = (1, 0, 0)  # z-axis
-        init_up_vector = (0, 0, 1)  # y-axis
+
+        init_camera_vector = np.array(self.camera_main_axis)/np.linalg.norm(self.camera_main_axis)
+        init_up_vector = np.array(self.camera_up_axis)/np.linalg.norm(self.camera_up_axis)
         # # Rotated vectors
         camera_vector = rot_matrix.dot(init_camera_vector)
         up_vector = rot_matrix.dot(init_up_vector)
 
-        view_matrix = p.computeViewMatrix(
-            quad_pos, quad_pos + 0.1 * camera_vector, up_vector)
+        camera_pos = rot_matrix.dot(np.array(self.camera_position)) + np.array(quad_pos)
+        camera_focus_target = camera_pos + camera_vector*self.camera_focus_distance
 
-        projection_matrix = p.computeProjectionMatrixFOV(fov=60, aspect=float(self.image_width) / self.image_height, nearVal=0.1, farVal=100.0)
+        view_matrix = p.computeViewMatrix(
+            camera_pos, camera_focus_target, up_vector)
+
+        projection_matrix = p.computeProjectionMatrixFOV(fov=self.camera_fov, aspect=float(
+            self.image_width) / self.image_height, nearVal=self.camera_near_plane, farVal=self.camera_far_plane)
 
         _, _, px, _, _ = p.getCameraImage(
             width=self.image_width,
@@ -195,7 +218,7 @@ class QuadrotorPybulletCamera(Node):
         image_rgb = np.array(px, dtype=np.uint8)
         image_rgb = np.reshape(image_rgb, (self.image_height, self.image_width, 4))
         image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGBA2BGR)
-        ros_image = bridge.cv2_to_imgmsg(image_bgr, encoding="bgr8")
+        ros_image = self.bridge.cv2_to_imgmsg(image_bgr, encoding="bgr8")
 
         # Publish the image
         self.image_publisher.publish(ros_image)
