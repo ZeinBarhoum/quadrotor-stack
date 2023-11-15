@@ -200,6 +200,8 @@ class QuadrotorPybulletPhysics(Node):
         p.changeDynamics(self.quadrotor_id, 2, linearDamping=0, angularDamping=0)
         p.changeDynamics(self.quadrotor_id, 3, linearDamping=0, angularDamping=0)
 
+        self.get_logger().info(f"Loaded quadrotor with Dynamics {p.getDynamicsInfo(self.quadrotor_id, -1)}")
+
         p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
         p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW, 0)
         p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW, 0)

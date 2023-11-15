@@ -16,8 +16,8 @@ PybulletPhysicsSimulation:
   calculate_linear_drag: True
   calculate_quadratic_drag: True
   use_wind_speed: True
-  manual_tau_xy_calculation: True
-  calculate_residuals: True
+  manual_tau_xy_calculation: False
+  calculate_residuals: False
 
 PybulletCameraSimulation:
   physics_server: GUI  # Physics server to use (GUI or DIRECT)
