@@ -10,7 +10,6 @@ from rclpy.node import Node
 from ament_index_python.packages import get_package_share_directory
 from quadrotor_interfaces.msg import RotorCommand, State, ModelError
 from geometry_msgs.msg import Vector3Stamped
-from quadrotor_simulation.quadrotor_residuals import calculate_residuals, prepare_residuals_model
 import xacro
 
 
@@ -152,6 +151,7 @@ class QuadrotorPybulletPhysics(Node):
         self.ARM_Z = quadrotor_params['ARM_Z']
         self.J = np.array(quadrotor_params['J'])
         if self.calculate_residuals:
+            from quadrotor_simulation.quadrotor_residuals import prepare_residuals_model
             self.RES_NET, self.RES_PARAMS = prepare_residuals_model(self.residuals_model)
             self.RES_DEVICE = self.residuals_device
             self.RES_NET.to(self.RES_DEVICE)
@@ -277,6 +277,7 @@ class QuadrotorPybulletPhysics(Node):
     def calculate_residual_thrust_torques(self):
         residuals = np.zeros(6)
         if self.calculate_residuals:
+            from quadrotor_simulation.quadrotor_residuals import calculate_residuals
             residuals = calculate_residuals(self.state, RotorCommand(rotor_speeds=self.rotor_speeds), self.RES_NET, self.RES_DEVICE, self.RES_PARAMS)
         return residuals
 
