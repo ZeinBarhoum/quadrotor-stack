@@ -43,9 +43,9 @@ DEFAULT_QOS_PROFILE = 10
 
 class QuadrotorPybulletCamera(Node):
 
-    def __init__(self):
+    def __init__(self, suffix='', **kwargs):
         """ Initializes the node."""
-        super().__init__('quadrotor_pybullet_camera_node')
+        super().__init__('quadrotor_pybullet_camera_node'+suffix, **kwargs)
 
         # Declare parameters
         self.declare_parameters(namespace='', parameters=[('physics_server', 'GUI'),
@@ -56,8 +56,8 @@ class QuadrotorPybulletCamera(Node):
                                                           ('render_ground', True),
                                                           ('render_architecture', True),
                                                           ('image_publishing_frequency', DEFAULT_FREQUENCY_IMG),
-                                                          ('state_topic', 'quadrotor_state'),
-                                                          ('image_topic', 'quadrotor_img'),
+                                                          ('state_topic', 'quadrotor_state'+suffix),
+                                                          ('image_topic', 'quadrotor_img'+suffix),
                                                           ('threading', False),
                                                           ('image_width', 800),
                                                           ('image_height', 600),
@@ -84,6 +84,8 @@ class QuadrotorPybulletCamera(Node):
         self.image_topic = self.get_parameter('image_topic').get_parameter_value().string_value
         self.threading = self.get_parameter('threading').get_parameter_value().bool_value
         self.sequential_mode = self.get_parameter('sequential_mode').get_parameter_value().bool_value
+        self.image_width = self.get_parameter('image_width').get_parameter_value().integer_value
+        self.image_height = self.get_parameter('image_height').get_parameter_value().integer_value
 
         # Subscribers and Publishers
         self.state_subscriber = self.create_subscription(msg_type=State,
@@ -158,7 +160,7 @@ class QuadrotorPybulletCamera(Node):
 
     def initialize_data(self):
         self.state = State()
-        self.ros_img = Image()
+        self.ros_image = Image()
         self.bridge = CvBridge()
 
     def receive_state_callback(self, msg):
@@ -223,10 +225,10 @@ class QuadrotorPybulletCamera(Node):
         image_rgb = np.array(px, dtype=np.uint8)
         image_rgb = np.reshape(image_rgb, (self.image_height, self.image_width, 4))
         image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGBA2BGR)
-        ros_image = self.bridge.cv2_to_imgmsg(image_bgr, encoding="bgr8")
+        self.ros_image = self.bridge.cv2_to_imgmsg(image_bgr, encoding="bgr8")
 
         # Publish the image
-        self.image_publisher.publish(ros_image)
+        self.image_publisher.publish(self.ros_image)
 
 
 def main(args=None):

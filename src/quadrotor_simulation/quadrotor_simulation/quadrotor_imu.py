@@ -10,12 +10,12 @@ DEFAULT_QOS_PROFILE = 10
 
 
 class QuadrotorIMU(Node):
-    def __init__(self):
-        super().__init__('quadrotor_imu_node')
+    def __init__(self, suffix='', **kwargs):
+        super().__init__('quadrotor_imu_node'+suffix, **kwargs)
 
         # Declare the parameters
-        self.declare_parameters(namespace='', parameters=[('imu_topic', 'quadrotor_imu'),
-                                                          ('state_topic', 'quadrotor_state'),
+        self.declare_parameters(namespace='', parameters=[('imu_topic', 'quadrotor_imu'+suffix),
+                                                          ('state_topic', 'quadrotor_state'+suffix),
                                                           ('imu_publishing_frequency', DEFAULT_FREQUENCY),
                                                           ('include_gravity', True),
                                                           ('angular_velocity_mean', [0.0, 0.0, 0.0]),
