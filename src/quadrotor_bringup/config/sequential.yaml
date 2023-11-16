@@ -1,0 +1,16 @@
+QuadrotorSimulation:
+  PybulletPhysics:
+    physics_server: DIRECT  # Physics server to use (GUI or DIRECT)
+    quadrotor_description: neuroBEM  # Name of the quadrotor model to use (cf2x or other)
+    sequential_mode: True
+
+  PybulletCamera:
+    physics_server: GUI  # Physics server to use (GUI or DIRECT)
+    quadrotor_description: neuroBEM  # Name of the quadrotor model to use (cf2x or other)
+    image_width: 640
+    image_height: 480
+    image_publishing_frequency: 40  # Frequency at which images are published
+    sequential_mode: True
+  IMU:
+    include_gravity: True
+    sequential_mode: True
