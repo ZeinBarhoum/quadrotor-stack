@@ -54,7 +54,8 @@ class QuadrotorPybulletPhysics(Node):
                                                           ('use_wind_speed', True),
                                                           ('use_ff_state', False),
                                                           ('manual_tau_xy_calculation', False),
-                                                          ('publish_model_errors', False)])
+                                                          ('publish_model_errors', False),
+                                                          ('sequential_mode', False),])
         # Get the parameters
         self.physics_server = self.get_parameter('physics_server').get_parameter_value().string_value
         self.quadrotor_description_file_name = self.get_parameter('quadrotor_description').get_parameter_value().string_value
@@ -77,6 +78,7 @@ class QuadrotorPybulletPhysics(Node):
         self.use_ff_state = self.get_parameter('use_ff_state').get_parameter_value().bool_value
         self.manual_tau_xy_calculation = self.get_parameter('manual_tau_xy_calculation').get_parameter_value().bool_value
         self.publish_model_errors = self.get_parameter('publish_model_errors').get_parameter_value().bool_value
+        self.sequential_mode = self.get_parameter('sequential_mode').get_parameter_value().bool_value
 
         # Subscribers and Publishers
         self.rotor_speeds_subscriber = self.create_subscription(msg_type=RotorCommand,
@@ -114,7 +116,8 @@ class QuadrotorPybulletPhysics(Node):
         self.initialize_data()
 
         # initialize timers
-        self.simulation_step_timer = self.create_timer(self.simulation_step_period, self.simulation_step_callback)
+        if not self.sequential_mode:
+            self.simulation_step_timer = self.create_timer(self.simulation_step_period, self.simulation_step_callback)
 
         # Announce that the node is initialized
         self.start_time = self.get_clock().now()  # For logging purposes
@@ -222,14 +225,15 @@ class QuadrotorPybulletPhysics(Node):
     def receive_commands_callback(self, msg: RotorCommand):
         if not self.use_rotor_dynamics:
             self.rotor_speeds = np.array(msg.rotor_speeds)
-            return
-        dt = (self.get_clock().now() - self.current_time).nanoseconds / 1e9
-        self.current_time = self.get_clock().now()
-        command_rotor_speeds = np.array(msg.rotor_speeds)
-        rotor_acceleration = (command_rotor_speeds - self.rotor_speeds) / self.ROT_TIME_STEP
-        rotor_acceleration = np.clip(rotor_acceleration, -self.ROT_MAX_ACC, self.ROT_MAX_ACC)
-        self.rotor_speeds += rotor_acceleration * dt
-        self.rotor_speeds = np.clip(self.rotor_speeds, 0, self.ROT_MAX_VEL)
+        else:
+            dt = (self.get_clock().now() - self.current_time).nanoseconds / 1e9
+            self.current_time = self.get_clock().now()
+            command_rotor_speeds = np.array(msg.rotor_speeds)
+            rotor_acceleration = (command_rotor_speeds - self.rotor_speeds) / self.ROT_TIME_STEP
+            rotor_acceleration = np.clip(rotor_acceleration, -self.ROT_MAX_ACC, self.ROT_MAX_ACC)
+            self.rotor_speeds += rotor_acceleration * dt
+            self.rotor_speeds = np.clip(self.rotor_speeds, 0, self.ROT_MAX_VEL)
+        self.simulation_step_callback()
 
     def receive_wind_speed_callback(self, msg: Vector3Stamped):
         self.wind_speed = np.array([msg.vector.x, msg.vector.y, msg.vector.z])

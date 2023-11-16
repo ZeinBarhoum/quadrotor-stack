@@ -67,7 +67,8 @@ class QuadrotorPybulletCamera(Node):
                                                           ('camera_focus_distance', 1.0),
                                                           ('camera_fov', 60.0),
                                                           ('camera_near_plane', 0.01),
-                                                          ('camera_far_plane', 100.0)
+                                                          ('camera_far_plane', 100.0),
+                                                          ('sequential_mode', False),
                                                           ])
 
         # Get the parameters
@@ -82,6 +83,7 @@ class QuadrotorPybulletCamera(Node):
         self.state_topic = self.get_parameter('state_topic').get_parameter_value().string_value
         self.image_topic = self.get_parameter('image_topic').get_parameter_value().string_value
         self.threading = self.get_parameter('threading').get_parameter_value().bool_value
+        self.sequential_mode = self.get_parameter('sequential_mode').get_parameter_value().bool_value
 
         # Subscribers and Publishers
         self.state_subscriber = self.create_subscription(msg_type=State,
@@ -103,14 +105,14 @@ class QuadrotorPybulletCamera(Node):
         self.initialize_data()
 
         # initialize timers
-        self.image_publishing_timer = self.create_timer(self.image_publishing_period, self.publish_image_callback)
+        if not self.sequential_mode:
+            self.image_publishing_timer = self.create_timer(self.image_publishing_period, self.publish_image_callback)
 
         # Announce that the node is initialized
         self.start_time = self.get_clock().now()  # For logging purposes
-        self.get_logger().info(f'QuadrotorPybullet node initialized at {self.start_time.seconds_nanoseconds()}')
+        self.get_logger().info(f'QuadrotorPybulletCamera node initialized at {self.start_time.seconds_nanoseconds()}')
 
     def initialize_urdf(self):
-
         quadrotor_description_folder = os.path.join(get_package_share_directory('quadrotor_description'), 'description')
         quadrotor_description_file = os.path.join(quadrotor_description_folder, self.quadrotor_description_file_name+'.urdf.xacro')
         quadrotor_description_content = xacro.process_file(quadrotor_description_file).toxml()
@@ -161,6 +163,8 @@ class QuadrotorPybulletCamera(Node):
 
     def receive_state_callback(self, msg):
         self.state = msg
+        if self.sequential_mode:
+            self.publish_image_callback()
 
     def publish_image_callback(self):
         if (self.threading):
@@ -170,7 +174,8 @@ class QuadrotorPybulletCamera(Node):
 
     def publish_image_callback_thread(self):
         self.image_publishing_frequency = self.get_parameter('image_publishing_frequency').get_parameter_value().integer_value
-        self.image_publishing_timer.timer_period_ns = int(1e9 / self.image_publishing_frequency)
+        if not self.sequential_mode:
+            self.image_publishing_timer.timer_period_ns = int(1e9 / self.image_publishing_frequency)
 
         self.image_width = self.get_parameter('image_width').get_parameter_value().integer_value
         self.image_height = self.get_parameter('image_height').get_parameter_value().integer_value

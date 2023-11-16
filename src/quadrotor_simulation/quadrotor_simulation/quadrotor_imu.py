@@ -21,7 +21,8 @@ class QuadrotorIMU(Node):
                                                           ('angular_velocity_mean', [0.0, 0.0, 0.0]),
                                                           ('linear_acceleration_mean', [0.0, 0.0, 0.0]),
                                                           ('angular_velocity_covariance', [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
-                                                          ('linear_acceleration_covariance', [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])])
+                                                          ('linear_acceleration_covariance', [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+                                                          ('sequential_mode', False)])
 
         # Get the parameters
         self.imu_topic = self.get_parameter('imu_topic').get_parameter_value().string_value
@@ -32,6 +33,7 @@ class QuadrotorIMU(Node):
         self.linear_acceleration_mean = self.get_parameter('linear_acceleration_mean').get_parameter_value().double_array_value
         self.angular_velocity_covariance = self.get_parameter('angular_velocity_covariance').get_parameter_value().double_array_value
         self.linear_acceleration_covariance = self.get_parameter('linear_acceleration_covariance').get_parameter_value().double_array_value
+        self.sequential_mode = self.get_parameter('sequential_mode').get_parameter_value().bool_value
 
         # Create publishers and subscribers
         self.state_subscriber = self.create_subscription(msg_type=State,
@@ -49,8 +51,9 @@ class QuadrotorIMU(Node):
         self.initialize_data()
 
         # Initialize timers
-        self.imu_publishing_timer = self.create_timer(timer_period_sec=self.imu_publisher_period,
-                                                      callback=self.publish_imu_callback)
+        if not self.sequential_mode:
+            self.imu_publishing_timer = self.create_timer(timer_period_sec=self.imu_publisher_period,
+                                                          callback=self.publish_imu_callback)
 
         # Announce the initialization
         self.start_time = self.get_clock().now()
@@ -64,6 +67,8 @@ class QuadrotorIMU(Node):
 
     def receive_state_callback(self, msg: State):
         self.state = msg
+        if self.sequential_mode:
+            self.publish_imu_callback()
 
     def publish_imu_callback(self):
         w_act = np.array([self.state.state.twist.angular.x, self.state.state.twist.angular.y, self.state.state.twist.angular.z])
