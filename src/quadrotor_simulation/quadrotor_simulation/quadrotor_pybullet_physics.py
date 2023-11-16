@@ -122,7 +122,7 @@ class QuadrotorPybulletPhysics(Node):
         # Announce that the node is initialized
         self.start_time = self.get_clock().now()  # For logging purposes
         self.get_logger().info(
-            f'QuadrotorPybulletPhysics node initialized at {self.start_time.seconds_nanoseconds()}. Frequency: {self.simulation_step_frequency} Hz')
+            f'QuadrotorPybulletPhysics node initialized at {self.start_time.seconds_nanoseconds()}. Frequency: {self.simulation_step_frequency} Hz, Sequential Mode: {self.sequential_mode}')
 
     def initialize_constants(self):
         config_folder = os.path.join(get_package_share_directory('quadrotor_description'), 'config')
@@ -233,7 +233,8 @@ class QuadrotorPybulletPhysics(Node):
             rotor_acceleration = np.clip(rotor_acceleration, -self.ROT_MAX_ACC, self.ROT_MAX_ACC)
             self.rotor_speeds += rotor_acceleration * dt
             self.rotor_speeds = np.clip(self.rotor_speeds, 0, self.ROT_MAX_VEL)
-        self.simulation_step_callback()
+        if self.sequential_mode:
+            self.simulation_step_callback()
 
     def receive_wind_speed_callback(self, msg: Vector3Stamped):
         self.wind_speed = np.array([msg.vector.x, msg.vector.y, msg.vector.z])
