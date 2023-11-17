@@ -152,7 +152,8 @@ class QuadrotorEnvBase(gym.Env):
 
 env = QuadrotorEnvBase(env_suffix='_env1', observation_type=['state', 'imu'], terminate_on_contact=True, time_limit=1, config={
     'physics': {'physics_server': 'GUI', 'quadrotor_description': 'neuroBEM', 'render_ground': True, 'publish_state': False},
-    'camera': {'image_width': 128, 'image_height': 128, 'camera_fov': 60.0, 'physics_server': 'GUI', 'quadrotor_description': 'neuroBEM', 'publish_image': False}, })
+    'camera': {'image_width': 128, 'image_height': 128, 'camera_fov': 60.0, 'physics_server': 'GUI', 'quadrotor_description': 'neuroBEM', 'publish_image': False},
+    'imu': {'publish_imu': False}})
 
 obs = env.reset()
 for i in tqdm(range(10000)):

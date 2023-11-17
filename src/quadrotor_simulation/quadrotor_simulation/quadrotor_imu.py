@@ -22,7 +22,8 @@ class QuadrotorIMU(Node):
                                                           ('linear_acceleration_mean', [0.0, 0.0, 0.0]),
                                                           ('angular_velocity_covariance', [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
                                                           ('linear_acceleration_covariance', [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
-                                                          ('sequential_mode', False)])
+                                                          ('sequential_mode', False),
+                                                          ('publish_imu', True)])
 
         # Get the parameters
         self.imu_topic = self.get_parameter('imu_topic').get_parameter_value().string_value
@@ -34,6 +35,7 @@ class QuadrotorIMU(Node):
         self.angular_velocity_covariance = self.get_parameter('angular_velocity_covariance').get_parameter_value().double_array_value
         self.linear_acceleration_covariance = self.get_parameter('linear_acceleration_covariance').get_parameter_value().double_array_value
         self.sequential_mode = self.get_parameter('sequential_mode').get_parameter_value().bool_value
+        self.publish_imu = self.get_parameter('publish_imu').get_parameter_value().bool_value
 
         # Create publishers and subscribers
         self.state_subscriber = self.create_subscription(msg_type=State,
@@ -96,7 +98,8 @@ class QuadrotorIMU(Node):
         self.imu.linear_acceleration.x = a_imu[0]
         self.imu.linear_acceleration.y = a_imu[1]
         self.imu.linear_acceleration.z = a_imu[2]
-        self.imu_publisher.publish(self.imu)
+        if self.publish_imu:
+            self.imu_publisher.publish(self.imu)
 
 
 def main(args=None):
