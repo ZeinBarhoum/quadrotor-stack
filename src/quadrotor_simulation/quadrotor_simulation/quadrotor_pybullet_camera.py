@@ -69,6 +69,7 @@ class QuadrotorPybulletCamera(Node):
                                                           ('camera_near_plane', 0.01),
                                                           ('camera_far_plane', 100.0),
                                                           ('sequential_mode', False),
+                                                          ('publish_image', True)
                                                           ])
 
         # Get the parameters
@@ -86,6 +87,7 @@ class QuadrotorPybulletCamera(Node):
         self.sequential_mode = self.get_parameter('sequential_mode').get_parameter_value().bool_value
         self.image_width = self.get_parameter('image_width').get_parameter_value().integer_value
         self.image_height = self.get_parameter('image_height').get_parameter_value().integer_value
+        self.publish_image = self.get_parameter('publish_image').get_parameter_value().bool_value
 
         # Subscribers and Publishers
         self.state_subscriber = self.create_subscription(msg_type=State,
@@ -230,7 +232,8 @@ class QuadrotorPybulletCamera(Node):
         image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGBA2BGR)
         self.ros_image = self.bridge.cv2_to_imgmsg(image_bgr, encoding="bgr8")
         # Publish the image
-        self.image_publisher.publish(self.ros_image)
+        if self.publish_image:
+            self.image_publisher.publish(self.ros_image)
 
 
 def main(args=None):

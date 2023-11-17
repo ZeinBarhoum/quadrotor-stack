@@ -442,6 +442,11 @@ class QuadrotorPybulletPhysics(Node):
             self.fill_model_error()
             self.model_error_publisher.publish(self.model_error)
 
+    def check_contact(self):
+        if len(p.getContactPoints(self.quadrotor_id)) > 0:
+            return True
+        return False
+
 
 def main(args=None):
     rclpy.init(args=args)

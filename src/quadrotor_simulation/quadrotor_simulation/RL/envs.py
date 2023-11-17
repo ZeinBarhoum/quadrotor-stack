@@ -25,8 +25,8 @@ import pybullet as p
 from tqdm import tqdm
 
 
-class QuadrotorEnv(gym.Env):
-    def __init__(self, observation_type=['state'], env_suffix='', config=None):
+class QuadrotorEnvBase(gym.Env):
+    def __init__(self, observation_type=['state'], env_suffix='', config=None, time_limit=-1, terminate_on_contact=False):
         rclpy.init()
         self.threads = []
         if isinstance(config, dict):
@@ -89,13 +89,21 @@ class QuadrotorEnv(gym.Env):
         if 'image' in self.observation_type:
             self.image = self.camera_node.ros_image
 
+        self.time = 0
+        self.time_limit = time_limit
+        self.terminate_on_contact = terminate_on_contact
+
     def reset(self):
         ff_state = State()
         ff_state.state.pose.position.z = 1.0
         self.physics_node.receive_ff_state_callback(ff_state)
-        self.physics_node.receive_commands_callback(RotorCommand(rotor_speeds=[self.ROT_HOVER_VEL]*4))
+        # self.physics_node.receive_commands_callback(RotorCommand(rotor_speeds=[self.ROT_HOVER_VEL]*4))
+        obs, reward, terminated, truncated, info = self.step([self.ROT_HOVER_VEL]*4)
+        self.time = 0
+        return obs, info
 
     def step(self, action):
+        self.time += self.physics_node.simulation_step_period
         self.physics_node.receive_commands_callback(RotorCommand(rotor_speeds=action))
         obs = []
         self.state = self.physics_node.state
@@ -120,21 +128,50 @@ class QuadrotorEnv(gym.Env):
             obs = obs[0]
         else:
             obs = tuple(obs)
-        return obs, 0, False, {}
+        info = {'t': self.time}
+        contacted = self.physics_node.check_contact()
+        if contacted:
+            info = {'contact': True}
+        truncated = False
+        if self.time > self.time_limit and self.time_limit > 0:
+            truncated = True
+        reward = self.get_reward()
+        terminated = False
+        if self.terminate_on_contact and contacted:
+            terminated = True
+
+        return obs, reward, terminated, truncated, info
+
+    def get_reward(self):
+        return 0
 
     def close(self):
         self.physics_node.destroy_node()
         rclpy.shutdown()
 
 
-env = QuadrotorEnv(env_suffix='_env1', observation_type=['state', 'image', 'imu'], config={
-                   'physics': {'physics_server': 'DIRECT', 'quadrotor_description': 'neuroBEM', 'render_ground': True, 'publish_state': False},
-                   'camera': {'image_width': 640, 'image_height': 480, 'camera_fov': 60.0, 'physics_server': 'GUI', 'quadrotor_description': 'neuroBEM'}})
+env = QuadrotorEnvBase(env_suffix='_env1', observation_type=['state', 'imu'], terminate_on_contact=True, time_limit=1, config={
+    'physics': {'physics_server': 'GUI', 'quadrotor_description': 'neuroBEM', 'render_ground': True, 'publish_state': False},
+    'camera': {'image_width': 128, 'image_height': 128, 'camera_fov': 60.0, 'physics_server': 'GUI', 'quadrotor_description': 'neuroBEM', 'publish_image': False}, })
 
 obs = env.reset()
-action = env.action_space.sample()
 for i in tqdm(range(10000)):
-    obs, reward, done, info = env.step(action)
-    cv2.imshow('', obs[1])
-    cv2.waitKey(1)
+    action = env.action_space.sample()
+    obs, reward, terminated, truncated, info = env.step(action)
+    # cv2.imshow('', obs[1])
+    # cv2.waitKey(1)
+    if terminated or truncated:
+        obs, info = env.reset()
 env.close()
+
+
+# env = gym.make("LunarLander-v2", render_mode="human")
+# observation, info = env.reset(seed=42)
+# for _ in range(1000):
+#     action = env.action_space.sample()  # this is where you would insert your policy
+#     observation, reward, terminated, truncated, info = env.step(action)
+
+#     if terminated or truncated:
+#         observation, info = env.reset()
+
+# env.close()
