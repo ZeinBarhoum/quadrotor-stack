@@ -141,22 +141,24 @@ class QuadrotorPybulletCamera(Node):
 
         if (self.physics_server == 'DIRECT'):
             self.physicsClient = p.connect(p.DIRECT)
+        elif (self.physics_server == 'SHARED_MEMORY'):
+            self.physicsClient = p.connect(p.SHARED_MEMORY)
         else:
             self.physicsClient = p.connect(p.GUI)
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
         if (self.render_ground):
-            self.planeId = p.loadURDF("plane.urdf")
+            self.planeId = p.loadURDF("plane.urdf", physicsClientId=self.physicsClient)
         if (self.render_architecture):
-            p.loadURDF("samurai.urdf")
+            p.loadURDF("samurai.urdf", physicsClientId=self.physicsClient)
         self.obstacleIds = []
         for (i, obstacle_urdf_file) in enumerate(self.obstacle_urdf_files):
             self.obstacleIds.append(p.loadURDF(obstacle_urdf_file, self.obstacles_poses[i*7: i*7+3], self.obstacles_poses[i*7+3: i*7+7], useFixedBase=1))
-        self.quadrotor_id = p.loadURDF(self.quadrotor_urdf_file, [0, 0, 0.25], globalScaling=self.quadrotor_scale)
+        self.quadrotor_id = p.loadURDF(self.quadrotor_urdf_file, [0, 0, 0.25], globalScaling=self.quadrotor_scale, physicsClientId=self.physicsClient)
         # Configure the debug visualizer
-        p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
-        p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW, 0)
-        p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW, 0)
-        p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW, 0)
+        p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0, physicsClientId=self.physicsClient)
+        p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW, 0, physicsClientId=self.physicsClient)
+        p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW, 0, physicsClientId=self.physicsClient)
+        p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW, 0, physicsClientId=self.physicsClient)
 
     def initialize_data(self):
         self.state = State()
@@ -192,7 +194,7 @@ class QuadrotorPybulletCamera(Node):
         pose = self.state.state.pose
         quad_pos = [pose.position.x, pose.position.y, pose.position.z]
         quad_quat = [pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w]
-        p.resetBasePositionAndOrientation(self.quadrotor_id, quad_pos, quad_quat)
+        p.resetBasePositionAndOrientation(self.quadrotor_id, quad_pos, quad_quat, physicsClientId=self.physicsClient)
 
         rot_matrix = p.getMatrixFromQuaternion(quad_quat)
         rot_matrix = np.array(rot_matrix).reshape(3, 3)
@@ -219,6 +221,7 @@ class QuadrotorPybulletCamera(Node):
             projectionMatrix=projection_matrix,
             flags=p.ER_NO_SEGMENTATION_MASK,
             renderer=p.ER_BULLET_HARDWARE_OPENGL,
+            physicsClientId=self.physicsClient
         )
 
         # Convert the image to ROS format
@@ -226,7 +229,6 @@ class QuadrotorPybulletCamera(Node):
         image_rgb = np.reshape(image_rgb, (self.image_height, self.image_width, 4))
         image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGBA2BGR)
         self.ros_image = self.bridge.cv2_to_imgmsg(image_bgr, encoding="bgr8")
-
         # Publish the image
         self.image_publisher.publish(self.ros_image)
 

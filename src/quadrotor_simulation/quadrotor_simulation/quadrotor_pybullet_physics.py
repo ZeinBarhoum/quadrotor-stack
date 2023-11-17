@@ -56,7 +56,8 @@ class QuadrotorPybulletPhysics(Node):
                                                           ('manual_tau_xy_calculation', False),
                                                           ('publish_model_errors', False),
                                                           ('sequential_mode', False),
-                                                          ('enable_ff_repeat', False),])
+                                                          ('enable_ff_repeat', False),
+                                                          ('publish_state', True)])
         # Get the parameters
         self.physics_server = self.get_parameter('physics_server').get_parameter_value().string_value
         self.quadrotor_description_file_name = self.get_parameter('quadrotor_description').get_parameter_value().string_value
@@ -81,6 +82,7 @@ class QuadrotorPybulletPhysics(Node):
         self.publish_model_errors = self.get_parameter('publish_model_errors').get_parameter_value().bool_value
         self.sequential_mode = self.get_parameter('sequential_mode').get_parameter_value().bool_value
         self.enable_ff_repeat = self.get_parameter('enable_ff_repeat').get_parameter_value().bool_value
+        self.publish_state = self.get_parameter('publish_state').get_parameter_value().bool_value
 
         # Subscribers and Publishers
         self.rotor_speeds_subscriber = self.create_subscription(msg_type=RotorCommand,
@@ -294,8 +296,13 @@ class QuadrotorPybulletPhysics(Node):
 
     def apply_forces_torques(self):
         rotor_thrusts, torque_x, torque_y, torque_z = self.calculate_nominal_thrust_torques()
-        drag_force = self.calculate_drag()
-        residuals = self.calculate_residual_thrust_torques()
+        if self.calculate_linear_drag or self.calculate_quadratic_drag:
+            drag_force = self.calculate_drag()
+            p.applyExternalForce(self.quadrotor_id, -1, forceObj=drag_force, posObj=[0, 0, 0], flags=p.LINK_FRAME)
+        if self.calculate_residuals:
+            residuals = self.calculate_residual_thrust_torques()
+            p.applyExternalForce(self.quadrotor_id, -1, forceObj=residuals[:3], posObj=[0, 0, 0], flags=p.LINK_FRAME)
+            p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=residuals[3:], flags=p.LINK_FRAME)
 
         if (self.manual_tau_xy_calculation):
             for i in range(4):
@@ -306,10 +313,6 @@ class QuadrotorPybulletPhysics(Node):
                 p.applyExternalForce(self.quadrotor_id, i, forceObj=[0, 0, rotor_thrusts[i]], posObj=[0, 0, 0], flags=p.LINK_FRAME)
             # applying Tz on the center of mass, the only one that depend on the drag and isn't simulated by the forces before
             p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=[0, 0, torque_z], flags=p.LINK_FRAME)
-
-        p.applyExternalForce(self.quadrotor_id, -1, forceObj=drag_force, posObj=[0, 0, 0], flags=p.LINK_FRAME)
-        p.applyExternalForce(self.quadrotor_id, -1, forceObj=residuals[:3], posObj=[0, 0, 0], flags=p.LINK_FRAME)
-        p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=residuals[3:], flags=p.LINK_FRAME)
 
     def apply_simulation_step(self):
         pos0, quat0 = p.getBasePositionAndOrientation(self.quadrotor_id)
@@ -432,8 +435,8 @@ class QuadrotorPybulletPhysics(Node):
         self.apply_forces_torques()
 
         self.apply_simulation_step()
-
-        self.state_publisher.publish(self.state)
+        if (self.publish_state):
+            self.state_publisher.publish(self.state)
 
         if (self.publish_model_errors and self.use_ff_state):
             self.fill_model_error()
