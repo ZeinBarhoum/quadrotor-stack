@@ -146,6 +146,7 @@ class QuadrotorDFBC(Node):
     def initialize_data(self):
         self.actual_state = message_to_ordereddict(State())
         self.reference_state = message_to_ordereddict(ReferenceState())
+        self.reference_state['current_state']['pose']['position']['z'] = 1
         self.command = RotorCommand()
         self.command.rotor_speeds = np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32)
 
@@ -298,11 +299,15 @@ class QuadrotorDFBC(Node):
 
 
 def main():
-    rclpy.init()
-    node = QuadrotorDFBC()
-    rclpy.spin(node)
+    try:
+        rclpy.init()
+        node = QuadrotorDFBC()
+        rclpy.spin(node)
+    except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
+        print('Got clean shutdown signal exception.')
+    else:
+        rclpy.shutdown()
     node.destroy_node()
-    rclpy.shutdown()
 
 
 if __name__ == '__main__':

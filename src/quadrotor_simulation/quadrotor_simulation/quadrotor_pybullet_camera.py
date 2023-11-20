@@ -37,7 +37,7 @@ else:
     import sys
     sys.excepthook = IPython.core.ultratb.ColorTB()
 
-DEFAULT_FREQUENCY_IMG = 5  # Hz
+DEFAULT_FREQUENCY_IMG = 30  # Hz
 DEFAULT_QOS_PROFILE = 10
 
 
@@ -54,7 +54,7 @@ class QuadrotorPybulletCamera(Node):
                                                           ('obstacles_description', ['NONE']),
                                                           ('obstacles_poses', [0.0]),
                                                           ('render_ground', True),
-                                                          ('render_architecture', True),
+                                                          ('render_architecture', False),
                                                           ('image_publishing_frequency', DEFAULT_FREQUENCY_IMG),
                                                           ('state_topic', 'quadrotor_state'+suffix),
                                                           ('image_topic', 'quadrotor_img'+suffix),
@@ -237,12 +237,15 @@ class QuadrotorPybulletCamera(Node):
 
 
 def main(args=None):
-
-    rclpy.init(args=args)
-    node = QuadrotorPybulletCamera()
-    rclpy.spin(node)
+    try:
+        rclpy.init(args=args)
+        node = QuadrotorPybulletCamera()
+        rclpy.spin(node)
+    except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
+        print('Got clean shutdown signal exception.')
+    else:
+        rclpy.shutdown()
     node.destroy_node()
-    rclpy.shutdown()
 
 
 if __name__ == '__main__':

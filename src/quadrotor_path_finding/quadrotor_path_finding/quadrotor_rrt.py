@@ -134,8 +134,13 @@ class QuadrotorRRT(Node):
 
         self.current_position = np.zeros(3)
         self.goal_position = np.ones(3)
-        self.map_data = None
+        # initial map, 10x10x10 empty
+        self.map_data = np.zeros(shape=(10, 10, 10), dtype=np.int8)
         self.cell_size = 1.0
+
+        # Announce that the node is initialized
+        self.start_time = self.get_clock().now()
+        self.get_logger().info(f'RRTPlanner node initialized at {self.start_time.seconds_nanoseconds()}')
 
     def map_callback(self, msg):
         # Store the map data in a NumPy ndarray

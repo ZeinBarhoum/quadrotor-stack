@@ -44,7 +44,7 @@ def generate_launch_description():
     )
 
     reference_publisher_node = Node(
-        package='quadrotor_trajectory_generation',
+        package='quadrotor_control',
         executable='quadrotor_reference_publisher',
         output='screen'
     )
@@ -93,5 +93,5 @@ def generate_launch_description():
                               path_finding_node,
                               path_visualizer_node,
                               image_visualizer_node,
-                              #   rqt_gui_node,
+                              rqt_gui_node,
                               ])

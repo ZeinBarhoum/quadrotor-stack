@@ -449,11 +449,15 @@ class QuadrotorPybulletPhysics(Node):
 
 
 def main(args=None):
-    rclpy.init(args=args)
-    node = QuadrotorPybulletPhysics()
-    rclpy.spin(node)
+    try:
+        rclpy.init(args=args)
+        node = QuadrotorPybulletPhysics()
+        rclpy.spin(node)
+    except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
+        print('Got clean shutdown signal exception.')
+    else:
+        rclpy.shutdown()
     node.destroy_node()
-    rclpy.shutdown()
 
 
 if __name__ == '__main__':

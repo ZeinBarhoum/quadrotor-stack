@@ -170,7 +170,7 @@ class QuadrotorPolyTrajOptimizer(Node):
         """
         self.waypoints: List[Point] = []
         self.headings: List[float] = []
-        self.map = message_to_ordereddict(OccupancyGrid3D())
+        self.map = OccupancyGrid3D()
         self.trajectory = PolynomialTrajectory()
 
     def receive_map_callback(self, msg: OccupancyGrid3D):
@@ -255,7 +255,12 @@ class QuadrotorPolyTrajOptimizer(Node):
                 segment.start_time = waypoints_times[i]
                 segment.end_time = waypoints_times[i+1]
                 trajectory.segments.append(segment)
-        collision, collision_segments = detect_collision_trajectory(self.map, trajectory)
+
+        if len(self.map.data) != 0:
+            collision, collision_segments = detect_collision_trajectory(self.map, trajectory)
+        else:
+            collision, collision_segments = False, []
+
         self.get_logger().warn(f"Collision Detection: {collision}, Collision Segments: {collision_segments}")
         if (collision):
             self.add_waypoint(segment=collision_segments[0])

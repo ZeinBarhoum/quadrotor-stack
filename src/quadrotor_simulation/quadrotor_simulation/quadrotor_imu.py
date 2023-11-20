@@ -5,6 +5,15 @@ import rclpy
 from rclpy.node import Node
 from scipy.spatial.transform import Rotation
 
+try:
+    import IPython.core.ultratb
+except ImportError:
+    # No IPython. Use default exception printing.
+    pass
+else:
+    import sys
+    sys.excepthook = IPython.core.ultratb.ColorTB()
+
 DEFAULT_FREQUENCY = 500.0  # Hz
 DEFAULT_QOS_PROFILE = 10
 
@@ -103,11 +112,15 @@ class QuadrotorIMU(Node):
 
 
 def main(args=None):
-    rclpy.init(args=args)
-    node = QuadrotorIMU()
-    rclpy.spin(node)
+    try:
+        rclpy.init(args=args)
+        node = QuadrotorIMU()
+        rclpy.spin(node)
+    except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
+        print('Got clean shutdown signal exception.')
+    else:
+        rclpy.shutdown()
     node.destroy_node()
-    rclpy.shutdown()
 
 
 if __name__ == '__main__':
