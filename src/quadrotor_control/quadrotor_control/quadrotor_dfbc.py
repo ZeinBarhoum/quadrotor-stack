@@ -39,10 +39,10 @@ class QuadrotorDFBC(Node):
         super().__init__('quadrotor_dfbc_node')
 
         # Declare the parameters:
-        self.declare_parameters(parameters=[('KP_XYZ', [1.0, 1.0, 1.0]),
-                                            ('KD_XYZ', [1.0, 1.0, 1.0]),
-                                            ('KP_RPY', [1.0, 1.0, 1.0]),
-                                            ('KD_RPY', [1.0, 1.0, 1.0]),
+        self.declare_parameters(parameters=[('KP_XYZ', [10.0, 10.0, 10.0]),
+                                            ('KD_XYZ', [5.0, 5.0, 5.0]),
+                                            ('KP_RPY', [125.0, 125.0, 10.0]),
+                                            ('KD_RPY', [20.0, 20.0, 10.0]),
                                             ('Weights', [1.0, 1.0, 1.0, 1.0]),
                                             ('quadrotor_description', 'cf2x'),
                                             ('state_topic', 'quadrotor_state'),

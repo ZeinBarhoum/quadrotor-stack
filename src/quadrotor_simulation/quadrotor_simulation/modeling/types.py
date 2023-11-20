@@ -6,6 +6,7 @@ from scipy.linalg import expm
 
 @dataclass
 class QuadState:
+    """State is a pose and twist of the quadrotor. Could be represented in any frame of reference."""
     _pos: np.ndarray = field(default_factory=lambda: np.zeros(3))
     _quat: np.ndarray = field(default_factory=lambda: np.array([0, 0, 0, 1]))  # xyzw
     _vel: np.ndarray = field(default_factory=lambda: np.zeros(3))
@@ -46,9 +47,26 @@ class QuadState:
     def as_vector(self):
         return np.hstack([self.pos, self.quat, self.vel, self.ang_vel]).reshape(-1, 1)
 
+    def fill_state_msg(self, msg):
+        msg.state.pose.position.x = self.pos[0]
+        msg.state.pose.position.y = self.pos[1]
+        msg.state.pose.position.z = self.pos[2]
+        msg.state.pose.orientation.x = self.quat[0]
+        msg.state.pose.orientation.y = self.quat[1]
+        msg.state.pose.orientation.z = self.quat[2]
+        msg.state.pose.orientation.w = self.quat[3]
+        msg.state.twist.linear.x = self.vel[0]
+        msg.state.twist.linear.y = self.vel[1]
+        msg.state.twist.linear.z = self.vel[2]
+        msg.state.twist.angular.x = self.ang_vel[0]
+        msg.state.twist.angular.y = self.ang_vel[1]
+        msg.state.twist.angular.z = self.ang_vel[2]
+        return msg
+
 
 @dataclass
 class QuadInput:
+    """Input is an angular velocity and angular acceleration of the quadrotor's rotors."""
     _ang_vels: np.ndarray = field(default_factory=lambda: np.zeros(4))
     _ang_accs: np.ndarray = field(default_factory=lambda: np.zeros(4))
 
@@ -71,9 +89,13 @@ class QuadInput:
     def as_vector(self):
         return np.hstack([self.ang_vels, self.ang_accs]).reshape(-1, 1)
 
+    def fill_rotor_msg(self, msg):
+        msg.rotor_speeds = self.ang_vels
+
 
 @dataclass
 class QuadAccel:
+    """Accel is a linear and angular acceleration of the quadrotor. Could be represented in any frame of reference."""
     _acc: np.ndarray = field(default_factory=lambda: np.zeros(3))
     _ang_acc: np.ndarray = field(default_factory=lambda: np.zeros(3))
 
@@ -102,9 +124,19 @@ class QuadAccel:
     def as_vector(self):
         return np.hstack([self.acc, self.ang_acc]).reshape(-1, 1)
 
+    def fill_state_msg(self, msg):
+        msg.state.accel.linear.x = self.acc[0]
+        msg.state.accel.linear.y = self.acc[1]
+        msg.state.accel.linear.z = self.acc[2]
+        msg.state.accel.angular.x = self.ang_acc[0]
+        msg.state.accel.angular.y = self.ang_acc[1]
+        msg.state.accel.angular.z = self.ang_acc[2]
+        return msg
+
 
 @dataclass
 class QuadWrench:
+    """Wrench is a force and torque applied to the quadrotor. Could be represented in any frame of reference."""
     _force: np.ndarray = field(default_factory=lambda: np.zeros(3))
     _torque: np.ndarray = field(default_factory=lambda: np.zeros(3))
 
@@ -135,12 +167,23 @@ class QuadWrench:
 
 
 def skew_symmetric(vec):
+    """Returns skew-symmetric matrix of a vector"""
     return np.array([[0, -vec[2], vec[1]],
                      [vec[2], 0, -vec[0]],
                      [-vec[1], vec[0], 0]])
 
 
-def euler_integrate(state: QuadState, acc: QuadAccel, params):
+def euler_integration_step(state: QuadState, acc: QuadAccel, params):
+    """Performs a single step of euler integration
+
+    Args:
+        state (QuadState): current state of the quadrotor (pose + twist)
+        acc (QuadAccel): current acceleration of the quadrotor
+        params (dict): dictionary including the key 'dt' with the time step
+
+    Returns:
+        QuadState: new state of the quadrotor after dt
+    """
     dt = params['dt']
     new_state = QuadState()
     new_state.pos = state.pos + state.vel * dt

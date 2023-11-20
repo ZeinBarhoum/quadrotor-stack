@@ -34,7 +34,7 @@ class QuadrotorPybulletPhysics(Node):
         super().__init__('quadrotor_pybullet_physics_node'+suffix, **kwargs)
 
         # Declare the parameters
-        self.declare_parameters(namespace='', parameters=[('physics_server', 'DIRECT'),  # GUI, DIRECT
+        self.declare_parameters(namespace='', parameters=[('physics_server', 'GUI'),  # GUI, DIRECT
                                                           ('quadrotor_description', 'cf2x'),
                                                           ('obstacles_description', ['NONE']),
                                                           ('obstacles_poses', [0.0]),
