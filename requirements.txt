@@ -1,0 +1,13 @@
+numpy==1.24.4
+scipy==1.10.1
+sympy==1.12
+matplotlib==3.7.4
+gymnasium==0.29.1
+casadi==3.6.4
+ipython==8.12.3
+opencv_python==4.8.1.78
+pandas==2.0.3
+pybullet==3.2.5
+PyQt5==5.15.5
+PyYAML==5.3.1
+tqdm==4.66.1

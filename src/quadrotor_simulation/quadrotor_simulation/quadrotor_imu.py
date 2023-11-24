@@ -5,23 +5,34 @@ import rclpy
 from rclpy.node import Node
 from scipy.spatial.transform import Rotation
 
+try:
+    import IPython.core.ultratb
+except ImportError:
+    # No IPython. Use default exception printing.
+    pass
+else:
+    import sys
+    sys.excepthook = IPython.core.ultratb.ColorTB()
+
 DEFAULT_FREQUENCY = 500.0  # Hz
 DEFAULT_QOS_PROFILE = 10
 
 
 class QuadrotorIMU(Node):
-    def __init__(self):
-        super().__init__('quadrotor_imu_node')
+    def __init__(self, suffix='', **kwargs):
+        super().__init__('quadrotor_imu_node'+suffix, **kwargs)
 
         # Declare the parameters
-        self.declare_parameters(namespace='', parameters=[('imu_topic', 'quadrotor_imu'),
-                                                          ('state_topic', 'quadrotor_state'),
+        self.declare_parameters(namespace='', parameters=[('imu_topic', 'quadrotor_imu'+suffix),
+                                                          ('state_topic', 'quadrotor_state'+suffix),
                                                           ('imu_publishing_frequency', DEFAULT_FREQUENCY),
                                                           ('include_gravity', True),
                                                           ('angular_velocity_mean', [0.0, 0.0, 0.0]),
                                                           ('linear_acceleration_mean', [0.0, 0.0, 0.0]),
                                                           ('angular_velocity_covariance', [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
-                                                          ('linear_acceleration_covariance', [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])])
+                                                          ('linear_acceleration_covariance', [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+                                                          ('sequential_mode', False),
+                                                          ('publish_imu', True)])
 
         # Get the parameters
         self.imu_topic = self.get_parameter('imu_topic').get_parameter_value().string_value
@@ -32,6 +43,8 @@ class QuadrotorIMU(Node):
         self.linear_acceleration_mean = self.get_parameter('linear_acceleration_mean').get_parameter_value().double_array_value
         self.angular_velocity_covariance = self.get_parameter('angular_velocity_covariance').get_parameter_value().double_array_value
         self.linear_acceleration_covariance = self.get_parameter('linear_acceleration_covariance').get_parameter_value().double_array_value
+        self.sequential_mode = self.get_parameter('sequential_mode').get_parameter_value().bool_value
+        self.publish_imu = self.get_parameter('publish_imu').get_parameter_value().bool_value
 
         # Create publishers and subscribers
         self.state_subscriber = self.create_subscription(msg_type=State,
@@ -49,8 +62,9 @@ class QuadrotorIMU(Node):
         self.initialize_data()
 
         # Initialize timers
-        self.imu_publishing_timer = self.create_timer(timer_period_sec=self.imu_publisher_period,
-                                                      callback=self.publish_imu_callback)
+        if not self.sequential_mode:
+            self.imu_publishing_timer = self.create_timer(timer_period_sec=self.imu_publisher_period,
+                                                          callback=self.publish_imu_callback)
 
         # Announce the initialization
         self.start_time = self.get_clock().now()
@@ -64,6 +78,8 @@ class QuadrotorIMU(Node):
 
     def receive_state_callback(self, msg: State):
         self.state = msg
+        if self.sequential_mode:
+            self.publish_imu_callback()
 
     def publish_imu_callback(self):
         w_act = np.array([self.state.state.twist.angular.x, self.state.state.twist.angular.y, self.state.state.twist.angular.z])
@@ -91,15 +107,20 @@ class QuadrotorIMU(Node):
         self.imu.linear_acceleration.x = a_imu[0]
         self.imu.linear_acceleration.y = a_imu[1]
         self.imu.linear_acceleration.z = a_imu[2]
-        self.imu_publisher.publish(self.imu)
+        if self.publish_imu:
+            self.imu_publisher.publish(self.imu)
 
 
 def main(args=None):
-    rclpy.init(args=args)
-    node = QuadrotorIMU()
-    rclpy.spin(node)
+    try:
+        rclpy.init(args=args)
+        node = QuadrotorIMU()
+        rclpy.spin(node)
+    except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
+        print('Got clean shutdown signal exception.')
+    else:
+        rclpy.shutdown()
     node.destroy_node()
-    rclpy.shutdown()
 
 
 if __name__ == '__main__':

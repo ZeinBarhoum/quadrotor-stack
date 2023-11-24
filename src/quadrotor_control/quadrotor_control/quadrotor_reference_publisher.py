@@ -87,8 +87,8 @@ class QuadrotorReferencePublisher(Node):
         self.current_time += self.DT
         if (self.current_time > segment.end_time):
             self.current_segment += 1
-
-        self.publisher_ref.publish(reference_state_msg)
+        if not self.finished:
+            self.publisher_ref.publish(reference_state_msg)
 
     def generate_state_data_msg(self, poly_x, poly_y, poly_z, poly_yaw, t):
         state = StateData()

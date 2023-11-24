@@ -92,7 +92,7 @@ class QuadrotorDataset(Node):
         df_total = pd.DataFrame()
         for file in files:
             df = pd.read_csv(file)
-            df_total = df_total.append(df)
+            df_total = pd.concat([df_total, df], ignore_index=True)
         # self.get_logger().info(f"{df_total.head()}")
         t = df_total[self.time_field].to_numpy()
         commands = df_total[self.command_fields].to_numpy()
@@ -145,6 +145,7 @@ class QuadrotorDataset(Node):
         t = (self.get_clock().now() - self.start_time).nanoseconds / 1e9
         if t > self.t_max:
             self.get_logger().info('Finished publishing commands')
+            self.command_publisher.publish(RotorCommand())
             self.publisher_timer.cancel()
             return
         commands = self.LUT_command(t)

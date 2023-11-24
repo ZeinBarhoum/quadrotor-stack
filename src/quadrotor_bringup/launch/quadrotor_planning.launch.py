@@ -6,7 +6,7 @@ from launch_ros.actions import Node
 def generate_launch_description():
 
     reference_publisher_node = Node(
-        package='quadrotor_trajectory_generation',
+        package='quadrotor_control',
         executable='quadrotor_reference_publisher',
         output='screen'
     )

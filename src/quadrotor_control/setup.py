@@ -17,6 +17,7 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
         # (os.path.join('share', package_name, 'resource'), glob('resource/*', recursive=True)),
     ] + resource_paths,
     install_requires=['setuptools'],
@@ -31,6 +32,7 @@ setup(
             'quadrotor_pid = quadrotor_control.quadrotor_pid:main',
             'quadrotor_dfbc = quadrotor_control.quadrotor_dfbc:main',
             'quadrotor_dataset = quadrotor_control.quadrotor_dataset:main',
+            'quadrotor_reference_publisher = quadrotor_control.quadrotor_reference_publisher:main',
         ],
     },
 )
