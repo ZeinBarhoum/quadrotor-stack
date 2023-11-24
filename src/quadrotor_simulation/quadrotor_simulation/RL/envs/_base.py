@@ -1,34 +1,23 @@
 import gymnasium as gym
 import rclpy
-from rclpy.node import Node
 from quadrotor_interfaces.msg import RotorCommand, State
-from sensor_msgs.msg import Imu, Image
 from quadrotor_simulation.quadrotor_pybullet_physics import QuadrotorPybulletPhysics
 from quadrotor_simulation.quadrotor_pybullet_camera import QuadrotorPybulletCamera
 from quadrotor_simulation.quadrotor_imu import QuadrotorIMU
-from rclpy.executors import SingleThreadedExecutor
 
 from rclpy.parameter import Parameter
 import yaml
-import threading
 import numpy as np
-import time
 
 from gymnasium import spaces
 
-from rclpy.impl.implementation_singleton import rclpy_implementation as _rclpy
-from rclpy.signals import SignalHandlerGuardCondition
-from rclpy.utilities import timeout_sec_to_nsec
 
-import cv2
-import pybullet as p
-from tqdm import tqdm
-
-
-class QuadrotorEnvBase(gym.Env):
+class QuadrotorBaseEnv(gym.Env):
     def __init__(self, observation_type=['state'], env_suffix='', config=None, time_limit=-1, terminate_on_contact=False):
-        rclpy.init()
-        self.threads = []
+        try:
+            rclpy.init()
+        except Exception as e:
+            print(f"Could not initialize ROS2 got error {e}")
         if isinstance(config, dict):
             config = config
         elif isinstance(config, str):
@@ -43,8 +32,15 @@ class QuadrotorEnvBase(gym.Env):
         if 'physics' in config:
             for key, value in config['physics'].items():
                 parameters_physics.append(Parameter(name=key, value=value))
-
-        self.physics_node = QuadrotorPybulletPhysics(suffix=env_suffix, parameter_overrides=parameters_physics)
+        try:
+            self.physics_node = QuadrotorPybulletPhysics(suffix=env_suffix, parameter_overrides=parameters_physics)
+        except Exception as e:
+            if config['physics']['physics_server'] == 'GUI':
+                print("Could not initialize physics node in GUI mode, trying without GUI")
+                parameters_physics.append(Parameter('physics_server', Parameter.Type.STRING, 'DIRECT'))
+                self.physics_node = QuadrotorPybulletPhysics(suffix=env_suffix, parameter_overrides=parameters_physics)
+            else:
+                raise e
         if 'image' in observation_type:
             parameters_camera = []
             parameters_camera.append(Parameter('sequential_mode', Parameter.Type.BOOL, True))
@@ -65,7 +61,7 @@ class QuadrotorEnvBase(gym.Env):
         self.action_space = gym.spaces.Box(low=0.0, high=ROT_MAX_VEL, shape=(4,), dtype=np.float32)
         _spaces = []
         if 'state' in observation_type:
-            _spaces.append(spaces.Box(low=-np.inf, high=np.inf, shape=(12,), dtype=np.float32))
+            _spaces.append(spaces.Box(low=-np.inf, high=np.inf, shape=(13,), dtype=np.float32))
         if 'image' in observation_type:
             _spaces.append(spaces.Box(low=0, high=255, shape=(self.camera_node.image_height, self.camera_node.image_width, 3), dtype=np.uint8))
         if 'imu' in observation_type:
@@ -75,13 +71,6 @@ class QuadrotorEnvBase(gym.Env):
         else:
             self.observation_space = spaces.Tuple(_spaces)
         self.observation_type = observation_type
-        self._rotor_speeds_topic = self.physics_node.rotor_speeds_topic
-        self._ff_state_topic = self.physics_node.ff_state_topic
-        self._state_topic = self.physics_node.state_topic
-        if 'image' in observation_type:
-            self._image_topic = self.camera_node.image_topic
-        if 'imu' in observation_type:
-            self._imu_topic = self.imu_node.imu_topic
 
         self.state = self.physics_node.state
         if 'imu' in self.observation_type:
@@ -93,16 +82,20 @@ class QuadrotorEnvBase(gym.Env):
         self.time_limit = time_limit
         self.terminate_on_contact = terminate_on_contact
 
+        self.closed = False
+
     def reset(self):
         ff_state = State()
         ff_state.state.pose.position.z = 1.0
         self.physics_node.receive_ff_state_callback(ff_state)
-        # self.physics_node.receive_commands_callback(RotorCommand(rotor_speeds=[self.ROT_HOVER_VEL]*4))
         obs, reward, terminated, truncated, info = self.step([self.ROT_HOVER_VEL]*4)
         self.time = 0
+        self.closed = False
         return obs, info
 
     def step(self, action):
+        if self.closed:
+            raise Exception("Trying to step in closed environment")
         self.time += self.physics_node.simulation_step_period
         self.physics_node.receive_commands_callback(RotorCommand(rotor_speeds=action))
         obs = []
@@ -146,33 +139,14 @@ class QuadrotorEnvBase(gym.Env):
         return 0
 
     def close(self):
-        self.physics_node.destroy_node()
-        rclpy.shutdown()
+        if not self.closed:
+            self.physics_node.destroy_node()
+            if 'image' in self.observation_type:
+                self.camera_node.destroy_node()
+            if 'imu' in self.observation_type:
+                self.imu_node.destroy_node()
+            rclpy.shutdown()
+            self.closed = True
 
-
-env = QuadrotorEnvBase(env_suffix='_env1', observation_type=['state', 'imu'], terminate_on_contact=True, time_limit=1, config={
-    'physics': {'physics_server': 'GUI', 'quadrotor_description': 'neuroBEM', 'render_ground': True, 'publish_state': False},
-    'camera': {'image_width': 128, 'image_height': 128, 'camera_fov': 60.0, 'physics_server': 'GUI', 'quadrotor_description': 'neuroBEM', 'publish_image': False},
-    'imu': {'publish_imu': False}})
-
-obs = env.reset()
-for i in tqdm(range(10000)):
-    action = env.action_space.sample()
-    obs, reward, terminated, truncated, info = env.step(action)
-    # cv2.imshow('', obs[1])
-    # cv2.waitKey(1)
-    if terminated or truncated:
-        obs, info = env.reset()
-env.close()
-
-
-# env = gym.make("LunarLander-v2", render_mode="human")
-# observation, info = env.reset(seed=42)
-# for _ in range(1000):
-#     action = env.action_space.sample()  # this is where you would insert your policy
-#     observation, reward, terminated, truncated, info = env.step(action)
-
-#     if terminated or truncated:
-#         observation, info = env.reset()
-
-# env.close()
+    def __del__(self):
+        self.close()

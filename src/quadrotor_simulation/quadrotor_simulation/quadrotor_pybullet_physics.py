@@ -34,7 +34,7 @@ class QuadrotorPybulletPhysics(Node):
         super().__init__('quadrotor_pybullet_physics_node'+suffix, **kwargs)
 
         # Declare the parameters
-        self.declare_parameters(namespace='', parameters=[('physics_server', 'GUI'),  # GUI, DIRECT
+        self.declare_parameters(namespace='', parameters=[('physics_server', 'DIRECT'),  # GUI, DIRECT
                                                           ('quadrotor_description', 'cf2x'),
                                                           ('obstacles_description', ['NONE']),
                                                           ('obstacles_poses', [0.0]),
@@ -446,6 +446,13 @@ class QuadrotorPybulletPhysics(Node):
         if len(p.getContactPoints(self.quadrotor_id)) > 0:
             return True
         return False
+
+    def destroy_node(self):
+        try:
+            p.disconnect(physicsClientId=self.physicsClient)
+        except:
+            pass
+        super().destroy_node()
 
 
 def main(args=None):
