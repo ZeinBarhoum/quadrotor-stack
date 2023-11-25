@@ -29,6 +29,7 @@ class QuadrotorBaseEnv(gym.Env):
         parameters_physics = []
         parameters_physics.append(Parameter('sequential_mode', Parameter.Type.BOOL, True))
         parameters_physics.append(Parameter('use_ff_state', Parameter.Type.BOOL, True))
+        parameters_physics.append(Parameter('publish_state', Parameter.Type.BOOL, False))
         if 'physics' in config:
             for key, value in config['physics'].items():
                 parameters_physics.append(Parameter(name=key, value=value))
@@ -44,6 +45,7 @@ class QuadrotorBaseEnv(gym.Env):
         if 'image' in observation_type:
             parameters_camera = []
             parameters_camera.append(Parameter('sequential_mode', Parameter.Type.BOOL, True))
+            parameters_camera.append(Parameter('publish_image', Parameter.Type.BOOL, False))
             if 'camera' in config:
                 for key, value in config['camera'].items():
                     parameters_camera.append(Parameter(name=key, value=value))
@@ -51,6 +53,7 @@ class QuadrotorBaseEnv(gym.Env):
         if 'imu' in observation_type:
             parameters_imu = []
             parameters_imu.append(Parameter('sequential_mode', Parameter.Type.BOOL, True))
+            parameters_imu.append(Parameter('publish_imu', Parameter.Type.BOOL, False))
             if 'imu' in config:
                 for key, value in config['imu'].items():
                     parameters_imu.append(Parameter(name=key, value=value))
@@ -83,6 +86,7 @@ class QuadrotorBaseEnv(gym.Env):
         self.terminate_on_contact = terminate_on_contact
 
         self.closed = False
+        self.reset()
 
     def reset(self):
         ff_state = State()
@@ -145,7 +149,6 @@ class QuadrotorBaseEnv(gym.Env):
                 self.camera_node.destroy_node()
             if 'imu' in self.observation_type:
                 self.imu_node.destroy_node()
-            rclpy.shutdown()
             self.closed = True
 
     def __del__(self):
