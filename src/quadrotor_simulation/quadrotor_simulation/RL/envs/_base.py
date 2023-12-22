@@ -85,12 +85,20 @@ class QuadrotorBaseEnv(gym.Env):
         self.time_limit = time_limit
         self.terminate_on_contact = terminate_on_contact
 
+        self.workspace = np.array([[-10, 10], [-10, 10], [0, 10]])
+        self.goal = [0, 0, 1]
+
         self.closed = False
+        self.dt = self.physics_node.simulation_step_period
         self.reset()
 
-    def reset(self):
+    def reset(self, *, seed=None, options=None):
+        np.random.seed(seed)
         ff_state = State()
-        ff_state.state.pose.position.z = 1.0
+        # ff_state.state.pose.position.z = 1.0
+        ff_state.state.pose.position.x = np.random.uniform(self.workspace[0][0], self.workspace[0][1])
+        ff_state.state.pose.position.y = np.random.uniform(self.workspace[1][0], self.workspace[1][1])
+        ff_state.state.pose.position.z = np.random.uniform(self.workspace[2][0], self.workspace[2][1])
         self.physics_node.receive_ff_state_callback(ff_state)
         obs, reward, terminated, truncated, info = self.step([self.ROT_HOVER_VEL]*4)
         self.time = 0
@@ -100,7 +108,7 @@ class QuadrotorBaseEnv(gym.Env):
     def step(self, action):
         if self.closed:
             raise Exception("Trying to step in closed environment")
-        self.time += self.physics_node.simulation_step_period
+        self.time += self.dt
         self.physics_node.receive_commands_callback(RotorCommand(rotor_speeds=action))
         obs = []
         self.state = self.physics_node.state
@@ -132,15 +140,19 @@ class QuadrotorBaseEnv(gym.Env):
         truncated = False
         if self.time > self.time_limit and self.time_limit > 0:
             truncated = True
-        reward = self.get_reward()
+        reward = self.get_reward(obs)
         terminated = False
         if self.terminate_on_contact and contacted:
             terminated = True
+            reward = -100
 
         return obs, reward, terminated, truncated, info
 
-    def get_reward(self):
-        return 0
+    def get_reward(self, obs):
+        pos = obs[:3]
+        goal = np.array(self.goal)
+        dist = np.linalg.norm(pos-goal)
+        return -dist
 
     def close(self):
         if not self.closed:
