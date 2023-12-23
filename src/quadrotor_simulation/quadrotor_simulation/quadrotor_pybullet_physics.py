@@ -12,6 +12,7 @@ from quadrotor_interfaces.msg import RotorCommand, State, ModelError
 from geometry_msgs.msg import Vector3Stamped
 import xacro
 
+from rclpy.node import ParameterDescriptor
 
 try:
     import IPython.core.ultratb
@@ -34,30 +35,30 @@ class QuadrotorPybulletPhysics(Node):
         super().__init__('quadrotor_pybullet_physics_node'+suffix, **kwargs)
 
         # Declare the parameters
-        self.declare_parameters(namespace='', parameters=[('physics_server', 'DIRECT'),  # GUI, DIRECT
-                                                          ('quadrotor_description', 'cf2x'),
-                                                          ('obstacles_description', ['NONE']),
-                                                          ('obstacles_poses', [0.0]),
-                                                          ('render_ground', True),
-                                                          ('simulation_step_frequency', DEFAULT_FREQUENCY),
-                                                          ('state_topic', 'quadrotor_state'+suffix),
-                                                          ('ff_state_topic', 'quadrotor_ff_state'+suffix),
-                                                          ('rotor_speeds_topic', 'quadrotor_rotor_speeds'+suffix),
-                                                          ('wind_speed_topic', 'quadrotor_wind_speed'+suffix),
-                                                          ('model_error_topic', 'quadrotor_model_error'+suffix),
-                                                          ('calculate_linear_drag', False),
-                                                          ('calculate_quadratic_drag', False),
-                                                          ('calculate_residuals', False),
-                                                          ('residuals_model', 'NONE'),
-                                                          ('residuals_device', 'cuda'),
-                                                          ('use_rotor_dynamics', False),
-                                                          ('use_wind_speed', False),
-                                                          ('use_ff_state', False),
-                                                          ('manual_tau_xy_calculation', False),
-                                                          ('publish_model_errors', False),
-                                                          ('sequential_mode', False),
-                                                          ('enable_ff_repeat', False),
-                                                          ('publish_state', True)])
+        self.declare_parameters(namespace='', parameters=[('physics_server', 'DIRECT', ParameterDescriptor()),  # GUI, DIRECT
+                                                          ('quadrotor_description', 'cf2x', ParameterDescriptor()),
+                                                          ('obstacles_description', ['NONE'], ParameterDescriptor()),
+                                                          ('obstacles_poses', [0.0], ParameterDescriptor()),
+                                                          ('render_ground', True, ParameterDescriptor()),
+                                                          ('simulation_step_frequency', DEFAULT_FREQUENCY, ParameterDescriptor()),
+                                                          ('state_topic', 'quadrotor_state'+suffix, ParameterDescriptor()),
+                                                          ('ff_state_topic', 'quadrotor_ff_state'+suffix, ParameterDescriptor()),
+                                                          ('rotor_speeds_topic', 'quadrotor_rotor_speeds'+suffix, ParameterDescriptor()),
+                                                          ('wind_speed_topic', 'quadrotor_wind_speed'+suffix, ParameterDescriptor()),
+                                                          ('model_error_topic', 'quadrotor_model_error'+suffix, ParameterDescriptor()),
+                                                          ('calculate_linear_drag', False, ParameterDescriptor()),
+                                                          ('calculate_quadratic_drag', False, ParameterDescriptor()),
+                                                          ('calculate_residuals', False, ParameterDescriptor()),
+                                                          ('residuals_model', 'NONE', ParameterDescriptor()),
+                                                          ('residuals_device', 'cuda', ParameterDescriptor()),
+                                                          ('use_rotor_dynamics', False, ParameterDescriptor()),
+                                                          ('use_wind_speed', False, ParameterDescriptor()),
+                                                          ('use_ff_state', False, ParameterDescriptor()),
+                                                          ('manual_tau_xy_calculation', False, ParameterDescriptor()),
+                                                          ('publish_model_errors', False, ParameterDescriptor()),
+                                                          ('sequential_mode', False, ParameterDescriptor()),
+                                                          ('enable_ff_repeat', False, ParameterDescriptor()),
+                                                          ('publish_state', True, ParameterDescriptor())])
         # Get the parameters
         self.physics_server = self.get_parameter('physics_server').get_parameter_value().string_value
         self.quadrotor_description_file_name = self.get_parameter('quadrotor_description').get_parameter_value().string_value
@@ -456,9 +457,9 @@ class QuadrotorPybulletPhysics(Node):
 
 
 def main(args=None):
+    rclpy.init(args=args)
+    node = QuadrotorPybulletPhysics()
     try:
-        rclpy.init(args=args)
-        node = QuadrotorPybulletPhysics()
         rclpy.spin(node)
     except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
         print('Got clean shutdown signal exception.')

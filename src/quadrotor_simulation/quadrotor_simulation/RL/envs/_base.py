@@ -13,6 +13,14 @@ from gymnasium import spaces
 
 
 class QuadrotorBaseEnv(gym.Env):
+    """
+    Base class for quadrotor environments
+    The environment uses the QuadrotorPybulletPhysics node to simulate the quadrotor. However, instead of using ROS for communication, the node's callbacks are called directly.
+    In addition to the physics node, the environment can also use the QuadrotorPybulletCamera and QuadrotorIMU nodes to simulate the camera and IMU sensors.
+    The environment can be configured using a config file or a dictionary. 
+    The configs are directly mapped to the parameters of the nodes.
+    """
+
     def __init__(self, observation_type=['state'], env_suffix='', config=None, time_limit=-1, terminate_on_contact=False):
         try:
             rclpy.init()
@@ -90,7 +98,8 @@ class QuadrotorBaseEnv(gym.Env):
 
         self.closed = False
         self.dt = self.physics_node.simulation_step_period
-        self.reset()
+        obs, info = self.reset()
+        print(f"initialized a {self.__class__} environment with start position {obs[:3]} and goal {self.goal}")
 
     def reset(self, *, seed=None, options=None):
         np.random.seed(seed)
@@ -121,8 +130,10 @@ class QuadrotorBaseEnv(gym.Env):
 
         if 'state' in self.observation_type:
             statedata = self.state.state
-            obs.append(np.array([statedata.pose.position.x, statedata.pose.position.y, statedata.pose.position.z, statedata.pose.orientation.x, statedata.pose.orientation.y, statedata.pose.orientation.z,
-                                 statedata.pose.orientation.w, statedata.twist.linear.x, statedata.twist.linear.y, statedata.twist.linear.z, statedata.twist.angular.x, statedata.twist.angular.y, statedata.twist.angular.z]))
+            obs.append(np.array([statedata.pose.position.x, statedata.pose.position.y, statedata.pose.position.z,
+                                 statedata.pose.orientation.x, statedata.pose.orientation.y, statedata.pose.orientation.z, statedata.pose.orientation.w,
+                                 statedata.twist.linear.x, statedata.twist.linear.y, statedata.twist.linear.z,
+                                 statedata.twist.angular.x, statedata.twist.angular.y, statedata.twist.angular.z]))
         if 'image' in self.observation_type:
             obs.append(np.array(self.image.data).reshape((self.camera_node.image_height, self.camera_node.image_width, 3)))
         if 'imu' in self.observation_type:
@@ -136,23 +147,23 @@ class QuadrotorBaseEnv(gym.Env):
         info = {'t': self.time}
         contacted = self.physics_node.check_contact()
         if contacted:
-            info = {'contact': True}
+            info['contact'] = True
         truncated = False
         if self.time > self.time_limit and self.time_limit > 0:
             truncated = True
-        reward = self.get_reward(obs)
         terminated = False
         if self.terminate_on_contact and contacted:
             terminated = True
-            reward = -100
+        reward = self.get_reward(obs, terminated, truncated)
 
         return obs, reward, terminated, truncated, info
 
-    def get_reward(self, obs):
+    def get_reward(self, obs, terminated, truncated):
         pos = obs[:3]
         goal = np.array(self.goal)
         dist = np.linalg.norm(pos-goal)
-        return -dist
+        reward = -dist - terminated*100
+        return reward
 
     def close(self):
         if not self.closed:
