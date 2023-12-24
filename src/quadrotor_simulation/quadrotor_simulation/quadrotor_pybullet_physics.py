@@ -193,27 +193,28 @@ class QuadrotorPybulletPhysics(Node):
         else:
             self.physicsClient = p.connect(p.GUI)
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
-        p.setTimeStep(self.simulation_step_period)
-        p.setGravity(0, 0, -self.G)
+        p.setTimeStep(self.simulation_step_period, physicsClientId=self.physicsClient)
+        p.setGravity(0, 0, -self.G, physicsClientId=self.physicsClient)
         if (self.render_ground):
-            self.planeId = p.loadURDF("plane.urdf")
+            self.planeId = p.loadURDF("plane.urdf", physicsClientId=self.physicsClient)
         self.obstacleIds = []
         for (i, obstacle_urdf_file) in enumerate(self.obstacle_urdf_files):
-            self.obstacleIds.append(p.loadURDF(obstacle_urdf_file, self.obstacles_poses[i*7: i*7+3], self.obstacles_poses[i*7+3: i*7+7], useFixedBase=1))
-        self.quadrotor_id = p.loadURDF(self.quadrotor_urdf_file, [0, 0, 0.25], flags=p.URDF_USE_INERTIA_FROM_FILE)
+            self.obstacleIds.append(p.loadURDF(
+                obstacle_urdf_file, self.obstacles_poses[i*7: i*7+3], self.obstacles_poses[i*7+3: i*7+7], useFixedBase=True, physicsClientId=self.physicsClient))
+        self.quadrotor_id = p.loadURDF(self.quadrotor_urdf_file, [0, 0, 0.25], flags=p.URDF_USE_INERTIA_FROM_FILE, physicsClientId=self.physicsClient)
         # Disable default damping of pybullet!
-        p.changeDynamics(self.quadrotor_id, -1, linearDamping=0, angularDamping=0)
-        p.changeDynamics(self.quadrotor_id, 0, linearDamping=0, angularDamping=0)
-        p.changeDynamics(self.quadrotor_id, 1, linearDamping=0, angularDamping=0)
-        p.changeDynamics(self.quadrotor_id, 2, linearDamping=0, angularDamping=0)
-        p.changeDynamics(self.quadrotor_id, 3, linearDamping=0, angularDamping=0)
+        p.changeDynamics(self.quadrotor_id, -1, linearDamping=0, angularDamping=0, physicsClientId=self.physicsClient)
+        p.changeDynamics(self.quadrotor_id, 0, linearDamping=0, angularDamping=0, physicsClientId=self.physicsClient)
+        p.changeDynamics(self.quadrotor_id, 1, linearDamping=0, angularDamping=0, physicsClientId=self.physicsClient)
+        p.changeDynamics(self.quadrotor_id, 2, linearDamping=0, angularDamping=0, physicsClientId=self.physicsClient)
+        p.changeDynamics(self.quadrotor_id, 3, linearDamping=0, angularDamping=0, physicsClientId=self.physicsClient)
 
         self.get_logger().info(f"Loaded quadrotor with Dynamics {p.getDynamicsInfo(self.quadrotor_id, -1)}")
 
-        p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
-        p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW, 0)
-        p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW, 0)
-        p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW, 0)
+        p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0, physicsClientId=self.physicsClient)
+        p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW, 0, physicsClientId=self.physicsClient)
+        p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW, 0, physicsClientId=self.physicsClient)
+        p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW, 0, physicsClientId=self.physicsClient)
 
     def initialize_data(self):
         self.rotor_speeds = np.array([self.ROT_HOVER_VEL] * 4)
@@ -254,8 +255,8 @@ class QuadrotorPybulletPhysics(Node):
         v = np.array([self.ff_state.state.twist.linear.x, self.ff_state.state.twist.linear.y, self.ff_state.state.twist.linear.z])
         w = np.array([self.ff_state.state.twist.angular.x, self.ff_state.state.twist.angular.y, self.ff_state.state.twist.angular.z])
         w_W = Rotation.from_quat(quat).apply(w)
-        p.resetBasePositionAndOrientation(self.quadrotor_id, pos, quat)
-        p.resetBaseVelocity(self.quadrotor_id, v, w_W)
+        p.resetBasePositionAndOrientation(self.quadrotor_id, pos, quat, physicsClientId=self.physicsClient)
+        p.resetBaseVelocity(self.quadrotor_id, v, w_W, physicsClientId=self.physicsClient)
         self.ff_repeated = True
 
     def get_F_T(self):  # not used
@@ -299,33 +300,35 @@ class QuadrotorPybulletPhysics(Node):
         rotor_thrusts, torque_x, torque_y, torque_z = self.calculate_nominal_thrust_torques()
         if self.calculate_linear_drag or self.calculate_quadratic_drag:
             drag_force = self.calculate_drag()
-            p.applyExternalForce(self.quadrotor_id, -1, forceObj=drag_force, posObj=[0, 0, 0], flags=p.LINK_FRAME)
+            p.applyExternalForce(self.quadrotor_id, -1, forceObj=drag_force, posObj=[0, 0, 0], flags=p.LINK_FRAME, physicsClientId=self.physicsClient)
         if self.calculate_residuals:
             residuals = self.calculate_residual_thrust_torques()
-            p.applyExternalForce(self.quadrotor_id, -1, forceObj=residuals[:3], posObj=[0, 0, 0], flags=p.LINK_FRAME)
-            p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=residuals[3:], flags=p.LINK_FRAME)
+            p.applyExternalForce(self.quadrotor_id, -1, forceObj=residuals[:3], posObj=[0, 0, 0], flags=p.LINK_FRAME, physicsClientId=self.physicsClient)
+            p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=residuals[3:], flags=p.LINK_FRAME, physicsClientId=self.physicsClient)
 
         if (self.manual_tau_xy_calculation):
             for i in range(4):
-                p.applyExternalForce(self.quadrotor_id, -1, forceObj=[0, 0, rotor_thrusts[i]], posObj=[0, 0, 0], flags=p.LINK_FRAME)
-            p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=[torque_x, torque_y, torque_z], flags=p.LINK_FRAME)
+                p.applyExternalForce(self.quadrotor_id, -1, forceObj=[0, 0, rotor_thrusts[i]],
+                                     posObj=[0, 0, 0], flags=p.LINK_FRAME, physicsClientId=self.physicsClient)
+            p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=[torque_x, torque_y, torque_z], flags=p.LINK_FRAME, physicsClientId=self.physicsClient)
         else:
             for i in range(4):
-                p.applyExternalForce(self.quadrotor_id, i, forceObj=[0, 0, rotor_thrusts[i]], posObj=[0, 0, 0], flags=p.LINK_FRAME)
+                p.applyExternalForce(self.quadrotor_id, i, forceObj=[0, 0, rotor_thrusts[i]], posObj=[
+                                     0, 0, 0], flags=p.LINK_FRAME, physicsClientId=self.physicsClient)
             # applying Tz on the center of mass, the only one that depend on the drag and isn't simulated by the forces before
-            p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=[0, 0, torque_z], flags=p.LINK_FRAME)
+            p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=[0, 0, torque_z], flags=p.LINK_FRAME, physicsClientId=self.physicsClient)
 
     def apply_simulation_step(self):
-        pos0, quat0 = p.getBasePositionAndOrientation(self.quadrotor_id)
+        pos0, quat0 = p.getBasePositionAndOrientation(self.quadrotor_id, physicsClientId=self.physicsClient)
         pos0, quat0 = np.array(pos0), np.array(quat0)
-        vel0, avel0_W = p.getBaseVelocity(self.quadrotor_id)
+        vel0, avel0_W = p.getBaseVelocity(self.quadrotor_id, physicsClientId=self.physicsClient)
         vel0, avel0_B = np.array(vel0), Rotation.from_quat(quat0).inv().apply(np.array(avel0_W))
 
-        p.stepSimulation()
+        p.stepSimulation(physicsClientId=self.physicsClient)
 
-        pos, quat = p.getBasePositionAndOrientation(self.quadrotor_id)
+        pos, quat = p.getBasePositionAndOrientation(self.quadrotor_id, physicsClientId=self.physicsClient)
         pos, quat = np.array(pos), np.array(quat)
-        vel, avel_W = p.getBaseVelocity(self.quadrotor_id)
+        vel, avel_W = p.getBaseVelocity(self.quadrotor_id, physicsClientId=self.physicsClient)
         vel, avel_B = np.array(vel), Rotation.from_quat(quat).inv().apply(np.array(avel_W))
         accel, anaccel = (vel-vel0)/self.simulation_step_period, (avel_B-avel0_B)/self.simulation_step_period
 
@@ -451,7 +454,7 @@ class QuadrotorPybulletPhysics(Node):
     def destroy_node(self):
         try:
             p.disconnect(physicsClientId=self.physicsClient)
-        except:
+        except Exception as _:
             pass
         super().destroy_node()
 

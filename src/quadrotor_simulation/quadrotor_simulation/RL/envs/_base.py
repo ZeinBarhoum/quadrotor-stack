@@ -1,15 +1,16 @@
 import gymnasium as gym
-import rclpy
+from numpy.linalg import norm
+import pybullet as p
+from gymnasium import spaces
+import numpy as np
 from quadrotor_interfaces.msg import RotorCommand, State
-from quadrotor_simulation.quadrotor_pybullet_physics import QuadrotorPybulletPhysics
-from quadrotor_simulation.quadrotor_pybullet_camera import QuadrotorPybulletCamera
-from quadrotor_simulation.quadrotor_imu import QuadrotorIMU
-
+import rclpy
 from rclpy.parameter import Parameter
 import yaml
-import numpy as np
 
-from gymnasium import spaces
+from quadrotor_simulation.quadrotor_imu import QuadrotorIMU
+from quadrotor_simulation.quadrotor_pybullet_camera import QuadrotorPybulletCamera
+from quadrotor_simulation.quadrotor_pybullet_physics import QuadrotorPybulletPhysics
 
 
 class QuadrotorBaseEnv(gym.Env):
@@ -21,7 +22,7 @@ class QuadrotorBaseEnv(gym.Env):
     The configs are directly mapped to the parameters of the nodes.
     """
 
-    def __init__(self, observation_type=['state'], env_suffix='', config=None, time_limit=-1, terminate_on_contact=False):
+    def __init__(self, observation_type=['state'], env_suffix='', config=None, time_limit=-1, terminate_on_contact=False, normalized_actions=False):
         try:
             rclpy.init()
         except Exception as e:
@@ -42,6 +43,9 @@ class QuadrotorBaseEnv(gym.Env):
             for key, value in config['physics'].items():
                 parameters_physics.append(Parameter(name=key, value=value))
         try:
+            # check if there's a possiblity of creating a GUI environment
+            client = p.connect(p.GUI)
+            p.disconnect(client)
             self.physics_node = QuadrotorPybulletPhysics(suffix=env_suffix, parameter_overrides=parameters_physics)
         except Exception as e:
             if config['physics']['physics_server'] == 'GUI':
@@ -68,8 +72,13 @@ class QuadrotorBaseEnv(gym.Env):
             self.imu_node = QuadrotorIMU(suffix=env_suffix, parameter_overrides=parameters_imu)
 
         self.ROT_HOVER_VEL = self.physics_node.ROT_HOVER_VEL
-        ROT_MAX_VEL = self.physics_node.ROT_MAX_VEL
-        self.action_space = gym.spaces.Box(low=0.0, high=ROT_MAX_VEL, shape=(4,), dtype=np.float32)
+        self.ROT_MAX_VEL = self.physics_node.ROT_MAX_VEL
+        self.normalized_actions = normalized_actions
+        if self.normalized_actions:
+            self.action_space = gym.spaces.Box(low=0.0, high=1.0, shape=(4,), dtype=np.float32)
+        else:
+            self.action_space = gym.spaces.Box(low=0.0, high=self.ROT_MAX_VEL, shape=(4,), dtype=np.float32)
+
         _spaces = []
         if 'state' in observation_type:
             _spaces.append(spaces.Box(low=-np.inf, high=np.inf, shape=(13,), dtype=np.float32))
@@ -98,8 +107,6 @@ class QuadrotorBaseEnv(gym.Env):
 
         self.closed = False
         self.dt = self.physics_node.simulation_step_period
-        obs, info = self.reset()
-        print(f"initialized a {self.__class__} environment with start position {obs[:3]} and goal {self.goal}")
 
     def reset(self, *, seed=None, options=None):
         np.random.seed(seed)
@@ -109,7 +116,10 @@ class QuadrotorBaseEnv(gym.Env):
         ff_state.state.pose.position.y = np.random.uniform(self.workspace[1][0], self.workspace[1][1])
         ff_state.state.pose.position.z = np.random.uniform(self.workspace[2][0], self.workspace[2][1])
         self.physics_node.receive_ff_state_callback(ff_state)
-        obs, reward, terminated, truncated, info = self.step([self.ROT_HOVER_VEL]*4)
+        hover_action = [self.ROT_HOVER_VEL]*4
+        if self.normalized_actions:
+            hover_action /= self.ROT_MAX_VEL
+        obs, reward, terminated, truncated, info = self.step(hover_action)
         self.time = 0
         self.closed = False
         return obs, info
@@ -118,7 +128,10 @@ class QuadrotorBaseEnv(gym.Env):
         if self.closed:
             raise Exception("Trying to step in closed environment")
         self.time += self.dt
-        self.physics_node.receive_commands_callback(RotorCommand(rotor_speeds=action))
+        rotor_speeds = np.array(action)
+        if self.normalized_actions:
+            rotor_speeds = rotor_speeds * self.ROT_MAX_VEL
+        self.physics_node.receive_commands_callback(RotorCommand(rotor_speeds=rotor_speeds))
         obs = []
         self.state = self.physics_node.state
         if 'imu' in self.observation_type:
@@ -166,6 +179,7 @@ class QuadrotorBaseEnv(gym.Env):
         return reward
 
     def close(self):
+        print("Closing")
         if not self.closed:
             self.physics_node.destroy_node()
             if 'image' in self.observation_type:
