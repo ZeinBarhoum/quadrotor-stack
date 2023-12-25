@@ -1,5 +1,4 @@
 import gymnasium as gym
-from numpy.linalg import norm
 import pybullet as p
 from gymnasium import spaces
 import numpy as np
@@ -22,7 +21,7 @@ class QuadrotorBaseEnv(gym.Env):
     The configs are directly mapped to the parameters of the nodes.
     """
 
-    def __init__(self, observation_type=['state'], env_suffix='', config=None, time_limit=-1, terminate_on_contact=False, normalized_actions=False):
+    def __init__(self, observation_type=['state'], env_suffix='', config=None, time_limit=-1, terminate_on_contact=False, normalized_actions=False, wrench_actions=False):
         try:
             rclpy.init()
         except Exception as e:
@@ -73,11 +72,21 @@ class QuadrotorBaseEnv(gym.Env):
 
         self.ROT_HOVER_VEL = self.physics_node.ROT_HOVER_VEL
         self.ROT_MAX_VEL = self.physics_node.ROT_MAX_VEL
+        self.M = self.physics_node.M
+        self.W = self.physics_node.W
+        self.T2W = self.physics_node.T2W
+        self.MAX_THRUST = self.W * self.T2W
+        self.MAX_ONE_THRUST = self.MAX_THRUST/4
+        self.J = self.physics_node.J
         self.normalized_actions = normalized_actions
-        if self.normalized_actions:
-            self.action_space = gym.spaces.Box(low=0.0, high=1.0, shape=(4,), dtype=np.float32)
+        self.wrench_actions = wrench_actions
+        if not self.wrench_actions:
+            if self.normalized_actions:
+                self.action_space = gym.spaces.Box(low=0.0, high=1.0, shape=(4,), dtype=np.float32)
+            else:
+                self.action_space = gym.spaces.Box(low=0.0, high=self.ROT_MAX_VEL, shape=(4,), dtype=np.float32)
         else:
-            self.action_space = gym.spaces.Box(low=0.0, high=self.ROT_MAX_VEL, shape=(4,), dtype=np.float32)
+            pass
 
         _spaces = []
         if 'state' in observation_type:
@@ -109,6 +118,8 @@ class QuadrotorBaseEnv(gym.Env):
         self.dt = self.physics_node.simulation_step_period
 
     def reset(self, *, seed=None, options=None):
+        if self.closed:
+            raise Exception("Trying to reset a closed environment")
         np.random.seed(seed)
         ff_state = State()
         # ff_state.state.pose.position.z = 1.0

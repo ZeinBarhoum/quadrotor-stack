@@ -9,7 +9,7 @@ import rclpy
 from rclpy.node import Node
 from ament_index_python.packages import get_package_share_directory
 from quadrotor_interfaces.msg import RotorCommand, State, ModelError
-from geometry_msgs.msg import Vector3Stamped
+from geometry_msgs.msg import Vector3Stamped, Wrench
 import xacro
 
 from rclpy.node import ParameterDescriptor
@@ -230,6 +230,25 @@ class QuadrotorPybulletPhysics(Node):
     def receive_ff_state_callback(self, msg: State):
         self.ff_state = msg
         self.ff_repeated = False
+
+    def recieve_wrench_command_callback(self, msg: Wrench):
+        """Implement trhust/torque control instead of rotor_speeds control"""
+        trhust_torques = np.array([msg.force.z, msg.torque.x, msg.torque.y, msg.torque.z])
+        # rotor_thrusts = np.array(self.rotor_speeds**2)*self.KF
+        # rotor_torques = np.array(self.rotor_speeds**2)*self.KM
+        # torque_z = -(self.ROTOR_DIRS[0]*rotor_torques[0] + self.ROTOR_DIRS[1]*rotor_torques[1] +
+        #              self.ROTOR_DIRS[2]*rotor_torques[2] + self.ROTOR_DIRS[3]*rotor_torques[3])
+        # torque_x = self.ARM_Y * (-rotor_thrusts[0] + rotor_thrusts[1] + rotor_thrusts[2] - rotor_thrusts[3])
+        # torque_y = self.ARM_X * (-rotor_thrusts[0] - rotor_thrusts[1] + rotor_thrusts[2] + rotor_thrusts[3])
+        A = np.matrix([[self.KF, self.KF, self.KF, self.KF],
+                       [-self.ARM_X, -self.ARM_X, self.ARM_X, self.ARM_X],
+                       [-self.ARM_Y, self.ARM_Y, self.ARM_Y, -self.ARM_Y],
+                       [-self.ROTOR_DIRS[0], -self.ROTOR_DIRS[1], -self.ROTOR_DIRS[2], -self.ROTOR_DIRS[3]]])
+        rotor_speeds_squared = np.linalg.inv(A) @ trhust_torques.reshape((4, 1))
+        rotor_speeds = np.sqrt(rotor_speeds_squared)
+        rotor_speeds_msg = RotorCommand()
+        rotor_speeds_msg.rotor_speeds = rotor_speeds
+        self.receive_commands_callback(rotor_speeds_msg)
 
     def receive_commands_callback(self, msg: RotorCommand):
         if not self.use_rotor_dynamics:
