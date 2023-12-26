@@ -9,7 +9,27 @@ from scipy.spatial.transform import Rotation as R
 
 
 class QuadrotorPhysics:
-    """a class for physics simulation of the quadrotor (without physics engine)"""
+    """a class for physics simulation of the quadrotor (without physics engine)
+    The state of the quadrotor is defined as [pos, quat, vel, ang_vel]
+    The input of the quadrotor is defined as [rotor_speeds]
+    All linear quantities are in world frame [vel, acc, forces]
+    All angular quantities are in body frame [ang_vel, ang_acc, torque]
+    The assumed configuration is X-configuration, first rotor is front-right and others follow in counter-clockwise order
+    The body frame is front-left-up(FLU)
+    The world frame is front-left-up(FLU)
+
+    Attributes:
+        pos(np.ndarray): The position of the quadrotor, shape(3, 1).
+        quat(np.ndarray): The quaternion of the quadrotor in xyzw format, shape(4, 1).
+        vel(np.ndarray): The velocity of the quadrotor in world frame, shape(3, 1).
+        ang_vel(np.ndarray): The angular velocity of the quadrotor in body frame, shape(3, 1).
+        rotor_speeds(np.ndarray): The rotor speeds of the quadrotor, first rotor is front-right and others follow in counter-clockwise order , shape(4, 1).
+        acc(np.ndarray): The acceleration of the quadrotor in world frame, without gravity (0 when static), shape(3, 1).
+        ang_acc(np.ndarray): The angular acceleration of the quadrotor in body frame, shape(3, 1).
+        forces(np.ndarray): The forces applied on the quadrotor in world frame, shape(3, 1).
+        torques(np.ndarray): The torques applied on the quadrotor in body frame, shape(3, 1).
+
+    """
 
     def __init__(self,
                  pos: ArrayLike = (0, 0, 0),
@@ -264,6 +284,7 @@ class QuadrotorPhysics:
                        wind_speed: ArrayLike = (0, 0, 0),
                        ) -> None:
         """Sets the wind speed of the quadrotor.
+
         Args:
             wind_speed(ArrayLike, optional): The wind speed vector in world frame. Defaults to(0, 0, 0).
 
@@ -278,6 +299,7 @@ class QuadrotorPhysics:
                    torques: ArrayLike = (0, 0, 0),
                    ) -> None:
         """Sets the forces and torques applied on the quadrotor.
+
         Args:
             forces(ArrayLike, optional): The forces applied on the quadrotor. Defaults to(0, 0, 0).
             torques(ArrayLike, optional): The torques applied on the quadrotor. Defaults to(0, 0, 0).
@@ -293,6 +315,7 @@ class QuadrotorPhysics:
                           ang_acc: ArrayLike = (0, 0, 0),
                           ) -> None:
         """Sets the accelerations and angular accelerations of the quadrotor.
+
         Args:
             acc(ArrayLike, optional): The accelerations of the quadrotor. Defaults to(0, 0, 0).
             ang_acc(ArrayLike, optional): The angular accelerations of the quadrotor. Defaults to(0, 0, 0).
@@ -307,6 +330,7 @@ class QuadrotorPhysics:
                          rotor_speeds: ArrayLike = (0, 0, 0, 0),
                          ) -> None:
         """Sets the rotor speeds of the quadrotor.
+
         Args:
             rotor_speeds(ArrayLike, optional): The rotor speeds of the quadrotor. Defaults to(0, 0, 0, 0).
         """
@@ -319,6 +343,7 @@ class QuadrotorPhysics:
                   ang_vel: Union[ArrayLike, None] = None,
                   ) -> None:
         """set the state (or any part of it) of the quadrotor.
+
         Args:
             pos(Union[ArrayLike, None], optional): The position of the quadrotor. Defaults to None.
             quat(Union[ArrayLike, None], optional): The quaternion of the quadrotor. Defaults to None.
@@ -475,10 +500,10 @@ def main():
 
     quad = QuadrotorPhysics(params={'M': 2.0, 'J': [[1, 0, 0], [0, 2, 0], [0, 0, 3]]}, config={'TIME_STEP': 0.1})
 
-    tau = [0, 0, 2]
-    force = [0, 0, quad.params['M']*quad.params['G']]
+    torques = [0, 0, 2]
+    forces = [0, 0, quad.params['M']*quad.params['G']]
     for _ in range(10):
-        quad.set_wrench(force, tau)
+        quad.set_wrench(forces, torques)
         quad.apply_forward_rigid_body_dynamics()
         quad.update_state_euler_integration()
         frame = Frame(quad.get_T_matrix(), label="rotating frame", s=0.5)
