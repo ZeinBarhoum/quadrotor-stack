@@ -249,6 +249,27 @@ class QuadrotorPhysics:
                                                torques_body,
                                                residuals_accelerations)
 
+    def set_rotor_speeds(self,
+                         rotor_speeds: ArrayLike = (0, 0, 0, 0),):
+        """Sets the rotor speeds of the quadrotor."""
+        self.rotor_speeds = np.array(rotor_speeds).reshape(4, 1)
+
+    def set_state(self,
+                  pos: Union[ArrayLike, None] = None,
+                  quat: Union[ArrayLike, None] = None,
+                  vel: Union[ArrayLike, None] = None,
+                  ang_vel: Union[ArrayLike, None] = None
+                  ):
+        """set the state of the quadrotor."""
+        if pos is not None:
+            self.pos = np.array(pos).reshape(3, 1)
+        if quat is not None:
+            self.quat = np.array(quat).reshape(4, 1)
+        if vel is not None:
+            self.vel = np.array(vel).reshape(3, 1)
+        if ang_vel is not None:
+            self.ang_vel = np.array(ang_vel).reshape(3, 1)
+
     def update_state_euler_integration(self):
         """Updates the state and derivative of the state of the quadrotor using Euler integration.
         """
