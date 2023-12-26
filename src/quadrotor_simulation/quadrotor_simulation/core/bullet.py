@@ -7,14 +7,15 @@ from scipy.spatial.transform import Rotation
 
 import pybullet as p
 
-from .physics import QuadrotorPhysics
-
+from quadrotor_simulation.core.physics import QuadrotorPhysics
 
 DEFAULT_TIME_STEP = 1/240
 GRAVITY = 9.81
 
 
-class QuadrotorPyBullet:
+class QuadrotorPyBulletSimulation:
+    """A class for multi-quadrotor simulation using PyBullet physics engine"""
+
     def __init__(self,
                  # Pybullet parameters
                  physics_server: str = 'GUI',
@@ -71,7 +72,7 @@ class QuadrotorPyBullet:
             if quadrotor_initial_rotor_speeds is None:
                 quadrotor_initial_rotor_speeds = [(0, 0, 0, 0) for _ in range(len(quadrotor_descriptions))]
             if quadrotors_parameters is None:
-                raise ValueError('quadrotors_parameters must be specified if quadrotor_descriptions is specified')
+                quadrotors_parameters = [dict() for _ in range(len(quadrotor_descriptions))]
             self.init_quadrotors(quadrotor_descriptions=quadrotor_descriptions,
                                  quadrotor_initial_poses=quadrotor_initial_poses,
                                  quadrotor_initial_twists=quadrotor_initial_twists,
@@ -159,7 +160,14 @@ class QuadrotorPyBullet:
         self.obstacle_bullet_ids.append(p.loadURDF(fileName=obstacle_description,
                                                    basePosition=pos,
                                                    baseOrientation=quat,
+                                                   useFixedBase=True,
                                                    physicsClientId=self._physics_client_id))
+
+    def recieve_quadrotor_rotor_speeds(self,
+                                       quadrotor_index: int,
+                                       rotor_speeds: ArrayLike
+                                       ):
+        self.quadrotor_physics_objects[quadrotor_index].update_rotor_speeds(rotor_speeds)
 
     def add_quadrotor(self,
                       quadrotor_description: str,
@@ -228,3 +236,20 @@ class QuadrotorPyBullet:
         Close PyBullet simulation.
         """
         p.disconnect(self._physics_client_id)
+
+
+def main():
+    description = r'/home/zein/Project/quadrotor-plan-control/install/quadrotor_description/share/quadrotor_description/description/neuroBEM.urdf'
+    obstacle = r'/home/zein/Project/quadrotor-plan-control/install/quadrotor_simulation/share/quadrotor_simulation/world/hoop.urdf'
+    simulation = QuadrotorPyBulletSimulation(quadrotor_descriptions=[description]*3,
+                                             render_ground=True,
+                                             quadrotor_initial_poses=[(0, 0, 0, 0, 0, 0, 1), (1, 0, 1, 0, 0, 0, 1), (1, 1, 1, 0, 0, 0, 1)],
+                                             obstacle_descriptions=[obstacle],
+                                             obstacle_poses=[(0, 0, 0, 0, 0, 0.7, 0.7)],
+                                             )
+    while True:
+        pass
+
+
+if __name__ == '__main__':
+    main()

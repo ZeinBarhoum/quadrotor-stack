@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Tuple
 
 from matplotlib import pyplot as plt
 import numpy as np
@@ -9,16 +9,29 @@ from scipy.spatial.transform import Rotation as R
 
 
 class QuadrotorPhysics:
+    """a class for physics simulation of the quadrotor (without physics engine)"""
 
     def __init__(self,
-                 pos=(0, 0, 0),
-                 quat=(0, 0, 0, 1),
-                 vel=(0, 0, 0),
-                 ang_vel=(0, 0, 0),
+                 pos: ArrayLike = (0, 0, 0),
+                 quat: ArrayLike = (0, 0, 0, 1),
+                 vel: ArrayLike = (0, 0, 0),
+                 ang_vel: ArrayLike = (0, 0, 0),
                  rotor_speeds=(0, 0, 0, 0),
                  params: Union[dict, None] = None,
-                 config: Union[dict, None] = None):
-        """Initializes the quadrotor object"""
+                 config: Union[dict, None] = None) -> None:
+        """Initializes the quadrotor object
+        Args:
+            pos (ArrayLike, optional): The initial position of the quadrotor. Defaults to (0, 0, 0).
+            quat (ArrayLike, optional): The initial quaternion of the quadrotor. Defaults to (0, 0, 0, 1).
+            vel (ArrayLike, optional): The initial velocity of the quadrotor. Defaults to (0, 0, 0).
+            ang_vel (ArrayLike, optional): The initial angular velocity of the quadrotor. Defaults to (0, 0, 0).
+            rotor_speeds (ArrayLike, optional): The initial rotor speeds of the quadrotor. Defaults to (0, 0, 0, 0).
+            params (Union[dict, None], optional): The parameters of the quadrotor. Defaults to None (default parameters). The parameters include the following: G, M, J, ARM_X, ARM_Y, ARM_Z, KF, KM, ROT_DIRS, ROT_TIME_CONST, ROT_MAX_VEL, ROT_MAX_ACC, DRAG_MAT_ROT, DRAG_MAT_FUS_LIN, DRAG_MAT_FUS_ANG. Any parameters that's not defined will be set to the default, see QuadrotorPhysics().get_default_params().
+            config (Union[dict, None], optional): The configuration of the quadrotor. Defaults to None (default configuration). The configuration include the following: enable_rotor_dynamics, enable_rotor_drag, enable_fuselage_drag, TIME_STEP. Any configuration that's not defined will be set to the default, see QuadrotorPhysics().get_default_config().
+
+        Returns:
+            None
+        """
         self.reset(pos=pos,
                    quat=quat,
                    vel=vel,
@@ -31,7 +44,12 @@ class QuadrotorPhysics:
     def reset_param_config(self,
                            params: Union[dict, None] = None,
                            config: Union[dict, None] = None):
-        """Resets the parameters and configuration of the quadrotor."""
+        """Resets the parameters and configuration of the quadrotor.
+
+        Args:
+            params (Union[dict, None], optional): The parameters of the quadrotor. Defaults to None (default parameters). The parameters include the following: G, M, J, ARM_X, ARM_Y, ARM_Z, KF, KM, ROT_DIRS, ROT_TIME_CONST, ROT_MAX_VEL, ROT_MAX_ACC, DRAG_MAT_ROT, DRAG_MAT_FUS_LIN, DRAG_MAT_FUS_ANG. Any parameters that's not defined will be set to the default, see QuadrotorPhysics().get_default_params().
+            config (Union[dict, None], optional): The configuration of the quadrotor. Defaults to None (default configuration). The configuration include the following: enable_rotor_dynamics, enable_rotor_drag, enable_fuselage_drag, TIME_STEP. Any configuration that's not defined will be set to the default, see QuadrotorPhysics().get_default_config().
+        """
         if not params:
             self.params = self.get_default_params()
             print(f'Using default parameters, please specify parameters for your quadrotor, the loaded parameters are {self.params}')
@@ -46,12 +64,21 @@ class QuadrotorPhysics:
             self.config.update(config)
 
     def reset(self,
-              pos=(0, 0, 0),
-              quat=(0, 0, 0, 1),
-              vel=(0, 0, 0),
-              ang_vel=(0, 0, 0),
-              rotor_speeds=(0, 0, 0, 0),
-              ):
+              pos: ArrayLike = (0, 0, 0),
+              quat: ArrayLike = (0, 0, 0, 1),
+              vel: ArrayLike = (0, 0, 0),
+              ang_vel: ArrayLike = (0, 0, 0),
+              rotor_speeds: ArrayLike = (0, 0, 0, 0),
+              ) -> None:
+        """Resets the state (pose+twist) and input (rotor_speeds) of the quadrotor. also resets time to 0
+
+        Args:
+            pos (ArrayLike, optional): The initial position of the quadrotor. Defaults to (0, 0, 0).
+            quat (ArrayLike, optional): The initial quaternion of the quadrotor. Defaults to (0, 0, 0, 1).
+            vel (ArrayLike, optional): The initial velocity of the quadrotor. Defaults to (0, 0, 0).
+            ang_vel (ArrayLike, optional): The initial angular velocity of the quadrotor. Defaults to (0, 0, 0).
+            rotor_speeds (ArrayLike, optional): The initial rotor speeds of the quadrotor. Defaults to (0, 0, 0, 0).
+        """
         self.pos = np.array(pos, dtype=np.float32).reshape(3, 1)
         self.quat = np.array(quat, dtype=np.float32).reshape(4, 1)
         self.vel = np.array(vel, dtype=np.float32).reshape(3, 1)
@@ -61,9 +88,10 @@ class QuadrotorPhysics:
         self.torques = np.zeros((3, 1), dtype=np.float32)
         self.acc = np.zeros((3, 1), dtype=np.float32)
         self.ang_acc = np.zeros((3, 1), dtype=np.float32)
+        self.wind_speed = np.zeros((3, 1), dtype=np.float32)
         self.time = 0
 
-    def get_default_params(self):
+    def get_default_params(self) -> dict:
         """Returns a dictionary of default parameters for the quadrotor. These are used if no parameters are specified."""
         params = {
             'G': 9.81,
@@ -83,7 +111,7 @@ class QuadrotorPhysics:
             'DRAG_MAT_FUS_ANG': None, }
         return params
 
-    def get_default_config(self):
+    def get_default_config(self) -> dict:
         """Returns a dictionary of default configuration for the quadrotor. These are used if no configuration is specified."""
         config = {
             'enable_rotor_dynamics': False,
@@ -110,15 +138,60 @@ class QuadrotorPhysics:
         else:
             self.rotor_speeds = desired_rotor_speeds
 
-    def cal_rot_eff_quadratic_model(self):
+    def apply_forward_rigid_body_dynamics(self,
+                                          residuals_accelerations: ArrayLike = (0, 0, 0, 0, 0, 0),
+                                          ) -> None:
+        """Calculates the accelerations and angular accelerations of the quadrotor using the forces and torques applied.
+        Parameters[M, J] must be set in the params dictionary.
+
+        Args:
+            residuals_accelerations(ArrayLike, optional): The residuals of accelerations(world frame) and angular accelerations(body frame). Defaults to(0, 0, 0, 0, 0, 0).
+
+        Returns:
+            Does not return anything, but updates the accelerations and angular accelerations of the quadrotor.
+        """
+        self.acc = np.array([0, 0, -self.params['G']]).reshape(3, 1) + self.forces/self.params['M']
+        self.acc += np.array(residuals_accelerations)[:3].reshape(3, 1)
+
+        J = np.array(self.params['J']).reshape(3, 3)
+        self.ang_acc = np.linalg.inv(J) @ (self.torques - np.cross(self.ang_vel, J @ self.ang_vel, axis=0))
+        self.ang_acc += np.array(residuals_accelerations)[3:].reshape(3, 1)
+
+    def apply_forward_wrench_dynamics(self,
+                                      residuals_forces_torques: ArrayLike = (0, 0, 0, 0, 0, 0),
+                                      ):
+        """Calculates the forces and torques applied on the quadrotor from the rotor speeds.
+
+        Args:
+            residuals_forces_torques(ArrayLike, optional): The residuals of forces(world frame) and torques(body frame). Defaults to(0, 0, 0, 0, 0, 0).
+        Returns:
+            Does not return anything, but updates the forces and torques on the quadrotor.
+        """
+        forces_world, torques_body = self.cal_rot_eff_quadratic_model()
+        if self.config.get('enable_rotor_drag'):
+            rotor_drag_forces_world, rotor_drag_torques_body = self.calc_aero_rotor_drag()
+            forces_world += rotor_drag_forces_world
+            torques_body += rotor_drag_torques_body
+        if self.config.get('enable_fuselage_drag'):
+            fus_drag_forces_world, fus_drag_torques_body = self.calc_aero_fus_drag()
+            forces_world += fus_drag_forces_world
+            torques_body += fus_drag_torques_body
+
+        forces_world += np.array(residuals_forces_torques)[:3].reshape(3, 1)
+        torques_body += np.array(residuals_forces_torques)[3:].reshape(3, 1)
+
+        self.forces = forces_world
+        self.torques = torques_body
+
+    def cal_rot_eff_quadratic_model(self) -> Tuple[np.ndarray, np.ndarray]:
         """Calculates the forces and torques generated by the rotors using the quadratic model.
         Assumes X-configuration of the rotors, rotor 1 is the front right, others follow in counter-clockwise order.
         Requires the rotor speeds to be set before calling this function.
-        Parameters [KF, KM, ROT_DIRS, ARM_X, ARM_Y] must be set in the params dictionary.
+        Parameters[KF, KM, ROT_DIRS, ARM_X, ARM_Y] must be set in the params dictionary.
 
         Returns:
-            forces_world (np.array): The forces generated by the rotors in world frame.
-            torques_body (np.array): The torques generated by the rotors in body frame.
+            forces_world(np.ndarray): The forces generated by the rotors in world frame.
+            torques_body(np.ndarray): The torques generated by the rotors in body frame.
         """
         def calculate_rotor_thrusts():
             """Calculates the thrust generated by all four rotors."""
@@ -144,19 +217,16 @@ class QuadrotorPhysics:
 
         return forces_world, torques_body
 
-    def calc_aero_rotor_drag(self, wind_speed: ArrayLike = (0, 0, 0)):
+    def calc_aero_rotor_drag(self) -> Tuple[np.ndarray, np.ndarray]:
         """Calculates the forces and torques due to the rotor drag effect.
         Parameter DRAG_MAT_ROT must be set in the params dictionary.
 
-        Args:
-            wind_speed (ArrayLike, optional): The wind speed vector in world frame. Defaults to (0, 0, 0).
-
         Returns:
-            forces_world (np.array): The forces generated by the rotors in world frame.
-            torques_body (np.array): The torques generated by the rotors in body frame.
+            forces_world(np.ndarray): The forces generated by the rotors in world frame.
+            torques_body(np.ndarray): The torques generated by the rotors in body frame.
         """
         D = np.array(self.params['DRAG_MAT_ROT']).reshape(3, 3)
-        wind_speed = np.array(wind_speed).reshape(3, 1)
+        wind_speed = np.array(self.wind_speed).reshape(3, 1)
         wind_vel_body = R.from_quat(self.quat).inv().apply(wind_speed)
         vel_body = R.from_quat(self.quat).inv().apply(self.vel)
         rel_vel_body = vel_body - wind_vel_body
@@ -166,16 +236,16 @@ class QuadrotorPhysics:
         torques_body = np.zeros((3, 1))
         return forces_world, torques_body
 
-    def calc_aero_fus_drag(self, wind_speed: ArrayLike = (0, 0, 0)):
+    def calc_aero_fus_drag(self, wind_speed: ArrayLike = (0, 0, 0)) -> Tuple[np.ndarray, np.ndarray]:
         """Calculates the forces and torques due to the fuselage drag effect.
-        Parameters DRAG_MAT_FUS_LIN and DRAG_MAT_FUS_ANGL must be set in the params dictionary.
+        Parameters DRAG_MAT_FUS_LIN and DRAG_MAT_FUS_ANG must be set in the params dictionary.
 
         Args:
-            wind_speed (ArrayLike): The wind speed vector in world frame. Defaults to (0, 0, 0).
+            wind_speed(ArrayLike): The wind speed vector in world frame. Defaults to(0, 0, 0).
 
         Returns:
-            forces_world (np.array): The forces generated by the rotors in world frame.
-            torques_body (np.array): The torques generated by the rotors in body frame.
+            forces_world(np.ndarray): The forces generated by the rotors in world frame.
+            torques_body(np.ndarray): The torques generated by the rotors in body frame.
         """
         D_lin = np.array(self.params['DRAG_MAT_FUS_LIN']).reshape(3, 3)
         D_ang = np.array(self.params['DRAG_MAT_FUS_ANG']).reshape(3, 3)
@@ -190,77 +260,74 @@ class QuadrotorPhysics:
         torques_body = drag_ang_body
         return forces_world, torques_body
 
-    def apply_forward_rigid_body_dynamics(self,
-                                          forces_world: ArrayLike = (0, 0, 0),
-                                          torques_body: ArrayLike = (0, 0, 0),
-                                          residuals_accelerations: ArrayLike = (0, 0, 0, 0, 0, 0),
-                                          ):
-        """Calculates the accelerations and angular accelerations of the quadrotor given the forces and torques applied on it.
-        Parameters [M, J] must be set in the params dictionary.
-
+    def set_wind_speed(self,
+                       wind_speed: ArrayLike = (0, 0, 0),
+                       ) -> None:
+        """Sets the wind speed of the quadrotor.
         Args:
-            forces_world (ArrayLike): The forces generated by the rotors in world frame.
-            torques_body (ArrayLike): The torques generated by the rotors in body frame.
-            residuals_accelerations (ArrayLike, optional): The residuals of accelerations(world frame) and angular accelerations(body frame). Defaults to (0, 0, 0, 0, 0, 0).
+            wind_speed(ArrayLike, optional): The wind speed vector in world frame. Defaults to(0, 0, 0).
 
         Returns:
-            Does not return anything, but updates the accelerations and angular accelerations of the quadrotor.
+            None
+
         """
-        self.forces = np.array(forces_world).reshape(3, 1)
-        self.torques = np.array(torques_body).reshape(3, 1)
+        self.wind_speed = np.array(wind_speed).reshape(3, 1)
 
-        self.acc = np.array([0, 0, -self.params['G']]).reshape(3, 1) + self.forces/self.params['M']
-        self.acc += np.array(residuals_accelerations)[:3].reshape(3, 1)
-
-        J = np.array(self.params['J']).reshape(3, 3)
-        self.ang_acc = np.linalg.inv(J) @ (self.torques - np.cross(self.ang_vel, J @ self.ang_vel, axis=0))
-        self.ang_acc += np.array(residuals_accelerations)[3:].reshape(3, 1)
-
-    def apply_forward_dynamics(self,
-                               rotor_speeds: ArrayLike = (0, 0, 0, 0),
-                               residuals_forces_torques: ArrayLike = (0, 0, 0, 0, 0, 0),
-                               residuals_accelerations: ArrayLike = (0, 0, 0, 0, 0, 0),
-                               ):
-        """Calculates the accelerations and angular accelerations of the quadrotor given the rotor speeds.
-
+    def set_wrench(self,
+                   forces: ArrayLike = (0, 0, 0),
+                   torques: ArrayLike = (0, 0, 0),
+                   ) -> None:
+        """Sets the forces and torques applied on the quadrotor.
         Args:
-            rotor_speeds (ArrayLike): The rotor speeds of the quadrotor.
-            residuals_forces_torques (ArrayLike, optional): The residuals of forces(world frame) and torques(body frame). Defaults to (0, 0, 0, 0, 0, 0).
-            residuals_accelerations (ArrayLike, optional): The residuals of accelerations(world frame) and angular accelerations(body frame). Defaults to (0, 0, 0, 0, 0, 0).
+            forces(ArrayLike, optional): The forces applied on the quadrotor. Defaults to(0, 0, 0).
+            torques(ArrayLike, optional): The torques applied on the quadrotor. Defaults to(0, 0, 0).
 
         Returns:
-            Does not return anything, but updates the accelerations and angular accelerations of the quadrotor.
+            None
         """
-        self.update_rotor_speeds(rotor_speeds)
-        forces_world, torques_body = self.cal_rot_eff_quadratic_model()
-        if self.config.get('enable_rotor_drag'):
-            rotor_drag_forces_world, rotor_drag_torques_body = self.calc_aero_rotor_drag()
-            forces_world += rotor_drag_forces_world
-            torques_body += rotor_drag_torques_body
-        if self.config.get('enable_fuselage_drag'):
-            fus_drag_forces_world, fus_drag_torques_body = self.calc_aero_fus_drag()
-            forces_world += fus_drag_forces_world
-            torques_body += fus_drag_torques_body
+        self.forces = np.array(forces).reshape(3, 1)
+        self.torques = np.array(torques).reshape(3, 1)
 
-        forces_world += np.array(residuals_forces_torques)[:3].reshape(3, 1)
-        torques_body += np.array(residuals_forces_torques)[3:].reshape(3, 1)
+    def set_accelerations(self,
+                          acc: ArrayLike = (0, 0, 0),
+                          ang_acc: ArrayLike = (0, 0, 0),
+                          ) -> None:
+        """Sets the accelerations and angular accelerations of the quadrotor.
+        Args:
+            acc(ArrayLike, optional): The accelerations of the quadrotor. Defaults to(0, 0, 0).
+            ang_acc(ArrayLike, optional): The angular accelerations of the quadrotor. Defaults to(0, 0, 0).
 
-        self.apply_forward_rigid_body_dynamics(forces_world,
-                                               torques_body,
-                                               residuals_accelerations)
+        Returns:
+            None
+        """
+        self.acc = np.array(acc).reshape(3, 1)
+        self.ang_acc = np.array(ang_acc).reshape(3, 1)
 
     def set_rotor_speeds(self,
-                         rotor_speeds: ArrayLike = (0, 0, 0, 0),):
-        """Sets the rotor speeds of the quadrotor."""
+                         rotor_speeds: ArrayLike = (0, 0, 0, 0),
+                         ) -> None:
+        """Sets the rotor speeds of the quadrotor.
+        Args:
+            rotor_speeds(ArrayLike, optional): The rotor speeds of the quadrotor. Defaults to(0, 0, 0, 0).
+        """
         self.rotor_speeds = np.array(rotor_speeds).reshape(4, 1)
 
     def set_state(self,
                   pos: Union[ArrayLike, None] = None,
                   quat: Union[ArrayLike, None] = None,
                   vel: Union[ArrayLike, None] = None,
-                  ang_vel: Union[ArrayLike, None] = None
-                  ):
-        """set the state of the quadrotor."""
+                  ang_vel: Union[ArrayLike, None] = None,
+                  ) -> None:
+        """set the state (or any part of it) of the quadrotor.
+        Args:
+            pos(Union[ArrayLike, None], optional): The position of the quadrotor. Defaults to None.
+            quat(Union[ArrayLike, None], optional): The quaternion of the quadrotor. Defaults to None.
+            vel(Union[ArrayLike, None], optional): The velocity of the quadrotor. Defaults to None.
+            ang_vel(Union[ArrayLike, None], optional): The angular velocity of the quadrotor. Defaults to None.
+
+        Returns:
+            None
+        """
         if pos is not None:
             self.pos = np.array(pos).reshape(3, 1)
         if quat is not None:
@@ -270,8 +337,11 @@ class QuadrotorPhysics:
         if ang_vel is not None:
             self.ang_vel = np.array(ang_vel).reshape(3, 1)
 
-    def update_state_euler_integration(self):
+    def update_state_euler_integration(self) -> None:
         """Updates the state and derivative of the state of the quadrotor using Euler integration.
+
+        Returns:
+            None
         """
 
         def quat_dot_Omega(ang_vel: ArrayLike):
@@ -279,7 +349,7 @@ class QuadrotorPhysics:
             return Omega where dot(quat) = 0.5*Omega@quat
 
             Args:
-                ang_vel (ArrayLike): The angular velocity of the quadrotor.
+                ang_vel(ArrayLike): The angular velocity of the quadrotor.
             """
             ang_vel = np.array(ang_vel).reshape(3)
             skew_ang_vel = np.array([[0, -ang_vel[2], ang_vel[1]],
@@ -292,7 +362,7 @@ class QuadrotorPhysics:
             return Omega where dot(quat) = 0.5*Omega@quat
 
             Args:
-                ang_vel (ArrayLike): The angular velocity of the quadrotor.
+                ang_vel(ArrayLike): The angular velocity of the quadrotor.
             """
             ang_vel = np.array(ang_vel).reshape(3)
             return np.array([[0, ang_vel[2], -ang_vel[1], ang_vel[0]],
@@ -408,7 +478,8 @@ def main():
     tau = [0, 0, 2]
     force = [0, 0, quad.params['M']*quad.params['G']]
     for _ in range(10):
-        quad.apply_forward_rigid_body_dynamics(force, tau)
+        quad.set_wrench(force, tau)
+        quad.apply_forward_rigid_body_dynamics()
         quad.update_state_euler_integration()
         frame = Frame(quad.get_T_matrix(), label="rotating frame", s=0.5)
         frame.add_frame(ax)
