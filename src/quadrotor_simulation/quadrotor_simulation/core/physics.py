@@ -364,6 +364,7 @@ class QuadrotorPhysics:
 
     def update_state_euler_integration(self) -> None:
         """Updates the state and derivative of the state of the quadrotor using Euler integration.
+        Doesn't depend on any input, but uses the internal values of twist and acceleratios for the update
 
         Returns:
             None
@@ -439,19 +440,24 @@ class QuadrotorPhysics:
         self.quat_dot = dquat/self.config['TIME_STEP']
         self.ang_vel_dot = dang_vel/self.config['TIME_STEP']
 
-    def get_time(self):
+    def get_time(self) -> float:
+        """Return the current time of simulation, requires the `update_state_euler_integration` to be invoked"""
         return self.time
 
-    def get_state(self):
+    def get_state(self) -> np.ndarray:
+        """Returns the state of the quadrotor as a vector of position, quaternions, velocity and angular velocity, the vector's shape is (13x1)"""
         return np.vstack([self.pos, self.quat, self.vel, self.ang_vel])
 
-    def get_wrench(self):
+    def get_wrench(self) -> np.ndarray:
+        """Returns the wrench (forces + torques) of the quadrotor as a vector of shape (6x1)"""
         return np.vstack([self.forces, self.torques])
 
-    def get_accelerations(self):
+    def get_accelerations(self) -> np.ndarray:
+        """Returns the accelerations (linear and angular) of the quadrotor as a vector of shape (6x1)"""
         return np.vstack([self.acc, self.ang_acc])
 
-    def pretty_repr(self):
+    def pretty_repr(self) -> str:
+        """Returns a formatted string of all information of the current instance"""
         def vector_to_string(v):
             def sign_str(a):
                 if (a >= 0):
@@ -479,10 +485,20 @@ class QuadrotorPhysics:
         s = s + f"DAVEL: {vector_to_string(self.ang_vel_dot)}\n"
         return s
 
-    def get_hover_rotor_speed(self):
-        return np.sqrt(self.params['M']*self.params['G']/(4*self.params['KF']))
+    def get_hover_rotor_speed(self) -> float:
+        """Calculates and returns the rotor speeds required to maintain hover position (if applied at all 4 rotors)
 
-    def get_T_matrix(self):
+        Returns:
+            float: the hover speed in [rad/s]
+        """
+        return float(np.sqrt(self.params['M']*self.params['G']/(4*self.params['KF'])))
+
+    def get_T_matrix(self) -> np.ndarray:
+        """Returns the transformation matrix T = [R, t; 0 , 1]
+
+        Returns: 
+            np.ndarray: the transformation matrix T
+        """
         return np.block([[R.from_quat(self.quat.flatten()).as_matrix(), self.pos], [np.zeros((1, 3)), 1]])
 
 
