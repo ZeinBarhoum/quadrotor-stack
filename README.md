@@ -133,7 +133,7 @@ ros2 run quadrotor_simulation quadrotor_pybullet_physics --ros-args -p physics_s
 For ease of usage, the following launch command will launch physics, camera and IMU nodes together:
 
 ```bash
-ros2 launch quadrotor_bringup quadrotor_simulation.launch.py
+ros2 launch quadrotor_simulation quadrotor_simulation.launch.py
 ```
 
 ### Control Package `quadrotor_control`
