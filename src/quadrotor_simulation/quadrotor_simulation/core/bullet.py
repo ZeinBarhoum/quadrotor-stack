@@ -101,9 +101,19 @@ class QuadrotorPyBulletSimulation:
                       enable_contact: bool,
                       ):
         """
-        Initialize PyBullet simulation.
+        Initialize PyBullet simulation. The settings passed to physics_server will be used unless it doesn't work, then it fallbacks to DIRECT mode. For example, if there is an existing GUI server running, a second one can't be initialized in the same process, so DIRECT will be used in this case
+
+        Args:
+            physics_server: 'GUI' or 'DIRECT'
+            simulation_step: simulation time step in seconds, default is 1/240 as with Pybullet
+            render_ground: whether to render the ground plane
+            enable_contact: whether to enable contact between objects
         """
-        self._physics_client_id = p.connect(p.GUI if physics_server == 'GUI' else p.DIRECT)
+        try:
+            self._physics_client_id = p.connect(p.GUI if physics_server == 'GUI' else p.DIRECT)
+        except p.error as e:
+            print(f"Got error {e}, falling back to DIRECT server")
+            self._physics_client_id = p.connect(p.DIRECT)
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
         p.setGravity(0, 0, -GRAVITY, physicsClientId=self._physics_client_id)
         p.setTimeStep(simulation_step, physicsClientId=self._physics_client_id)
@@ -213,7 +223,7 @@ class QuadrotorPyBulletSimulation:
         if pose is not None:
             pose_arr = np.array(pose)
             pos = pose_arr[:3]
-            quat = pose_arr[3:]
+            quat = Rotation.from_quat(pose_arr[3:]).as_quat()
             p.resetBasePositionAndOrientation(self.quadrotor_bullet_ids[quadrotor_index],
                                               pos,
                                               quat,
@@ -243,10 +253,12 @@ def main():
     obstacle = r'/home/zein/Project/quadrotor-plan-control/install/quadrotor_simulation/share/quadrotor_simulation/world/hoop.urdf'
     simulation = QuadrotorPyBulletSimulation(quadrotor_descriptions=[description]*3,
                                              render_ground=True,
-                                             quadrotor_initial_poses=[(0, 0, 0, 0, 0, 0, 1), (1, 0, 1, 0, 0, 0, 1), (1, 1, 1, 0, 0, 0, 1)],
+                                             quadrotor_initial_poses=[(0, 0, 0, 0, 0, 0, 1), (1, 0, 1, 0, 0, 1, 1), (1, 1, 1, 0, 0, 0, 1)],
                                              obstacle_descriptions=[obstacle],
                                              obstacle_poses=[(0, 0, 0, 0, 0, 0.7, 0.7)],
                                              )
+    for i in range(simulation.num_quadrotos):
+        print(simulation.quadrotor_physics_objects[i])
     while True:
         pass
 

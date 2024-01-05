@@ -100,14 +100,18 @@ class QuadrotorPhysics:
             rotor_speeds (ArrayLike, optional): The initial rotor speeds of the quadrotor. Defaults to (0, 0, 0, 0).
         """
         self.pos = np.array(pos, dtype=np.float32).reshape(3, 1)
+        self.pos_dot = np.zeros((3, 1))
         self.quat = np.array(quat, dtype=np.float32).reshape(4, 1)
+        self.quat_dot = np.zeros((4, 1))
         self.vel = np.array(vel, dtype=np.float32).reshape(3, 1)
+        self.vel_dot = np.zeros((3, 1))
         self.ang_vel = np.array(ang_vel, dtype=np.float32).reshape(3, 1)
+        self.ang_vel_dot = np.zeros((3, 1))
+        self.acc = np.zeros((3, 1), dtype=np.float32)
+        self.ang_acc = np.zeros((3, 1), dtype=np.float32)
         self.rotor_speeds = np.array(rotor_speeds, dtype=np.float32).reshape(4, 1)
         self.forces = np.zeros((3, 1), dtype=np.float32)
         self.torques = np.zeros((3, 1), dtype=np.float32)
-        self.acc = np.zeros((3, 1), dtype=np.float32)
-        self.ang_acc = np.zeros((3, 1), dtype=np.float32)
         self.wind_speed = np.zeros((3, 1), dtype=np.float32)
         self.time = 0
 
@@ -485,6 +489,9 @@ class QuadrotorPhysics:
         s = s + f"DAVEL: {vector_to_string(self.ang_vel_dot)}\n"
         return s
 
+    def __repr__(self):
+        return self.pretty_repr()
+
     def get_hover_rotor_speed(self) -> float:
         """Calculates and returns the rotor speeds required to maintain hover position (if applied at all 4 rotors)
 
@@ -516,13 +523,13 @@ def main():
 
     quad = QuadrotorPhysics(params={'M': 2.0, 'J': [[1, 0, 0], [0, 2, 0], [0, 0, 3]]}, config={'TIME_STEP': 0.1})
 
-    torques = [0, 0, 2]
-    forces = [0, 0, quad.params['M']*quad.params['G']]
+    torques = [2, 0, 2]
+    forces = [2, 2, quad.params['M']*quad.params['G']]
     for _ in range(10):
         quad.set_wrench(forces, torques)
         quad.apply_forward_rigid_body_dynamics()
         quad.update_state_euler_integration()
-        frame = Frame(quad.get_T_matrix(), label="rotating frame", s=0.5)
+        frame = Frame(quad.get_T_matrix(), s=0.5)
         frame.add_frame(ax)
         print(quad.pretty_repr())
 
