@@ -58,7 +58,7 @@ class QuadrotorPybulletPhysics(Node):
                                                           ('publish_model_errors', False, ParameterDescriptor()),
                                                           ('sequential_mode', False, ParameterDescriptor()),
                                                           ('enable_ff_repeat', False, ParameterDescriptor()),
-                                                          ('publish_state', True, ParameterDescriptor())])
+                                                          ('publish_state', True, ParameterDescriptor())],)
         # Get the parameters
         self.physics_server = self.get_parameter('physics_server').get_parameter_value().string_value
         self.quadrotor_description_file_name = self.get_parameter('quadrotor_description').get_parameter_value().string_value
@@ -231,7 +231,7 @@ class QuadrotorPybulletPhysics(Node):
         self.ff_state = msg
         self.ff_repeated = False
 
-    def recieve_wrench_command_callback(self, msg: Wrench):
+    def receive_wrench_command_callback(self, msg: Wrench):
         """Implement trhust/torque control instead of rotor_speeds control"""
         trhust_torques = np.array([msg.force.z, msg.torque.x, msg.torque.y, msg.torque.z])
         # rotor_thrusts = np.array(self.rotor_speeds**2)*self.KF
@@ -246,6 +246,7 @@ class QuadrotorPybulletPhysics(Node):
                        [-self.ROTOR_DIRS[0], -self.ROTOR_DIRS[1], -self.ROTOR_DIRS[2], -self.ROTOR_DIRS[3]]])
         rotor_speeds_squared = np.linalg.inv(A) @ trhust_torques.reshape((4, 1))
         rotor_speeds = np.sqrt(rotor_speeds_squared)
+        rotor_speeds = np.array(rotor_speeds, dtype=np.float32)
         rotor_speeds_msg = RotorCommand()
         rotor_speeds_msg.rotor_speeds = rotor_speeds
         self.receive_commands_callback(rotor_speeds_msg)

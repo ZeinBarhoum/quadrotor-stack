@@ -1,3 +1,4 @@
+from geometry_msgs.msg import Wrench
 import gymnasium as gym
 import pybullet as p
 from gymnasium import spaces
@@ -130,7 +131,10 @@ class QuadrotorBaseEnv(gym.Env):
         hover_action = [self.ROT_HOVER_VEL]*4
         if self.normalized_actions:
             hover_action /= self.ROT_MAX_VEL
-        obs, reward, terminated, truncated, info = self.step(hover_action)
+        if self.wrench_actions:
+            obs, _, _, _, info = self.step(np.array([0, 0, 0, 0]))
+        else:
+            obs, _, _, _, info = self.step(hover_action)
         self.time = 0
         self.closed = False
         return obs, info
@@ -139,10 +143,16 @@ class QuadrotorBaseEnv(gym.Env):
         if self.closed:
             raise Exception("Trying to step in closed environment")
         self.time += self.dt
-        rotor_speeds = np.array(action)
+        action = np.array(action)
         if self.normalized_actions:
-            rotor_speeds = rotor_speeds * self.ROT_MAX_VEL
-        self.physics_node.receive_commands_callback(RotorCommand(rotor_speeds=rotor_speeds))
+            action = action * self.ROT_MAX_VEL
+        if self.wrench_actions:
+            msg = Wrench()
+            msg.force.x, msg.force.y, msg.force.z = 0.0, 0.0, action[0]
+            msg.torque.x, msg.torque.y, msg.torque.z = action[1:]
+            self.physics_node.receive_wrench_command_callback(msg)
+        else:
+            self.physics_node.receive_commands_callback(RotorCommand(rotor_speeds=action))
         obs = []
         self.state = self.physics_node.state
         if 'imu' in self.observation_type:
