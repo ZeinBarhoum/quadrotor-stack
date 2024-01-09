@@ -1,4 +1,5 @@
 from geometry_msgs.msg import Wrench
+import math
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
@@ -8,6 +9,7 @@ import rclpy
 from rclpy.parameter import Parameter
 from scipy.spatial.transform import Rotation
 import yaml
+from scipy.optimize import lsq_linear
 
 from quadrotor_simulation.quadrotor_imu import QuadrotorIMU
 from quadrotor_simulation.quadrotor_pybullet_camera import QuadrotorPybulletCamera
@@ -19,7 +21,7 @@ class QuadrotorBaseEnv(gym.Env):
     Base class for quadrotor environments
     The environment uses the QuadrotorPybulletPhysics node to simulate the quadrotor. However, instead of using ROS for communication, the node's callbacks are called directly.
     In addition to the physics node, the environment can also use the QuadrotorPybulletCamera and QuadrotorIMU nodes to simulate the camera and IMU sensors.
-    The environment can be configured using a config file or a dictionary. 
+    The environment can be configured using a config file or a dictionary.
     The configs are directly mapped to the parameters of the nodes.
     """
 
@@ -201,11 +203,29 @@ class QuadrotorBaseEnv(gym.Env):
         terminated = False
         if self.terminate_on_contact and contacted:
             terminated = True
-        reward = self.get_reward(obs, terminated, truncated)
+        reached = self.check_reached()
+        if reached:
+            terminated = True
+            info['is_success'] = True
+
+        reward = self.get_reward(obs, terminated, truncated, reached)
 
         return obs, reward, terminated, truncated, info
 
-    def get_reward(self, obs, terminated, truncated):
+    def check_reached(self):
+        pos = np.array([self.state.state.pose.position.x, self.state.state.pose.position.y, self.state.state.pose.position.z])
+        goal = np.array(self.goal)
+        dist = np.linalg.norm(pos-goal)
+        vel = np.array([self.state.state.twist.linear.x, self.state.state.twist.linear.y, self.state.state.twist.linear.z])
+        vel_norm = np.linalg.norm(vel)
+        avel = np.array([self.state.state.twist.angular.x, self.state.state.twist.angular.y, self.state.state.twist.angular.z])
+        avel_norm = np.linalg.norm(avel)
+        if dist < 0.1 and vel_norm < 0.1 and avel_norm < 0.1:
+            return True
+        else:
+            return False
+
+    def get_reward(self, obs, terminated, truncated, reached):
         pos = obs[:3]
         goal = np.array(self.goal)
         dist = np.linalg.norm(pos-goal)
@@ -221,9 +241,98 @@ class QuadrotorBaseEnv(gym.Env):
         # print(f"dist: {dist}, tiltage: {tiltage}, spinnage: {spinnage}")
         # print(f"dist_reward: {dist_reward}, tilt_reward: {tilt_reward}, spinnage_reward: {spinnage_reward}")
         reward = dist_reward + dist_reward * (tilt_reward + spinnage_reward)
-        if terminated or truncated:
-            reward -= 100
+        if terminated:
+            if reached:
+                reward += 1000
+            else:
+                reward -= 100
         return reward
+
+    def dfbc_agent_action(self):
+        reference_position = np.array([0, 0, 1])
+        actual_position = np.array([self.state.state.pose.position.x, self.state.state.pose.position.y, self.state.state.pose.position.z])
+        reference_velocity = np.array([0, 0, 0])
+        actual_velocity = np.array([self.state.state.twist.linear.x, self.state.state.twist.linear.y, self.state.state.twist.linear.z])
+        reference_orientation = np.array([0, 0, 0, 1])
+        actual_orientation = np.array([self.state.state.pose.orientation.x, self.state.state.pose.orientation.y,
+                                      self.state.state.pose.orientation.z, self.state.state.pose.orientation.w])
+        reference_orientation_euler = Rotation.from_quat(reference_orientation).as_euler('xyz', degrees=False)
+        actual_orientation_euler = Rotation.from_quat(actual_orientation).as_euler('xyz', degrees=False)
+        reference_angular_velocity = np.array([0, 0, 0])
+        actual_angular_velocity = np.array([self.state.state.twist.angular.x, self.state.state.twist.angular.y, self.state.state.twist.angular.z])
+        reference_linear_acceleration = np.array([0, 0, 0])
+        KP_XYZ = np.array([10.0, 10.0, 10.0])  # For position
+        KD_XYZ = np.array([6.0, 6.0, 6.0])  # For position
+        KP_RPY = np.array([150, 150, 10.0])  # For roll, pitch and yaw
+        KD_RPY = np.array([20, 20, 8.0])  # For roll, pitch and yaw
+        Weights = np.array([0.001, 10, 10, 0.1])
+
+        error_position = reference_position - actual_position
+        error_velocity = reference_velocity - actual_velocity
+        error_orientation = reference_orientation_euler - actual_orientation_euler
+        error_angular_velocity = reference_angular_velocity - actual_angular_velocity
+
+        desired_acceleration = reference_linear_acceleration + np.multiply(KP_XYZ, error_position) + np.multiply(KD_XYZ, error_velocity)
+        desired_acceleration[2] += self.physics_node.G
+        desired_force = self.M * desired_acceleration
+        desired_thrust = np.dot(desired_force, Rotation.from_quat(actual_orientation).as_matrix()[:, 2])
+        # desired_thrust = np.clip(desired_thrust, 0.0, self.MAX_THRUST)
+
+        desired_zb = desired_force / np.linalg.norm(desired_force)
+        desired_xc = np.array([math.cos(reference_orientation_euler[2]), math.sin(reference_orientation_euler[2]), 0])
+        desired_yb = np.cross(desired_zb, desired_xc) / np.linalg.norm(np.cross(desired_zb, desired_xc))
+        desired_xb = np.cross(desired_yb, desired_zb)
+
+        desired_Rb = np.vstack([desired_xb, desired_yb, desired_zb]).transpose()
+        # desired_Rb = Rotation.from_euler('xyz', [0, 20, 0], degrees=True).as_matrix()
+        actual_Rb = Rotation.from_quat(actual_orientation).as_matrix()
+
+        error_rotation = -0.5*(desired_Rb.transpose() @ actual_Rb - actual_Rb.transpose() @ desired_Rb)
+        error_rotation = np.array([error_rotation[2, 1], error_rotation[0, 2], error_rotation[1, 0]])
+        # error_rotation[0] = np.clip(error_rotation[0], -1, 1)
+        # error_rotation[1] = np.clip(error_rotation[1], -1, 1)
+        # self.get_logger().info(f'{error_rotation=}')
+        # self.get_logger().info(f'{Rotation.from_matrix(actual_Rb).as_euler("xyz", degrees=True)}')
+
+        error_angular_velocity = reference_angular_velocity - actual_angular_velocity
+
+        desired_ang_acceleration = np.multiply(KP_RPY, error_rotation) + np.multiply(KD_RPY, error_angular_velocity)
+        desired_torques = self.J @ desired_ang_acceleration + np.cross(actual_angular_velocity, self.J @ actual_angular_velocity)
+        if self.wrench_actions:
+            action = np.array([desired_thrust, desired_torques[0], desired_torques[1], desired_torques[2]])
+            if self.normalized_actions:
+                action /= self.M
+            return action
+        else:
+            thrust = desired_thrust
+            torques = desired_torques
+            self.KF = self.physics_node.KF
+            self.KM = self.physics_node.KM
+            self.ARM_X = self.physics_node.ARM_X
+            self.ARM_Y = self.physics_node.ARM_Y
+            self.ROTOR_DIRS = self.physics_node.ROTOR_DIRS
+            self.MAX_RPM = self.physics_node.ROT_MAX_VEL
+            A = np.array([[self.KF, self.KF, self.KF, self.KF],
+                          self.KF*self.ARM_Y*np.array([-1, 1, 1, -1]),
+                          self.KF*self.ARM_X*np.array([-1, -1, 1, 1]),
+                          [-self.ROTOR_DIRS[0]*self.KM, -self.ROTOR_DIRS[1]*self.KM, -self.ROTOR_DIRS[2]*self.KM, -self.ROTOR_DIRS[3]*self.KM]])
+            # rotor_speeds_squared = np.matmul(np.linalg.inv(A), np.array([thrust, torques[0], torques[1], torques[2]]))
+            # rotor_speeds_squared = np.clip(rotor_speeds_squared, 0, self.MAX_RPM**2)
+            W = np.diag(np.sqrt(Weights))
+            # self.get_logger().info(f'{W=}')
+            rotor_speeds_squared = lsq_linear(W@A, (W@np.array([thrust, torques[0], torques[1], torques[2]]
+                                                               ).reshape(-1, 1)).flatten(), bounds=(0, self.MAX_RPM**2)).x
+            # self.get_logger().info(f"{rotor_speeds_squared}")
+            rotor_speeds = np.sqrt(rotor_speeds_squared)
+            # actual_thrust = self.KF * np.sum(rotor_speeds_squared)
+            # actual_torques = np.array([self.ARM * self.KF * (rotor_speeds_squared[0] - rotor_speeds_squared[2]),
+            #                            self.ARM * self.KF * (rotor_speeds_squared[1] - rotor_speeds_squared[3]),
+            #                            self.KM * (rotor_speeds_squared[0] - rotor_speeds_squared[1] + rotor_speeds_squared[2] - rotor_speeds_squared[3])])
+            rotor_speeds = rotor_speeds.astype(np.float32)
+
+            if self.normalized_actions:
+                rotor_speeds /= self.MAX_RPM
+            return rotor_speeds
 
     def close(self):
         print("Closing")
