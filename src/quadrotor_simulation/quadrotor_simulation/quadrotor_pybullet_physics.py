@@ -158,6 +158,11 @@ class QuadrotorPybulletPhysics(Node):
         self.ARM_Y = quadrotor_params['ARM_Y']
         self.ARM_Z = quadrotor_params['ARM_Z']
         self.J = np.array(quadrotor_params['J'])
+        self.MAX_THRUST = self.M*self.G*self.T2W
+        self.MAX_INDIVIDUAL_THRUST = self.MAX_THRUST/4
+        self.MAX_TORQUEX = self.ARM_Y*self.MAX_INDIVIDUAL_THRUST
+        self.MAX_TORQUEY = self.ARM_X*self.MAX_INDIVIDUAL_THRUST
+        self.MAX_TORQUEZ = self.KM*self.ROT_MAX_VEL**2 * 4
         if self.calculate_residuals:
             from quadrotor_simulation.quadrotor_residuals import prepare_residuals_model
             self.RES_NET, self.RES_PARAMS = prepare_residuals_model(self.residuals_model)
@@ -211,7 +216,7 @@ class QuadrotorPybulletPhysics(Node):
 
         self.get_logger().info(f"Loaded quadrotor with Dynamics {p.getDynamicsInfo(self.quadrotor_id, -1)}")
 
-        p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0, physicsClientId=self.physicsClient)
+        p.configureDebugVisualizer(p.COV_ENABLE_GUI, 1, physicsClientId=self.physicsClient)
         p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW, 0, physicsClientId=self.physicsClient)
         p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW, 0, physicsClientId=self.physicsClient)
         p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW, 0, physicsClientId=self.physicsClient)
@@ -244,7 +249,13 @@ class QuadrotorPybulletPhysics(Node):
                        [-self.ARM_X, -self.ARM_X, self.ARM_X, self.ARM_X],
                        [-self.ARM_Y, self.ARM_Y, self.ARM_Y, -self.ARM_Y],
                        [-self.ROTOR_DIRS[0], -self.ROTOR_DIRS[1], -self.ROTOR_DIRS[2], -self.ROTOR_DIRS[3]]])
+        A = np.array([[self.KF, self.KF, self.KF, self.KF],
+                      self.KF*self.ARM_Y*np.array([-1, 1, 1, -1]),
+                      self.KF*self.ARM_X*np.array([-1, -1, 1, 1]),
+                      [-self.ROTOR_DIRS[0]*self.KM, -self.ROTOR_DIRS[1]*self.KM, -self.ROTOR_DIRS[2]*self.KM, -self.ROTOR_DIRS[3]*self.KM]])
+
         rotor_speeds_squared = np.linalg.inv(A) @ trhust_torques.reshape((4, 1))
+        rotor_speeds_squared = np.max(np.concatenate((rotor_speeds_squared, np.zeros((4, 1))), axis=1), axis=1)
         rotor_speeds = np.sqrt(rotor_speeds_squared)
         rotor_speeds = np.array(rotor_speeds, dtype=np.float32)
         rotor_speeds_msg = RotorCommand()

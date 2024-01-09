@@ -1,11 +1,12 @@
 from geometry_msgs.msg import Wrench
 import gymnasium as gym
-import pybullet as p
 from gymnasium import spaces
 import numpy as np
+import pybullet as p
 from quadrotor_interfaces.msg import RotorCommand, State
 import rclpy
 from rclpy.parameter import Parameter
+from scipy.spatial.transform import Rotation
 import yaml
 
 from quadrotor_simulation.quadrotor_imu import QuadrotorIMU
@@ -44,8 +45,8 @@ class QuadrotorBaseEnv(gym.Env):
                 parameters_physics.append(Parameter(name=key, value=value))
         try:
             # check if there's a possiblity of creating a GUI environment
-            client = p.connect(p.GUI)
-            p.disconnect(client)
+            # client = p.connect(p.GUI)
+            # p.disconnect(client)
             self.physics_node = QuadrotorPybulletPhysics(suffix=env_suffix, parameter_overrides=parameters_physics)
         except Exception as e:
             if config['physics']['physics_server'] == 'GUI':
@@ -75,9 +76,10 @@ class QuadrotorBaseEnv(gym.Env):
         self.ROT_MAX_VEL = self.physics_node.ROT_MAX_VEL
         self.M = self.physics_node.M
         self.W = self.physics_node.W
-        self.T2W = self.physics_node.T2W
-        self.MAX_THRUST = self.W * self.T2W
-        self.MAX_ONE_THRUST = self.MAX_THRUST/4
+        self.MAX_THRUST = self.physics_node.MAX_THRUST
+        self.MAX_TORQUEX = self.physics_node.MAX_TORQUEX
+        self.MAX_TORQUEY = self.physics_node.MAX_TORQUEY
+        self.MAX_TORQUEZ = self.physics_node.MAX_TORQUEZ
         self.J = self.physics_node.J
         self.normalized_actions = normalized_actions
         self.wrench_actions = wrench_actions
@@ -87,7 +89,15 @@ class QuadrotorBaseEnv(gym.Env):
             else:
                 self.action_space = gym.spaces.Box(low=0.0, high=self.ROT_MAX_VEL, shape=(4,), dtype=np.float32)
         else:
-            pass
+            if not self.normalized_actions:
+                self.action_space = gym.spaces.Box(low=np.array([-self.MAX_THRUST, -self.MAX_TORQUEX, -self.MAX_TORQUEY, -self.MAX_TORQUEZ]),
+                                                   high=np.array([self.MAX_THRUST, self.MAX_TORQUEX, self.MAX_TORQUEY, self.MAX_TORQUEZ]),
+                                                   dtype=np.float32)
+            else:
+                # MASS NORMALIZED
+                self.action_space = gym.spaces.Box(low=np.array([-self.MAX_THRUST, -self.MAX_TORQUEX, -self.MAX_TORQUEY, -self.MAX_TORQUEZ])/self.M,
+                                                   high=np.array([self.MAX_THRUST, self.MAX_TORQUEX, self.MAX_TORQUEY, self.MAX_TORQUEZ])/self.M,
+                                                   dtype=np.float32)
 
         _spaces = []
         if 'state' in observation_type:
@@ -112,7 +122,7 @@ class QuadrotorBaseEnv(gym.Env):
         self.time_limit = time_limit
         self.terminate_on_contact = terminate_on_contact
 
-        self.workspace = np.array([[-10, 10], [-10, 10], [0, 10]])
+        self.workspace = np.array([[-2, 2], [-2, 2], [0, 2]])
         self.goal = [0, 0, 1]
 
         self.closed = False
@@ -132,26 +142,29 @@ class QuadrotorBaseEnv(gym.Env):
         if self.normalized_actions:
             hover_action /= self.ROT_MAX_VEL
         if self.wrench_actions:
-            obs, _, _, _, info = self.step(np.array([0, 0, 0, 0]))
+            obs, _, _, _, info = self.step(np.array([0.0, 0.0, 0.0, 0.0]))
         else:
             obs, _, _, _, info = self.step(hover_action)
         self.time = 0
         self.closed = False
+        info['t'] = self.time
         return obs, info
 
     def step(self, action):
         if self.closed:
             raise Exception("Trying to step in closed environment")
         self.time += self.dt
-        action = np.array(action)
-        if self.normalized_actions:
-            action = action * self.ROT_MAX_VEL
+        action = np.array(action, dtype=float)
         if self.wrench_actions:
+            if self.normalized_actions:
+                action = action * self.M
             msg = Wrench()
             msg.force.x, msg.force.y, msg.force.z = 0.0, 0.0, action[0]
             msg.torque.x, msg.torque.y, msg.torque.z = action[1:]
             self.physics_node.receive_wrench_command_callback(msg)
         else:
+            if self.normalized_actions:
+                action = action * self.ROT_MAX_VEL
             self.physics_node.receive_commands_callback(RotorCommand(rotor_speeds=action))
         obs = []
         self.state = self.physics_node.state
@@ -196,7 +209,20 @@ class QuadrotorBaseEnv(gym.Env):
         pos = obs[:3]
         goal = np.array(self.goal)
         dist = np.linalg.norm(pos-goal)
-        reward = -dist - terminated*100
+        dist_reward = 1. / (1 + dist**2)
+        quats = obs[3:7]
+        z_axis = Rotation.from_quat(quats).apply(np.array([0, 0, 1]))
+        tiltage = np.abs(1 - z_axis[2])
+        tilt_reward = 1. / (1 + tiltage**2)
+        ang_vel_z = obs[-1]
+        spinnage = np.abs(ang_vel_z)
+        spinnage_reward = 1. / (1+spinnage**2)
+        # reward = -dist - terminated*100
+        # print(f"dist: {dist}, tiltage: {tiltage}, spinnage: {spinnage}")
+        # print(f"dist_reward: {dist_reward}, tilt_reward: {tilt_reward}, spinnage_reward: {spinnage_reward}")
+        reward = dist_reward + dist_reward * (tilt_reward + spinnage_reward)
+        if terminated or truncated:
+            reward -= 100
         return reward
 
     def close(self):
