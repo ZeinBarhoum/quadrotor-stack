@@ -203,16 +203,16 @@ class QuadrotorBaseEnv(gym.Env):
         terminated = False
         if self.terminate_on_contact and contacted:
             terminated = True
-        reached = self.check_reached()
-        if reached:
+        reached, stabilized = self.check_reached_stabilized()
+        if stabilized:
             terminated = True
             info['is_success'] = True
 
-        reward = self.get_reward(obs, terminated, truncated, reached)
+        reward = self.get_reward(obs, terminated, truncated, reached, stabilized)
 
         return obs, reward, terminated, truncated, info
 
-    def check_reached(self):
+    def check_reached_stabilized(self):
         pos = np.array([self.state.state.pose.position.x, self.state.state.pose.position.y, self.state.state.pose.position.z])
         goal = np.array(self.goal)
         dist = np.linalg.norm(pos-goal)
@@ -220,12 +220,15 @@ class QuadrotorBaseEnv(gym.Env):
         vel_norm = np.linalg.norm(vel)
         avel = np.array([self.state.state.twist.angular.x, self.state.state.twist.angular.y, self.state.state.twist.angular.z])
         avel_norm = np.linalg.norm(avel)
+        stabilized = False
+        reached = False
+        if dist < 0.1:
+            reached = True
         if dist < 0.1 and vel_norm < 0.1 and avel_norm < 0.1:
-            return True
-        else:
-            return False
+            stabilized = True
+        return reached, stabilized
 
-    def get_reward(self, obs, terminated, truncated, reached):
+    def get_reward(self, obs, terminated, truncated, reached, stabilized):
         pos = obs[:3]
         goal = np.array(self.goal)
         dist = np.linalg.norm(pos-goal)
@@ -241,8 +244,10 @@ class QuadrotorBaseEnv(gym.Env):
         # print(f"dist: {dist}, tiltage: {tiltage}, spinnage: {spinnage}")
         # print(f"dist_reward: {dist_reward}, tilt_reward: {tilt_reward}, spinnage_reward: {spinnage_reward}")
         reward = dist_reward + dist_reward * (tilt_reward + spinnage_reward)
+        if reached:
+            reward += 10
         if terminated:
-            if reached:
+            if stabilized:
                 reward += 1000
             else:
                 reward -= 100
