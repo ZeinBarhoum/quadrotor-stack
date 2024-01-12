@@ -24,8 +24,9 @@ class QuadrotorBaseEnv(gym.Env):
     The environment can be configured using a config file or a dictionary.
     The configs are directly mapped to the parameters of the nodes.
     """
+    num_envs = 0
 
-    def __init__(self, observation_type=['state'], env_suffix='', config=None, time_limit=-1, terminate_on_contact=False, normalized_actions=False, wrench_actions=False):
+    def __init__(self, observation_type=['state'], env_suffix='', config=None, time_limit=4, terminate_on_contact=False, normalized_actions=True, wrench_actions=True):
         try:
             rclpy.init()
         except Exception as e:
@@ -49,12 +50,12 @@ class QuadrotorBaseEnv(gym.Env):
             # check if there's a possiblity of creating a GUI environment
             # client = p.connect(p.GUI)
             # p.disconnect(client)
-            self.physics_node = QuadrotorPybulletPhysics(suffix=env_suffix, parameter_overrides=parameters_physics)
+            self.physics_node = QuadrotorPybulletPhysics(suffix=f"{QuadrotorBaseEnv.num_envs}env_suffix", parameter_overrides=parameters_physics)
         except Exception as e:
-            if config['physics']['physics_server'] == 'GUI':
-                print("Could not initialize physics node in GUI mode, trying without GUI")
+            if config['physics']['physics_server'] in ['GUI', 'GUI_SERVER']:
+                print("Could not initialize physics node in GUI mode, trying with DIRECT")
                 parameters_physics.append(Parameter('physics_server', Parameter.Type.STRING, 'DIRECT'))
-                self.physics_node = QuadrotorPybulletPhysics(suffix=env_suffix, parameter_overrides=parameters_physics)
+                self.physics_node = QuadrotorPybulletPhysics(suffix=f"{QuadrotorBaseEnv.num_envs}env_suffix", parameter_overrides=parameters_physics)
             else:
                 raise e
         if 'image' in observation_type:
@@ -124,11 +125,15 @@ class QuadrotorBaseEnv(gym.Env):
         self.time_limit = time_limit
         self.terminate_on_contact = terminate_on_contact
 
-        self.workspace = np.array([[-2, 2], [-2, 2], [0, 2]])
-        self.goal = [0, 0, 1]
+        self.workspace = np.array([[-2, 2], [-2, 2], [-2, 2]])
+        self.goal = [0, 0, 0]
 
         self.closed = False
         self.dt = self.physics_node.simulation_step_period
+
+        # increase number of envs
+        QuadrotorBaseEnv.num_envs += 1
+        # print(QuadrotorBaseEnv.num_envs)
 
     def reset(self, *, seed=None, options=None):
         if self.closed:
@@ -212,6 +217,9 @@ class QuadrotorBaseEnv(gym.Env):
 
         return obs, reward, terminated, truncated, info
 
+    def render(self):
+        return None
+
     def check_reached_stabilized(self):
         pos = np.array([self.state.state.pose.position.x, self.state.state.pose.position.y, self.state.state.pose.position.z])
         goal = np.array(self.goal)
@@ -248,13 +256,13 @@ class QuadrotorBaseEnv(gym.Env):
             reward += 10
         if terminated:
             if stabilized:
-                reward += 1000
+                reward += 100000
             else:
                 reward -= 100
         return reward
 
     def dfbc_agent_action(self):
-        reference_position = np.array([0, 0, 1])
+        reference_position = np.array(self.goal)
         actual_position = np.array([self.state.state.pose.position.x, self.state.state.pose.position.y, self.state.state.pose.position.z])
         reference_velocity = np.array([0, 0, 0])
         actual_velocity = np.array([self.state.state.twist.linear.x, self.state.state.twist.linear.y, self.state.state.twist.linear.z])
@@ -337,11 +345,14 @@ class QuadrotorBaseEnv(gym.Env):
 
             if self.normalized_actions:
                 rotor_speeds /= self.MAX_RPM
+            # print(rotor_speeds)
+            # print(f"{rotor_speeds}")
             return rotor_speeds
 
     def close(self):
         print("Closing")
         if not self.closed:
+            QuadrotorBaseEnv.num_envs -= 1
             self.physics_node.destroy_node()
             if 'image' in self.observation_type:
                 self.camera_node.destroy_node()

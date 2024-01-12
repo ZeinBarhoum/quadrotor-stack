@@ -1,12 +1,10 @@
-<?xml version="1.0"?>
-<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
-<package format="3">
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?><package format="3">
   <name>quadrotor_dashboard</name>
   <version>0.0.0</version>
   <description>Dashboard for quadrotor planning and control with rqt plugins</description>
   <maintainer email="zein.barhoum799@gmail.com">Zein Alabedeen Barhoum</maintainer>
   <license>MIT</license>
-
   <depend>rclpy</depend>
   <depend>rqt_gui</depend>
   <depend>rqt_gui_py</depend>
@@ -15,16 +13,13 @@
   <depend>ament_index_python</depend>
   <depend>geometry_msgs</depend>
   <depend>qt_gui</depend>
-  <depend>python3-pandas</depend>
-  
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
   <test_depend>python3-pytest</test_depend>
-
   <export>
     <build_type>ament_python</build_type>
-    <rqt_gui plugin="${prefix}/plugin.xml"/>
-    <rqt_gui plugin="${prefix}/plugin_publish_waypoints.xml"/>
+    <rqt_gui plugin="${prefix}/plugin.xml"></rqt_gui>
+    <rqt_gui plugin="${prefix}/plugin_publish_waypoints.xml"></rqt_gui>
   </export>
 </package>

@@ -6,3 +6,4 @@ bin/
 **/__pycache__/
 media/
 *.pyi
+results/*

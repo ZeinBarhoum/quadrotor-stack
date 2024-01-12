@@ -193,10 +193,33 @@ class QuadrotorPybulletPhysics(Node):
             self.obstacle_urdf_files.append(new_file)
 
     def initialize_pybullet(self):
-        if (self.physics_server == 'DIRECT'):
-            self.physicsClient = p.connect(p.DIRECT)
-        else:
-            self.physicsClient = p.connect(p.GUI)
+        server_map = {"DIRECT": p.DIRECT,
+                      "GUI": p.GUI,
+                      "SHARED_MEMORY": p.SHARED_MEMORY,
+                      "GUI_SERVER": p.GUI_SERVER}
+        try:
+            self.physicsClient = p.connect(server_map[self.physics_server])
+        except Exception as e:
+            self.destroy_node()
+            raise e
+        #
+        # if (self.physics_server == 'DIRECT'):
+        #     self.physicsClient = p.connect(p.DIRECT)
+        # elif (self.physics_server == 'SHARED_MEMORY'):
+        #     self.physicsClient = p.connect(p.SHARED_MEMORY)
+        # elif (self.physics_server == 'GUI_SERVER'):
+        #     try:
+        #         self.physicsClient = p.connect(p.GUI_SERVER)
+        #     except Exception as e:
+        #         self.destroy_node()
+        #         raise e
+        # else:
+        #     try:
+        #         self.physicsClient = p.connect(p.GUI_SERVER)
+        #     except Exception as e:
+        #         self.destroy_node()
+        #         raise e
+
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
         p.setTimeStep(self.simulation_step_period, physicsClientId=self.physicsClient)
         p.setGravity(0, 0, -self.G, physicsClientId=self.physicsClient)
@@ -478,7 +501,7 @@ class QuadrotorPybulletPhysics(Node):
             self.model_error_publisher.publish(self.model_error)
 
     def check_contact(self):
-        if len(p.getContactPoints(self.quadrotor_id)) > 0:
+        if len(p.getContactPoints(self.quadrotor_id, physicsClientId=self.physicsClient)) > 0:
             return True
         return False
 

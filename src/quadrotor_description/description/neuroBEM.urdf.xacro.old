@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<robot name="neuroBEM" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:property name="ARM_X" value="0.078"></xacro:property>
+  <xacro:property name="ARM_Y" value="0.1"></xacro:property>
+  <xacro:property name="ARM_Z" value="0.027"></xacro:property>
+  <xacro:property name="MASS" value="0.772"></xacro:property>
+  <xacro:property name="IXX" value="0.00254"></xacro:property>
+  <xacro:property name="IYY" value="0.00214"></xacro:property>
+  <xacro:property name="IZZ" value="0.00436"></xacro:property>
+  <link name="base_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"></origin>
+      <mass value="${MASS}"></mass>
+      <inertia ixx="${IXX}" ixy="0.0" ixz="0.0" iyy="${IYY}" iyz="0.0" izz="${IZZ}"></inertia>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"></origin>
+      <geometry>
+        <cylinder length="${0.7*ARM_Z}" radius="${0.2*sqrt(ARM_X**2+ARM_Y**2)}"></cylinder>
+      </geometry>
+      <!-- <geometry>
+        <sphere radius="${0.1*sqrt(ARM_X**2+ARM_Y**2)}"/>
+      </geometry>   -->
+      <material name="gray">
+        <color rgba="0.5 0.5 0.5 0.8"></color>
+      </material>
+    </visual>
+    <!-- Rotor 1 -->
+    <visual>
+      <origin rpy="0 0 ${-atan(ARM_X/ARM_Y)}" xyz="${ARM_X/2} ${ARM_Y/2} 0"></origin>
+      <geometry>
+        <box size="${0.15* sqrt(ARM_X**2+ARM_Y**2)} ${sqrt(ARM_X**2+ARM_Y**2)} ${0.5*ARM_Z}"></box>
+      </geometry>
+    </visual>
+    <visual>
+      <origin rpy="0 0 0" xyz="${ARM_X} ${ARM_Y} ${ARM_Z/2}"></origin>
+      <geometry>
+        <cylinder length="${ARM_Z}" radius="${0.2*ARM_Z}"></cylinder>
+      </geometry>
+    </visual>
+    <!-- Rotor 2 -->
+    <visual>
+      <origin rpy="0 0 ${-atan(-ARM_X/ARM_Y)}" xyz="${-ARM_X/2} ${ARM_Y/2} 0"></origin>
+      <geometry>
+        <box size="${0.15* sqrt(ARM_X**2+ARM_Y**2)} ${sqrt(ARM_X**2+ARM_Y**2)} ${0.5*ARM_Z}"></box>
+      </geometry>
+    </visual>
+    <visual>
+      <origin rpy="0 0 0" xyz="${-ARM_X} ${ARM_Y} ${ARM_Z/2}"></origin>
+      <geometry>
+        <cylinder length="${ARM_Z}" radius="${0.2*ARM_Z}"></cylinder>
+      </geometry>
+    </visual>
+    <!-- Rotor 3 -->
+    <visual>
+      <origin rpy="0 0 ${-atan(ARM_X/ARM_Y)}" xyz="${-ARM_X/2} ${-ARM_Y/2} 0"></origin>
+      <geometry>
+        <box size="${0.15* sqrt(ARM_X**2+ARM_Y**2)} ${sqrt(ARM_X**2+ARM_Y**2)} ${0.5*ARM_Z}"></box>
+      </geometry>
+    </visual>
+    <visual>
+      <origin rpy="0 0 0" xyz="${-ARM_X} ${-ARM_Y} ${ARM_Z/2}"></origin>
+      <geometry>
+        <cylinder length="${ARM_Z}" radius="${0.2*ARM_Z}"></cylinder>
+      </geometry>
+    </visual>
+    <!-- Rotor 4 -->
+    <visual>
+      <origin rpy="0 0 ${-atan(-ARM_X/ARM_Y)}" xyz="${ARM_X/2} ${-ARM_Y/2} 0"></origin>
+      <geometry>
+        <box size="${0.15* sqrt(ARM_X**2+ARM_Y**2)} ${sqrt(ARM_X**2+ARM_Y**2)} ${0.5*ARM_Z}"></box>
+      </geometry>
+    </visual>
+    <visual>
+      <origin rpy="0 0 0" xyz="${ARM_X} ${-ARM_Y} ${ARM_Z/2}"></origin>
+      <geometry>
+        <cylinder length="${ARM_Z}" radius="${0.2*ARM_Z}"></cylinder>
+      </geometry>
+    </visual>
+    <collision>
+      <origin rpy="0 0 ${ARM_Z/2}" xyz="0 0 0"></origin>
+      <geometry>
+        <cylinder length="${ARM_Z}" radius="${sqrt(ARM_X**2+ARM_Y**2)}"></cylinder>
+      </geometry>
+    </collision>
+  </link>
+  <link name="prop0_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="${ARM_X} -${ARM_Y} ${ARM_Z}"></origin>
+      <mass value="0"></mass>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"></inertia>
+    </inertial>
+  </link>
+  <joint name="prop0_joint" type="fixed">
+    <parent link="base_link"></parent>
+    <child link="prop0_link"></child>
+  </joint>
+  <link name="prop1_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="${ARM_X} ${ARM_Y} ${ARM_Z}"></origin>
+      <mass value="0"></mass>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"></inertia>
+    </inertial>
+  </link>
+  <joint name="prop1_joint" type="fixed">
+    <parent link="base_link"></parent>
+    <child link="prop1_link"></child>
+  </joint>
+  <link name="prop2_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="-${ARM_X} ${ARM_Y} ${ARM_Z}"></origin>
+      <mass value="0"></mass>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"></inertia>
+    </inertial>
+  </link>
+  <joint name="prop2_joint" type="fixed">
+    <parent link="base_link"></parent>
+    <child link="prop2_link"></child>
+  </joint>
+  <link name="prop3_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="-${ARM_X} -${ARM_Y} ${ARM_Z}"></origin>
+      <mass value="0"></mass>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"></inertia>
+    </inertial>
+  </link>
+  <joint name="prop3_joint" type="fixed">
+    <parent link="base_link"></parent>
+    <child link="prop3_link"></child>
+  </joint>
+</robot>

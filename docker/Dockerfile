@@ -2,22 +2,38 @@ From ros:humble
 # # Set the working directory
 WORKDIR /quadrotor_ws
 
-
-RUN rm -r build install log
-
 RUN apt-get update && apt-get install -y \
     python3-pip \
     xauth 
-    # nvidia-container-runtime 
 
+# for cashing instead of RUN pip install -r requirements.txt
+RUN pip install numpy==1.24.4 \
+                scipy==1.10.1 \
+                sympy==1.12 \
+                matplotlib==3.7.4 \
+                gymnasium==0.29.1 \
+                casadi==3.6.4 \
+                ipython==8.12.3 \
+                opencv_python==4.8.1.78 \
+                pandas==2.0.3 \
+                pybullet==3.2.5 \
+                PyQt5==5.15.5 \
+                PyYAML==5.3.1 \
+                tqdm==4.66.1 \
+                pytransform3d==3.5.0 \
+                stable_baselines3==2.2.1
+
+RUN pip install tensorboard \
+                tqdm \
+                rich
 # Copy the ROS2 workspace into the Docker image
-    COPY .. /quadrotor_ws
+COPY .. /quadrotor_ws
+
+RUN rm -r build install log
 
 RUN rosdep update && rosdep install --from-paths src --ignore-src -r -y
 
-RUN pip install -r requirements.txt
-
 RUN /bin/bash -c "source /opt/ros/humble/setup.bash && colcon build --symlink-install"
 
-#
 CMD ["bash"]
+
