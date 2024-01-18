@@ -208,12 +208,7 @@ class QuadrotorBaseEnv(gym.Env):
         terminated = False
         if self.terminate_on_contact and contacted:
             terminated = True
-        reached, stabilized = self.check_reached_stabilized()
-        if stabilized:
-            terminated = True
-            info['is_success'] = True
-
-        reward = self.get_reward(obs, terminated, truncated, reached, stabilized)
+        reward = self.get_reward(obs)
 
         return obs, reward, terminated, truncated, info
 
@@ -236,7 +231,7 @@ class QuadrotorBaseEnv(gym.Env):
             stabilized = True
         return reached, stabilized
 
-    def get_reward(self, obs, terminated, truncated, reached, stabilized):
+    def get_reward(self, obs):
         pos = obs[:3]
         goal = np.array(self.goal)
         dist = np.linalg.norm(pos-goal)
@@ -248,17 +243,7 @@ class QuadrotorBaseEnv(gym.Env):
         ang_vel_z = obs[-1]
         spinnage = np.abs(ang_vel_z)
         spinnage_reward = 1. / (1+spinnage**2)
-        # reward = -dist - terminated*100
-        # print(f"dist: {dist}, tiltage: {tiltage}, spinnage: {spinnage}")
-        # print(f"dist_reward: {dist_reward}, tilt_reward: {tilt_reward}, spinnage_reward: {spinnage_reward}")
         reward = dist_reward + dist_reward * (tilt_reward + spinnage_reward)
-        if reached:
-            reward += 10
-        if terminated:
-            if stabilized:
-                reward += 100000
-            else:
-                reward -= 100
         return reward
 
     def dfbc_agent_action(self):
