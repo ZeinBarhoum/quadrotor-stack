@@ -219,7 +219,7 @@ class QuadrotorDFBC(Node):
         error_angular_velocity = reference_angular_velocity - actual_angular_velocity
         error_orientation = np.array([0, 0, 0, 0])
 
-        obs = np.concatenate((-error_position, actual_orientation, actual_velocity,  actual_angular_velocity))
+        obs = np.concatenate((-error_position, actual_orientation, -error_velocity,  actual_angular_velocity))
         # self.get_logger().info(f"{obs}")
 
         rotor_speeds = self.model.predict(obs)[0]

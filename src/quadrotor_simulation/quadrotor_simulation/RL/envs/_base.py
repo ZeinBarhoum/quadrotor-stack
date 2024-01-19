@@ -3,7 +3,6 @@ import math
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
-import pybullet as p
 from quadrotor_interfaces.msg import RotorCommand, State
 import rclpy
 from rclpy.parameter import Parameter
@@ -126,7 +125,9 @@ class QuadrotorBaseEnv(gym.Env):
         self.terminate_on_contact = terminate_on_contact
 
         self.workspace = np.array([[-2, 2], [-2, 2], [-2, 2]])
-        self.goal = [0, 0, 0]
+        self.velocity_space = np.array([[-2, 2], [-2, 2], [-2, 2]])
+        self.goal_pos = [0, 0, 0]
+        self.goal_vel = [0, 0, 0]
 
         self.closed = False
         self.dt = self.physics_node.simulation_step_period
@@ -144,7 +145,11 @@ class QuadrotorBaseEnv(gym.Env):
         ff_state.state.pose.position.x = np.random.uniform(self.workspace[0][0], self.workspace[0][1])
         ff_state.state.pose.position.y = np.random.uniform(self.workspace[1][0], self.workspace[1][1])
         ff_state.state.pose.position.z = np.random.uniform(self.workspace[2][0], self.workspace[2][1])
+        ff_state.state.twist.linear.x = np.random.uniform(self.velocity_space[0][0], self.velocity_space[0][1])
+        ff_state.state.twist.linear.y = np.random.uniform(self.velocity_space[1][0], self.velocity_space[1][1])
+        ff_state.state.twist.linear.z = np.random.uniform(self.velocity_space[2][0], self.velocity_space[2][1])
         self.physics_node.receive_ff_state_callback(ff_state)
+        print(f"resetting with {ff_state}")
         hover_action = [self.ROT_HOVER_VEL]*4
         if self.normalized_actions:
             hover_action /= self.ROT_MAX_VEL
@@ -217,7 +222,7 @@ class QuadrotorBaseEnv(gym.Env):
 
     def check_reached_stabilized(self):
         pos = np.array([self.state.state.pose.position.x, self.state.state.pose.position.y, self.state.state.pose.position.z])
-        goal = np.array(self.goal)
+        goal = np.array(self.goal_pos)
         dist = np.linalg.norm(pos-goal)
         vel = np.array([self.state.state.twist.linear.x, self.state.state.twist.linear.y, self.state.state.twist.linear.z])
         vel_norm = np.linalg.norm(vel)
@@ -233,7 +238,7 @@ class QuadrotorBaseEnv(gym.Env):
 
     def get_reward(self, obs):
         pos = obs[:3]
-        goal = np.array(self.goal)
+        goal = np.array(self.goal_pos)
         dist = np.linalg.norm(pos-goal)
         dist_reward = 1. / (1 + dist**2)
         quats = obs[3:7]
@@ -247,9 +252,9 @@ class QuadrotorBaseEnv(gym.Env):
         return reward
 
     def dfbc_agent_action(self):
-        reference_position = np.array(self.goal)
+        reference_position = np.array(self.goal_pos)
         actual_position = np.array([self.state.state.pose.position.x, self.state.state.pose.position.y, self.state.state.pose.position.z])
-        reference_velocity = np.array([0, 0, 0])
+        reference_velocity = np.array(self.goal_vel)
         actual_velocity = np.array([self.state.state.twist.linear.x, self.state.state.twist.linear.y, self.state.state.twist.linear.z])
         reference_orientation = np.array([0, 0, 0, 1])
         actual_orientation = np.array([self.state.state.pose.orientation.x, self.state.state.pose.orientation.y,
