@@ -9,9 +9,10 @@ import rclpy
 from rclpy.node import Node
 from ament_index_python.packages import get_package_share_directory
 from quadrotor_interfaces.msg import RotorCommand, State, ModelError
-from geometry_msgs.msg import Vector3Stamped
+from geometry_msgs.msg import Vector3Stamped, Wrench
 import xacro
 
+from rclpy.node import ParameterDescriptor
 
 try:
     import IPython.core.ultratb
@@ -34,30 +35,30 @@ class QuadrotorPybulletPhysics(Node):
         super().__init__('quadrotor_pybullet_physics_node'+suffix, **kwargs)
 
         # Declare the parameters
-        self.declare_parameters(namespace='', parameters=[('physics_server', 'GUI'),  # GUI, DIRECT
-                                                          ('quadrotor_description', 'cf2x'),
-                                                          ('obstacles_description', ['NONE']),
-                                                          ('obstacles_poses', [0.0]),
-                                                          ('render_ground', True),
-                                                          ('simulation_step_frequency', DEFAULT_FREQUENCY),
-                                                          ('state_topic', 'quadrotor_state'+suffix),
-                                                          ('ff_state_topic', 'quadrotor_ff_state'+suffix),
-                                                          ('rotor_speeds_topic', 'quadrotor_rotor_speeds'+suffix),
-                                                          ('wind_speed_topic', 'quadrotor_wind_speed'+suffix),
-                                                          ('model_error_topic', 'quadrotor_model_error'+suffix),
-                                                          ('calculate_linear_drag', False),
-                                                          ('calculate_quadratic_drag', False),
-                                                          ('calculate_residuals', False),
-                                                          ('residuals_model', 'NONE'),
-                                                          ('residuals_device', 'cuda'),
-                                                          ('use_rotor_dynamics', False),
-                                                          ('use_wind_speed', False),
-                                                          ('use_ff_state', False),
-                                                          ('manual_tau_xy_calculation', False),
-                                                          ('publish_model_errors', False),
-                                                          ('sequential_mode', False),
-                                                          ('enable_ff_repeat', False),
-                                                          ('publish_state', True)])
+        self.declare_parameters(namespace='', parameters=[('physics_server', 'DIRECT', ParameterDescriptor()),  # GUI, DIRECT
+                                                          ('quadrotor_description', 'cf2x', ParameterDescriptor()),
+                                                          ('obstacles_description', ['NONE'], ParameterDescriptor()),
+                                                          ('obstacles_poses', [0.0], ParameterDescriptor()),
+                                                          ('render_ground', True, ParameterDescriptor()),
+                                                          ('simulation_step_frequency', DEFAULT_FREQUENCY, ParameterDescriptor()),
+                                                          ('state_topic', 'quadrotor_state'+suffix, ParameterDescriptor()),
+                                                          ('ff_state_topic', 'quadrotor_ff_state'+suffix, ParameterDescriptor()),
+                                                          ('rotor_speeds_topic', 'quadrotor_rotor_speeds'+suffix, ParameterDescriptor()),
+                                                          ('wind_speed_topic', 'quadrotor_wind_speed'+suffix, ParameterDescriptor()),
+                                                          ('model_error_topic', 'quadrotor_model_error'+suffix, ParameterDescriptor()),
+                                                          ('calculate_linear_drag', False, ParameterDescriptor()),
+                                                          ('calculate_quadratic_drag', False, ParameterDescriptor()),
+                                                          ('calculate_residuals', False, ParameterDescriptor()),
+                                                          ('residuals_model', 'NONE', ParameterDescriptor()),
+                                                          ('residuals_device', 'cuda', ParameterDescriptor()),
+                                                          ('use_rotor_dynamics', False, ParameterDescriptor()),
+                                                          ('use_wind_speed', False, ParameterDescriptor()),
+                                                          ('use_ff_state', False, ParameterDescriptor()),
+                                                          ('manual_tau_xy_calculation', False, ParameterDescriptor()),
+                                                          ('publish_model_errors', False, ParameterDescriptor()),
+                                                          ('sequential_mode', False, ParameterDescriptor()),
+                                                          ('enable_ff_repeat', False, ParameterDescriptor()),
+                                                          ('publish_state', True, ParameterDescriptor())],)
         # Get the parameters
         self.physics_server = self.get_parameter('physics_server').get_parameter_value().string_value
         self.quadrotor_description_file_name = self.get_parameter('quadrotor_description').get_parameter_value().string_value
@@ -157,6 +158,11 @@ class QuadrotorPybulletPhysics(Node):
         self.ARM_Y = quadrotor_params['ARM_Y']
         self.ARM_Z = quadrotor_params['ARM_Z']
         self.J = np.array(quadrotor_params['J'])
+        self.MAX_THRUST = self.M*self.G*self.T2W
+        self.MAX_INDIVIDUAL_THRUST = self.MAX_THRUST/4
+        self.MAX_TORQUEX = self.ARM_Y*self.MAX_INDIVIDUAL_THRUST
+        self.MAX_TORQUEY = self.ARM_X*self.MAX_INDIVIDUAL_THRUST
+        self.MAX_TORQUEZ = self.KM*self.ROT_MAX_VEL**2 * 4
         if self.calculate_residuals:
             from quadrotor_simulation.quadrotor_residuals import prepare_residuals_model
             self.RES_NET, self.RES_PARAMS = prepare_residuals_model(self.residuals_model)
@@ -187,32 +193,56 @@ class QuadrotorPybulletPhysics(Node):
             self.obstacle_urdf_files.append(new_file)
 
     def initialize_pybullet(self):
-        if (self.physics_server == 'DIRECT'):
-            self.physicsClient = p.connect(p.DIRECT)
-        else:
-            self.physicsClient = p.connect(p.GUI)
+        server_map = {"DIRECT": p.DIRECT,
+                      "GUI": p.GUI,
+                      "SHARED_MEMORY": p.SHARED_MEMORY,
+                      "GUI_SERVER": p.GUI_SERVER}
+        try:
+            self.physicsClient = p.connect(server_map[self.physics_server])
+        except Exception as e:
+            self.destroy_node()
+            raise e
+        #
+        # if (self.physics_server == 'DIRECT'):
+        #     self.physicsClient = p.connect(p.DIRECT)
+        # elif (self.physics_server == 'SHARED_MEMORY'):
+        #     self.physicsClient = p.connect(p.SHARED_MEMORY)
+        # elif (self.physics_server == 'GUI_SERVER'):
+        #     try:
+        #         self.physicsClient = p.connect(p.GUI_SERVER)
+        #     except Exception as e:
+        #         self.destroy_node()
+        #         raise e
+        # else:
+        #     try:
+        #         self.physicsClient = p.connect(p.GUI_SERVER)
+        #     except Exception as e:
+        #         self.destroy_node()
+        #         raise e
+
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
-        p.setTimeStep(self.simulation_step_period)
-        p.setGravity(0, 0, -self.G)
+        p.setTimeStep(self.simulation_step_period, physicsClientId=self.physicsClient)
+        p.setGravity(0, 0, -self.G, physicsClientId=self.physicsClient)
         if (self.render_ground):
-            self.planeId = p.loadURDF("plane.urdf")
+            self.planeId = p.loadURDF("plane.urdf", physicsClientId=self.physicsClient)
         self.obstacleIds = []
         for (i, obstacle_urdf_file) in enumerate(self.obstacle_urdf_files):
-            self.obstacleIds.append(p.loadURDF(obstacle_urdf_file, self.obstacles_poses[i*7: i*7+3], self.obstacles_poses[i*7+3: i*7+7], useFixedBase=1))
-        self.quadrotor_id = p.loadURDF(self.quadrotor_urdf_file, [0, 0, 0.25], flags=p.URDF_USE_INERTIA_FROM_FILE)
+            self.obstacleIds.append(p.loadURDF(
+                obstacle_urdf_file, self.obstacles_poses[i*7: i*7+3], self.obstacles_poses[i*7+3: i*7+7], useFixedBase=True, physicsClientId=self.physicsClient))
+        self.quadrotor_id = p.loadURDF(self.quadrotor_urdf_file, [0, 0, 0.25], flags=p.URDF_USE_INERTIA_FROM_FILE, physicsClientId=self.physicsClient)
         # Disable default damping of pybullet!
-        p.changeDynamics(self.quadrotor_id, -1, linearDamping=0, angularDamping=0)
-        p.changeDynamics(self.quadrotor_id, 0, linearDamping=0, angularDamping=0)
-        p.changeDynamics(self.quadrotor_id, 1, linearDamping=0, angularDamping=0)
-        p.changeDynamics(self.quadrotor_id, 2, linearDamping=0, angularDamping=0)
-        p.changeDynamics(self.quadrotor_id, 3, linearDamping=0, angularDamping=0)
+        p.changeDynamics(self.quadrotor_id, -1, linearDamping=0, angularDamping=0, physicsClientId=self.physicsClient)
+        p.changeDynamics(self.quadrotor_id, 0, linearDamping=0, angularDamping=0, physicsClientId=self.physicsClient)
+        p.changeDynamics(self.quadrotor_id, 1, linearDamping=0, angularDamping=0, physicsClientId=self.physicsClient)
+        p.changeDynamics(self.quadrotor_id, 2, linearDamping=0, angularDamping=0, physicsClientId=self.physicsClient)
+        p.changeDynamics(self.quadrotor_id, 3, linearDamping=0, angularDamping=0, physicsClientId=self.physicsClient)
 
         self.get_logger().info(f"Loaded quadrotor with Dynamics {p.getDynamicsInfo(self.quadrotor_id, -1)}")
 
-        p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
-        p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW, 0)
-        p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW, 0)
-        p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW, 0)
+        p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0, physicsClientId=self.physicsClient)
+        p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW, 0, physicsClientId=self.physicsClient)
+        p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW, 0, physicsClientId=self.physicsClient)
+        p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW, 0, physicsClientId=self.physicsClient)
 
     def initialize_data(self):
         self.rotor_speeds = np.array([self.ROT_HOVER_VEL] * 4)
@@ -228,6 +258,32 @@ class QuadrotorPybulletPhysics(Node):
     def receive_ff_state_callback(self, msg: State):
         self.ff_state = msg
         self.ff_repeated = False
+
+    def receive_wrench_command_callback(self, msg: Wrench):
+        """Implement trhust/torque control instead of rotor_speeds control"""
+        trhust_torques = np.array([msg.force.z, msg.torque.x, msg.torque.y, msg.torque.z])
+        # rotor_thrusts = np.array(self.rotor_speeds**2)*self.KF
+        # rotor_torques = np.array(self.rotor_speeds**2)*self.KM
+        # torque_z = -(self.ROTOR_DIRS[0]*rotor_torques[0] + self.ROTOR_DIRS[1]*rotor_torques[1] +
+        #              self.ROTOR_DIRS[2]*rotor_torques[2] + self.ROTOR_DIRS[3]*rotor_torques[3])
+        # torque_x = self.ARM_Y * (-rotor_thrusts[0] + rotor_thrusts[1] + rotor_thrusts[2] - rotor_thrusts[3])
+        # torque_y = self.ARM_X * (-rotor_thrusts[0] - rotor_thrusts[1] + rotor_thrusts[2] + rotor_thrusts[3])
+        A = np.matrix([[self.KF, self.KF, self.KF, self.KF],
+                       [-self.ARM_X, -self.ARM_X, self.ARM_X, self.ARM_X],
+                       [-self.ARM_Y, self.ARM_Y, self.ARM_Y, -self.ARM_Y],
+                       [-self.ROTOR_DIRS[0], -self.ROTOR_DIRS[1], -self.ROTOR_DIRS[2], -self.ROTOR_DIRS[3]]])
+        A = np.array([[self.KF, self.KF, self.KF, self.KF],
+                      self.KF*self.ARM_Y*np.array([-1, 1, 1, -1]),
+                      self.KF*self.ARM_X*np.array([-1, -1, 1, 1]),
+                      [-self.ROTOR_DIRS[0]*self.KM, -self.ROTOR_DIRS[1]*self.KM, -self.ROTOR_DIRS[2]*self.KM, -self.ROTOR_DIRS[3]*self.KM]])
+
+        rotor_speeds_squared = np.linalg.inv(A) @ trhust_torques.reshape((4, 1))
+        rotor_speeds_squared = np.max(np.concatenate((rotor_speeds_squared, np.zeros((4, 1))), axis=1), axis=1)
+        rotor_speeds = np.sqrt(rotor_speeds_squared)
+        rotor_speeds = np.array(rotor_speeds, dtype=np.float32)
+        rotor_speeds_msg = RotorCommand()
+        rotor_speeds_msg.rotor_speeds = rotor_speeds
+        self.receive_commands_callback(rotor_speeds_msg)
 
     def receive_commands_callback(self, msg: RotorCommand):
         if not self.use_rotor_dynamics:
@@ -253,8 +309,8 @@ class QuadrotorPybulletPhysics(Node):
         v = np.array([self.ff_state.state.twist.linear.x, self.ff_state.state.twist.linear.y, self.ff_state.state.twist.linear.z])
         w = np.array([self.ff_state.state.twist.angular.x, self.ff_state.state.twist.angular.y, self.ff_state.state.twist.angular.z])
         w_W = Rotation.from_quat(quat).apply(w)
-        p.resetBasePositionAndOrientation(self.quadrotor_id, pos, quat)
-        p.resetBaseVelocity(self.quadrotor_id, v, w_W)
+        p.resetBasePositionAndOrientation(self.quadrotor_id, pos, quat, physicsClientId=self.physicsClient)
+        p.resetBaseVelocity(self.quadrotor_id, v, w_W, physicsClientId=self.physicsClient)
         self.ff_repeated = True
 
     def get_F_T(self):  # not used
@@ -298,33 +354,35 @@ class QuadrotorPybulletPhysics(Node):
         rotor_thrusts, torque_x, torque_y, torque_z = self.calculate_nominal_thrust_torques()
         if self.calculate_linear_drag or self.calculate_quadratic_drag:
             drag_force = self.calculate_drag()
-            p.applyExternalForce(self.quadrotor_id, -1, forceObj=drag_force, posObj=[0, 0, 0], flags=p.LINK_FRAME)
+            p.applyExternalForce(self.quadrotor_id, -1, forceObj=drag_force, posObj=[0, 0, 0], flags=p.LINK_FRAME, physicsClientId=self.physicsClient)
         if self.calculate_residuals:
             residuals = self.calculate_residual_thrust_torques()
-            p.applyExternalForce(self.quadrotor_id, -1, forceObj=residuals[:3], posObj=[0, 0, 0], flags=p.LINK_FRAME)
-            p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=residuals[3:], flags=p.LINK_FRAME)
+            p.applyExternalForce(self.quadrotor_id, -1, forceObj=residuals[:3], posObj=[0, 0, 0], flags=p.LINK_FRAME, physicsClientId=self.physicsClient)
+            p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=residuals[3:], flags=p.LINK_FRAME, physicsClientId=self.physicsClient)
 
         if (self.manual_tau_xy_calculation):
             for i in range(4):
-                p.applyExternalForce(self.quadrotor_id, -1, forceObj=[0, 0, rotor_thrusts[i]], posObj=[0, 0, 0], flags=p.LINK_FRAME)
-            p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=[torque_x, torque_y, torque_z], flags=p.LINK_FRAME)
+                p.applyExternalForce(self.quadrotor_id, -1, forceObj=[0, 0, rotor_thrusts[i]],
+                                     posObj=[0, 0, 0], flags=p.LINK_FRAME, physicsClientId=self.physicsClient)
+            p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=[torque_x, torque_y, torque_z], flags=p.LINK_FRAME, physicsClientId=self.physicsClient)
         else:
             for i in range(4):
-                p.applyExternalForce(self.quadrotor_id, i, forceObj=[0, 0, rotor_thrusts[i]], posObj=[0, 0, 0], flags=p.LINK_FRAME)
+                p.applyExternalForce(self.quadrotor_id, i, forceObj=[0, 0, rotor_thrusts[i]], posObj=[
+                                     0, 0, 0], flags=p.LINK_FRAME, physicsClientId=self.physicsClient)
             # applying Tz on the center of mass, the only one that depend on the drag and isn't simulated by the forces before
-            p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=[0, 0, torque_z], flags=p.LINK_FRAME)
+            p.applyExternalTorque(self.quadrotor_id, -1, torqueObj=[0, 0, torque_z], flags=p.LINK_FRAME, physicsClientId=self.physicsClient)
 
     def apply_simulation_step(self):
-        pos0, quat0 = p.getBasePositionAndOrientation(self.quadrotor_id)
+        pos0, quat0 = p.getBasePositionAndOrientation(self.quadrotor_id, physicsClientId=self.physicsClient)
         pos0, quat0 = np.array(pos0), np.array(quat0)
-        vel0, avel0_W = p.getBaseVelocity(self.quadrotor_id)
+        vel0, avel0_W = p.getBaseVelocity(self.quadrotor_id, physicsClientId=self.physicsClient)
         vel0, avel0_B = np.array(vel0), Rotation.from_quat(quat0).inv().apply(np.array(avel0_W))
 
-        p.stepSimulation()
+        p.stepSimulation(physicsClientId=self.physicsClient)
 
-        pos, quat = p.getBasePositionAndOrientation(self.quadrotor_id)
+        pos, quat = p.getBasePositionAndOrientation(self.quadrotor_id, physicsClientId=self.physicsClient)
         pos, quat = np.array(pos), np.array(quat)
-        vel, avel_W = p.getBaseVelocity(self.quadrotor_id)
+        vel, avel_W = p.getBaseVelocity(self.quadrotor_id, physicsClientId=self.physicsClient)
         vel, avel_B = np.array(vel), Rotation.from_quat(quat).inv().apply(np.array(avel_W))
         accel, anaccel = (vel-vel0)/self.simulation_step_period, (avel_B-avel0_B)/self.simulation_step_period
 
@@ -443,15 +501,22 @@ class QuadrotorPybulletPhysics(Node):
             self.model_error_publisher.publish(self.model_error)
 
     def check_contact(self):
-        if len(p.getContactPoints(self.quadrotor_id)) > 0:
+        if len(p.getContactPoints(self.quadrotor_id, physicsClientId=self.physicsClient)) > 0:
             return True
         return False
 
+    def destroy_node(self):
+        try:
+            p.disconnect(physicsClientId=self.physicsClient)
+        except Exception as _:
+            pass
+        super().destroy_node()
+
 
 def main(args=None):
+    rclpy.init(args=args)
+    node = QuadrotorPybulletPhysics()
     try:
-        rclpy.init(args=args)
-        node = QuadrotorPybulletPhysics()
         rclpy.spin(node)
     except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
         print('Got clean shutdown signal exception.')

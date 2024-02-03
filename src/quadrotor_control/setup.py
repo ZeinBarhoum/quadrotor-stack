@@ -30,6 +30,7 @@ setup(
     entry_points={
         'console_scripts': [
             'quadrotor_pid = quadrotor_control.quadrotor_pid:main',
+            'quadrotor_rl = quadrotor_control.quadrotor_rl:main',
             'quadrotor_dfbc = quadrotor_control.quadrotor_dfbc:main',
             'quadrotor_dataset = quadrotor_control.quadrotor_dataset:main',
             'quadrotor_reference_publisher = quadrotor_control.quadrotor_reference_publisher:main',

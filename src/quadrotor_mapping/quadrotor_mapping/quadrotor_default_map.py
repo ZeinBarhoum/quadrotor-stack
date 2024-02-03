@@ -11,7 +11,7 @@ class QuadrotorDefaultMap(Node):
         super().__init__('quadrotor_default_map')
         self.publisher_map = self.create_publisher(OccupancyGrid3D, 'quadrotor_map', 10)
 
-        voxel_map = np.zeros((200, 200, 200))
+        voxel_map = np.zeros((300, 300, 300))
         # occupancy_map[20:80, 40:60, 20:80] = 1
         # occupancy_map[40:60, 60:80, 20:80] = 1
         # occupancy_map[:, :, 0:2] = 1

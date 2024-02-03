@@ -48,22 +48,24 @@ class QuadrotorPathVisualizer(Node):
 
         plt.ion()
 
-        self.fig = plt.figure()
-        self.num_subplots = (3, 2)
-        self.ax_3d = self.fig.add_subplot(*self.num_subplots, 1, projection='3d')
-        self.ax_xy = self.fig.add_subplot(*self.num_subplots, 2)
-        self.ax_error_pos = self.fig.add_subplot(*self.num_subplots, 3)
-        self.ax_error_rot = self.fig.add_subplot(*self.num_subplots, 4)
-        self.ax_yaw = self.fig.add_subplot(*self.num_subplots, 5)
-        self.ax_vel = self.fig.add_subplot(*self.num_subplots, 6)
+        self.fig = plt.figure(figsize=(20, 20))
+        # self.fig2 = plt.figure()
+        self.num_subplots = (4, 2)
+        self.ax_3d = self.fig.add_subplot(*self.num_subplots, (1, 2), projection='3d')
+        self.ax_xy = self.fig.add_subplot(*self.num_subplots, (3, 4))
+        # self.ax_error_pos = self.fig2.add_subplot(1, 1, 1)
+        self.ax_error_pos = self.fig.add_subplot(*self.num_subplots, 5)
+        self.ax_error_rot = self.fig.add_subplot(*self.num_subplots, 6)
+        self.ax_yaw = self.fig.add_subplot(*self.num_subplots, 7)
+        self.ax_vel = self.fig.add_subplot(*self.num_subplots, 8)
 
         self.vels = [0]
-        self.references = [[0], [0], [0], [0]]
+        self.references = [[0], [0], [1], [0]]
         self.references_yaw = [0]
-        self.current_reference = [0, 0, 0, 0]
-        self.states = [[0], [0], [0], [0]]
-        self.current_state = [0, 0, 0, 0]
-        self.future_states = [[0], [0], [0], [0]]
+        self.current_reference = [0, 0, 1, 0]
+        self.states = [[0], [0], [1], [0]]
+        self.current_state = [0, 0, 1, 0]
+        self.future_states = [[0], [0], [1], [0]]
         self.errors = [[0], [0], [0], [0]]
         self.current_error = [0, 0, 0, 0]
         self.start_time = -1
@@ -128,11 +130,11 @@ class QuadrotorPathVisualizer(Node):
         self.ax_vel.set_xlabel('Time')
         self.ax_vel.set_ylabel('Velocity')
         self.ax_vel.set_xlim(0, self.times[-1], auto=True)
-        self.ax_vel.set_ylim(0, 10, auto=False)
+        self.ax_vel.set_ylim(0, 20, auto=False)
         self.ax_vel.plot(self.vels, c='g', label='Velocity')
         self.ax_vel.legend()
 
-        num_points = 50
+        num_points = 100000
         if (len(self.times) > num_points):
             times = self.times[-num_points:]
             errors_x = self.errors[0][-num_points:]

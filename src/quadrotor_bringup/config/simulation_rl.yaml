@@ -1,0 +1,45 @@
+PybulletPhysicsSimulation:
+  physics_server: GUI  # Physics server to use (GUI or DIRECT)
+  quadrotor_description: neuroBEM  # Name of the quadrotor model to use (cf2x or other)
+  # obstacles_description: [NONE]
+
+  obstacles_description: [hoop,hoop, hoop, hoop, hoop, hoop]  # List of obstacles to include in the simulation, if none then [NONE]
+  obstacles_poses: [1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0,
+                    10.0, 5.0, 1.0, 0.0, 0.0, -0.7, 0.7,
+                    5.0, 5.0, 1.0, 0.0, 0.0, -0.7, 0.7,
+                    5.0, -5.0, 1.0, 0.0, 0.0, -0.7, 0.7,
+                    10.0, -5.0, 1.0, 0.0, 0.0, -0.7, 0.7,
+                    5.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0,]  # List of poses, if None then [0.0]
+  render_ground: False  # Whether to render the ground plane
+  simulation_step_frequency: 240  # Frequency at which the simulation is stepped
+  state_topic: quadrotor_state  # Topic name for the quadrotor state messages
+  rotor_speeds_topic: quadrotor_rotor_speeds  # Topic name for the quadrotor rotor speeds messages
+  use_rotor_dynamics: False
+  calculate_linear_drag: False
+  calculate_quadratic_drag: False
+  use_wind_speed: False
+  manual_tau_xy_calculation: False
+  calculate_residuals: False
+
+RLController:
+  quadrotor_description: neuroBEM  # quadrotor name (for config file)
+  state_topic: quadrotor_state
+  reference_topic: quadrotor_reference
+  rotor_speeds_topic: quadrotor_rotor_speeds
+  command_publish_frequency: 100
+
+PolyTrajOptimizer:
+  time_allocation: distance_proportional  # distance_proportional, constant or optimization
+  segment_time: 0.1  # segment time in seconds for constant time allocation
+  avg_velocity: 4.5  # average velocity in m/s for distance proportional time allocation
+  quadrotor_description: neuroBEM  # quadrotor description file name (without extension)
+  one_segment: false  # if true, the trajectory will be a single segment
+  high_order_constraints: 2  # number of constraints for the high order derivatives (velocity = 1 and so on)
+  optimize: true
+  added_poly_order: 1
+  waypoints_topic: quadrotor_waypoints
+  trajectory_topic: quadrotor_polynomial_trajectory
+  map_topic: quadrotor_map
+
+QuadrotorPathVisualizer:
+  refresh_rate: 1

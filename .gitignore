@@ -5,3 +5,6 @@ bin/
 **/.vscode/
 **/__pycache__/
 media/
+*.pyi
+results/*
+nogit/*
