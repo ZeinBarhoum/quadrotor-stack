@@ -1,5 +1,5 @@
 """ A ROS2 node that implements a Differential Flattness Based Controller for a quadrotor. """
-from numpy.core.multiarray import array
+from numpy.core.multiarray import array, dtype
 import yaml
 import os
 import math
@@ -29,11 +29,11 @@ DEFAULT_FREQUENCY = 240  # Hz
 DEFAULT_QOS_PROFILE = 10
 
 
-class QuadrotorDFBC(Node):
+class QuadrotorRL(Node):
 
     def __init__(self):
         """ Initialize the node's parameters, subscribers, publishers and timers."""
-        super().__init__(node_name='quadrotor_dfbc_node', parameter_overrides=[])
+        super().__init__(node_name='quadrotor_rl_node', parameter_overrides=[])
 
         # Declare the parameters:
         self.declare_parameters(parameters=[('quadrotor_description', 'cf2x', ParameterDescriptor()),
@@ -87,11 +87,12 @@ class QuadrotorDFBC(Node):
     def initialize_model(self):
         # TODO: change model path
         model_path = "/home/zein/Project/quadrotor-plan-control/RL/results/models/ppo_rotors_norm_no_bonus.zip"
+        # model_path = "/home/zein/Project/quadrotor-plan-control/scripts/RL/ppo_quad_imp_wrench_norm.zip"
         self.model = sb3.PPO.load(model_path)
 
     def initialize_constants(self):
         """
-        Initializes the constants used in the quadrotor DFBC controller.
+        Initializes the constants used in the quadrotor RL controller.
 
         Reads the quadrotor parameters from a YAML file located in the quadrotor_description package,
         calculates the maximum thrust, maximum RPM, maximum torque in the XY plane and maximum torque
@@ -214,6 +215,7 @@ class QuadrotorDFBC(Node):
         # print(actual_position)
 
         error_position = reference_position - actual_position
+        # error_position[2] -= 1
         error_velocity = reference_velocity - actual_velocity
         error_orientation = reference_orientation_euler - actual_orientation_euler
         error_angular_velocity = reference_angular_velocity - actual_angular_velocity
@@ -225,53 +227,61 @@ class QuadrotorDFBC(Node):
         rotor_speeds = self.model.predict(obs)[0]
         rotor_speeds = np.array(rotor_speeds, dtype=np.float32)
         rotor_speeds *= self.MAX_RPM
+        # wrench = self.model.predict(obs)[0]
+        # wrench = np.array(wrench, dtype=np.float32)
+        # wrench *= self.M
+        # # self.get_logger().info(f"{wrench}")
+        # rotor_speeds = self.calculate_rotor_speeds(wrench[0], wrench[1:], [1, 1, 1, 1])
 
         self.command.header.stamp = self.get_clock().now().to_msg()
         self.command.rotor_speeds = rotor_speeds
         # self.command.rotor_speeds = self.calculate_rotor_speeds(desired_thrust, desired_torques, Weights)
 
-    # def calculate_rotor_speeds(self, thrust: float, torques: np.ndarray, Weights) -> np.ndarray:
-    #     """ Claculate the rotor speeds using the thrust and torques.
-    #     Uses the following equation:
-    #         [thrust, torques] = A * [w1^2, w2^2, w3^2, w4^2]
-    #
-    #     Args:
-    #         thrust (float): The desired thrust.
-    #         torques (np.ndarray): The desired torques.
-    #
-    #     Returns:
-    #         np.ndarray: The desired rotor speeds.
-    #     """
-    #     # self.get_logger().info(f'{thrust=:.2f} {torques}')
-    #     # A = np.array([[self.KF, self.KF, self.KF, self.KF],
-    #     #               [0, self.ARM*self.KF, 0, -self.ARM*self.KF],
-    #     #               [-self.ARM*self.KF, 0, self.ARM*self.KF, 0],
-    #     #               [self.KM, -self.KM, self.KM, -self.KM]])
-    #     A = np.array([[self.KF, self.KF, self.KF, self.KF],
-    #                   self.KF*self.ARM_Y*np.array([-1, 1, 1, -1]),
-    #                   self.KF*self.ARM_X*np.array([-1, -1, 1, 1]),
-    #                   [-self.ROTOR_DIRS[0]*self.KM, -self.ROTOR_DIRS[1]*self.KM, -self.ROTOR_DIRS[2]*self.KM, -self.ROTOR_DIRS[3]*self.KM]])
-    #
-    #     # rotor_speeds_squared = np.matmul(np.linalg.inv(A), np.array([thrust, torques[0], torques[1], torques[2]]))
-    #     # rotor_speeds_squared = np.clip(rotor_speeds_squared, 0, self.MAX_RPM**2)
-    #     W = np.diag(np.sqrt(Weights))
-    #     # self.get_logger().info(f'{W=}')
-    #     rotor_speeds_squared = lsq_linear(W@A, (W@np.array([thrust, torques[0], torques[1], torques[2]]
-    #                                                        ).reshape(-1, 1)).flatten(), bounds=(0, self.MAX_RPM**2)).x
-    #     # self.get_logger().info(f"{rotor_speeds_squared}")
-    #     rotor_speeds = np.sqrt(rotor_speeds_squared)
-    #     # actual_thrust = self.KF * np.sum(rotor_speeds_squared)
-    #     # actual_torques = np.array([self.ARM * self.KF * (rotor_speeds_squared[0] - rotor_speeds_squared[2]),
-    #     #                            self.ARM * self.KF * (rotor_speeds_squared[1] - rotor_speeds_squared[3]),
-    #     #                            self.KM * (rotor_speeds_squared[0] - rotor_speeds_squared[1] + rotor_speeds_squared[2] - rotor_speeds_squared[3])])
-    #     rotor_speeds = rotor_speeds.astype(np.float32)
-    #     return rotor_speeds
+    def calculate_rotor_speeds(self, thrust: float, torques: np.ndarray, Weights) -> np.ndarray:
+        """ Claculate the rotor speeds using the thrust and torques.
+        Uses the following equation:
+            [thrust, torques] = A * [w1^2, w2^2, w3^2, w4^2]
+
+        Args:
+            thrust (float): The desired thrust.
+            torques (np.ndarray): The desired torques.
+
+        Returns:
+            np.ndarray: The desired rotor speeds.
+        """
+        # self.get_logger().info(f'{thrust=:.2f} {torques}')
+        # A = np.array([[self.KF, self.KF, self.KF, self.KF],
+        #               [0, self.ARM*self.KF, 0, -self.ARM*self.KF],
+        #               [-self.ARM*self.KF, 0, self.ARM*self.KF, 0],
+        #               [self.KM, -self.KM, self.KM, -self.KM]])
+        A = np.array([[self.KF, self.KF, self.KF, self.KF],
+                      self.KF*self.ARM_Y*np.array([-1, 1, 1, -1]),
+                      self.KF*self.ARM_X*np.array([-1, -1, 1, 1]),
+                      [-self.ROTOR_DIRS[0]*self.KM, -self.ROTOR_DIRS[1]*self.KM, -self.ROTOR_DIRS[2]*self.KM, -self.ROTOR_DIRS[3]*self.KM]])
+
+        # rotor_speeds_squared = np.matmul(np.linalg.inv(A), np.array([thrust, torques[0], torques[1], torques[2]]))
+        # rotor_speeds_squared = np.clip(rotor_speeds_squared, 0, self.MAX_RPM**2)
+        W = np.diag(np.sqrt(Weights))
+        # self.get_logger().info(f'{W=}')
+        # rotor_speeds_squared = lsq_linear(W@A, (W@np.array([thrust, torques[0], torques[1], torques[2]]
+        #                                                    ).reshape(-1, 1)).flatten(), bounds=(0, self.MAX_RPM**2)).x
+        rotor_speeds_squared = np.linalg.inv(A) @ np.array([thrust, torques[0], torques[1], torques[2]]).reshape((4, 1))
+        rotor_speeds_squared = np.max(np.concatenate((rotor_speeds_squared, np.zeros((4, 1))), axis=1), axis=1)
+
+        # self.get_logger().info(f"{rotor_speeds_squared}")
+        rotor_speeds = np.sqrt(rotor_speeds_squared)
+        # actual_thrust = self.KF * np.sum(rotor_speeds_squared)
+        # actual_torques = np.array([self.ARM * self.KF * (rotor_speeds_squared[0] - rotor_speeds_squared[2]),
+        #                            self.ARM * self.KF * (rotor_speeds_squared[1] - rotor_speeds_squared[3]),
+        #                            self.KM * (rotor_speeds_squared[0] - rotor_speeds_squared[1] + rotor_speeds_squared[2] - rotor_speeds_squared[3])])
+        rotor_speeds = rotor_speeds.astype(np.float32)
+        return rotor_speeds
 
 
 def main():
     try:
         rclpy.init()
-        node = QuadrotorDFBC()
+        node = QuadrotorRL()
         rclpy.spin(node)
     except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
         print('Got clean shutdown signal exception.')

@@ -3,12 +3,14 @@ PybulletPhysicsSimulation:
   quadrotor_description: neuroBEM  # Name of the quadrotor model to use (cf2x or other)
   # obstacles_description: [NONE]
 
-  obstacles_description: [hoop, hoop, hoop, hoop]  # List of obstacles to include in the simulation, if none then [NONE]
-  obstacles_poses: [4.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0,
-                    8.0, 4.0, 1.0, 0.0, 0.0, -0.7, 0.7,
-                    8.0, 4.0, 3.0, 0.0, 0.0, -0.7, 0.7,
-                    4.0, 2.0, 2.0, 0.0, 0.0, 0.0, 1.0,]  # List of poses, if None then [0.0]
-  render_ground: false  # Whether to render the ground plane
+  obstacles_description: [hoop,hoop, hoop, hoop, hoop, hoop]  # List of obstacles to include in the simulation, if none then [NONE]
+  obstacles_poses: [1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0,
+                    10.0, 5.0, 1.0, 0.0, 0.0, -0.7, 0.7,
+                    5.0, 5.0, 1.0, 0.0, 0.0, -0.7, 0.7,
+                    5.0, -5.0, 1.0, 0.0, 0.0, -0.7, 0.7,
+                    10.0, -5.0, 1.0, 0.0, 0.0, -0.7, 0.7,
+                    5.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0,]  # List of poses, if None then [0.0]
+  render_ground: False  # Whether to render the ground plane
   simulation_step_frequency: 240  # Frequency at which the simulation is stepped
   state_topic: quadrotor_state  # Topic name for the quadrotor state messages
   rotor_speeds_topic: quadrotor_rotor_speeds  # Topic name for the quadrotor rotor speeds messages
@@ -24,12 +26,12 @@ RLController:
   state_topic: quadrotor_state
   reference_topic: quadrotor_reference
   rotor_speeds_topic: quadrotor_rotor_speeds
-  command_publishing_frequency: 100
+  command_publish_frequency: 100
 
 PolyTrajOptimizer:
   time_allocation: distance_proportional  # distance_proportional, constant or optimization
   segment_time: 0.1  # segment time in seconds for constant time allocation
-  avg_velocity: 3.5  # average velocity in m/s for distance proportional time allocation
+  avg_velocity: 4.5  # average velocity in m/s for distance proportional time allocation
   quadrotor_description: neuroBEM  # quadrotor description file name (without extension)
   one_segment: false  # if true, the trajectory will be a single segment
   high_order_constraints: 2  # number of constraints for the high order derivatives (velocity = 1 and so on)
@@ -40,4 +42,4 @@ PolyTrajOptimizer:
   map_topic: quadrotor_map
 
 QuadrotorPathVisualizer:
-  refresh_rate: 10
+  refresh_rate: 1

@@ -76,6 +76,6 @@ def generate_launch_description():
                               trajectory_poly_optimizer_node,
                               mapping_node,
                               path_finding_node,
-                              # path_visualizer_node,
+                              path_visualizer_node,
                               rqt_gui_node,
                               ])
