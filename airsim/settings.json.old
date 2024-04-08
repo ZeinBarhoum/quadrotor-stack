@@ -1,0 +1,6 @@
+{
+    "SettingsVersion": 1.2,
+    "SimMode": "Multirotor",
+    "PhysicsEngineName": "ExternalPhysicsEngine",
+    "ViewMode": "Manual"
+}

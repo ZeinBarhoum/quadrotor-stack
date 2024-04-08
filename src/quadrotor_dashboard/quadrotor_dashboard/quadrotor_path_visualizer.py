@@ -48,7 +48,7 @@ class QuadrotorPathVisualizer(Node):
 
         plt.ion()
 
-        self.fig = plt.figure(figsize=(20, 20))
+        self.fig = plt.figure(figsize=(5, 5))
         # self.fig2 = plt.figure()
         self.num_subplots = (4, 2)
         self.ax_3d = self.fig.add_subplot(*self.num_subplots, (1, 2), projection='3d')
