@@ -110,9 +110,9 @@ class QuadrotorPybulletPhysics(Node):
                                                                topic=self.model_error_topic,
                                                                qos_profile=DEFAULT_QOS_PROFILE)
         self.reset_subscriber = self.create_subscription(msg_type=Empty,
-                                                         topic = "quadrotor_reset",
-                                                         callback= self.reset,
-                                                         qos_profile= 10)
+                                                         topic="quadrotor_reset",
+                                                         callback=self.reset,
+                                                         qos_profile=10)
 
         # Control the frequencies of simulation
         self.simulation_step_period = 1.0 / self.simulation_step_frequency  # seconds
@@ -133,11 +133,11 @@ class QuadrotorPybulletPhysics(Node):
         self.start_time = self.get_clock().now()  # For logging purposes
         self.get_logger().info(
             f'QuadrotorPybulletPhysics node initialized at {self.start_time.seconds_nanoseconds()}. Frequency: {self.simulation_step_frequency} Hz, Sequential Mode: {self.sequential_mode}')
-    def reset(self, msg: Empty):
-        p.resetBasePositionAndOrientation(self.quadrotor_id, [0, 0, 0.25], [0,0,0,1], physicsClientId=self.physicsClient)
-        p.resetBaseVelocity(self.quadrotor_id, [0,0,0], [0,0,0], physicsClientId=self.physicsClient)
-        self.initialize_data()
 
+    def reset(self, msg: Empty):
+        p.resetBasePositionAndOrientation(self.quadrotor_id, [0, 0, 0.25], [0, 0, 0, 1], physicsClientId=self.physicsClient)
+        p.resetBaseVelocity(self.quadrotor_id, [0, 0, 0], [0, 0, 0], physicsClientId=self.physicsClient)
+        self.initialize_data()
 
     def initialize_constants(self):
         config_folder = os.path.join(get_package_share_directory('quadrotor_description'), 'config')
