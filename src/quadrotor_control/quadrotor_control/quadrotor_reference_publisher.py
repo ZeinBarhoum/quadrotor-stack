@@ -37,7 +37,7 @@ class QuadrotorReferencePublisher(Node):
         )
 
         self.n_segments = 0
-        self.segments = [PolynomialSegment(poly_z=[1.0])]
+        self.segments = [PolynomialSegment(poly_z=[0])]
         self.durations = [0.0]
         self.current_segment = 0
         self.current_time = 0.0
@@ -84,7 +84,7 @@ class QuadrotorReferencePublisher(Node):
         reference_state_msg.n = len(reference_state_msg.future_states)
         reference_state_msg.dt = self.dt_future
 
-        self.current_time += self.DT
+        self.current_time += self.DT/3
         if (self.current_time > segment.end_time):
             self.current_segment += 1
         if not self.finished:
