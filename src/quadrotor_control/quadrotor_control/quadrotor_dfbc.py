@@ -146,7 +146,9 @@ class QuadrotorDFBC(Node):
     def initialize_data(self):
         self.actual_state = message_to_ordereddict(State())
         self.reference_state = message_to_ordereddict(ReferenceState())
-        self.reference_state['current_state']['pose']['position']['z'] = 1
+        self.reference_state['current_state']['pose']['position']['x'] = 0
+        self.reference_state['current_state']['pose']['position']['y'] = 0
+        self.reference_state['current_state']['pose']['position']['z'] = 0
         self.command = RotorCommand()
         self.command.rotor_speeds = np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32)
 
@@ -287,7 +289,7 @@ class QuadrotorDFBC(Node):
         W = np.diag(np.sqrt(Weights))
         # self.get_logger().info(f'{W=}')
         rotor_speeds_squared = lsq_linear(W@A, (W@np.array([thrust, torques[0], torques[1], torques[2]]
-                                                           ).reshape(-1, 1)).flatten(), bounds=(0, self.MAX_RPM**2)).x
+                                                           ).reshape(-1, 1)).flatten(), bounds=(140**2, self.MAX_RPM**2)).x
         # self.get_logger().info(f"{rotor_speeds_squared}")
         rotor_speeds = np.sqrt(rotor_speeds_squared)
         # actual_thrust = self.KF * np.sum(rotor_speeds_squared)

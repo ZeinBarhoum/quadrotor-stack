@@ -1,0 +1,6 @@
+std_msgs/Header header
+uint32 ctrl_state
+uint32 vbat_flying_percentage
+geometry_msgs/Vector3 orientation
+geometry_msgs/Vector3 twist_linear
+int32 altitude
