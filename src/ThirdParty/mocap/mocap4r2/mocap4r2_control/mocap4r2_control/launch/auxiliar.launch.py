@@ -28,9 +28,9 @@ def generate_launch_description():
 
     return LaunchDescription([
         DeclareLaunchArgument(
-          'params_file',
-          default_value=os.path.join(pkg_dir, 'config', 'config_example.yaml'),
-          description='Full path to the ROS2 parameters file to use for auxiliar node'),
+            'params_file',
+            default_value=os.path.join(pkg_dir, 'config', 'config_example.yaml'),
+            description='Full path to the ROS2 parameters file to use for auxiliar node'),
         Node(
             package='mocap4r2_control',
             namespace='',

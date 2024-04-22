@@ -31,8 +31,8 @@ def get_mocap_systems(node):
     elapsed = clock.now() - start_time
 
     qos_profile = QoSProfile(
-                durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
-                depth=10)
+        durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
+        depth=10)
 
     mocap_systems = []
     node.create_subscription(
