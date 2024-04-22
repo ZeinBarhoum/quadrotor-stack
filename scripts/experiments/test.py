@@ -1,9 +1,9 @@
-import cv2 
+import cv2
 
 
 capture = cv2.VideoCapture(
-            'udp://localhost:48697'
-        )
+    'udp://localhost:48697'
+)
 try:
     while True:
         ret, frame = capture.read()

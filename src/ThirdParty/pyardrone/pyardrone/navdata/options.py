@@ -174,6 +174,7 @@ class RawMeasures(OptionHeader):
     alt_temp_raw = int32_t
     gradient = int16_t
 
+
 @index.register(21)
 class PressureRaw(OptionHeader):
 
@@ -208,7 +209,6 @@ class Magneto(OptionHeader):
     magneto_radius = float32_t
     error_mean = float32_t
     error_var = float32_t
-
 
     unknown_var_1 = float32_t
     unknown_var_2 = float32_t

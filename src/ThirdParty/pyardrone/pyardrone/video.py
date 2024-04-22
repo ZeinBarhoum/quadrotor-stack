@@ -169,7 +169,7 @@ class VideoMixin:
         while self.video_client.thread_video_client_working and self.video_client.thread_video_opencv_working:
             pass
         self.connect_VideoMixin()
-        
+
     def connect_VideoMixin(self):
         self.video_client = VideoClient(self.host, self.video_port)
         self.video_client.connect()

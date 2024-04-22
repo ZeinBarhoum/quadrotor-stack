@@ -168,7 +168,7 @@ class HelperMixin:
         '''
         self.send(at.PCMD(flag=0))
 
-    def pwm(self, motor1 = 0, motor2 = 0, motor3 = 0, motor4 = 0):
+    def pwm(self, motor1=0, motor2=0, motor3=0, motor4=0):
         '''
         Sends the pwm command.
         '''
@@ -180,7 +180,7 @@ class HelperMixin:
         '''
         self.send(at.FTRIM())
 
-    def mtrim(self, pitch = 0.0, roll = 0.0, yaw = 0.0):
+    def mtrim(self, pitch=0.0, roll=0.0, yaw=0.0):
         '''
         Sends the manual trims command.
         '''
