@@ -531,6 +531,8 @@ class DroneNode(Node):
         self.drone.emergency()
         self.drone.ftrim()
         self.get_logger().info("Trimmed")
+        self.drone.mtrim(0,0,0.5)
+        self.get_logger().info("Trimmed")
 
         return True, 'Ready to fly!'
 
