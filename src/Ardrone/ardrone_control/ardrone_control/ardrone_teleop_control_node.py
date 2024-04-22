@@ -17,10 +17,11 @@ from std_msgs.msg import Int32MultiArray
 
 import include.logitech_joistick as joystick
 
+
 class ArdroneTeleopControlNode(Node):
     """A ROS2 Node with a Service Server for WhatIsThePoint."""
     instruction_keyboard_msg = \
-    """
+        """
     --Comands--
     arrow_up      : take off
     arrow_down    : land
@@ -43,7 +44,7 @@ class ArdroneTeleopControlNode(Node):
     """
 
     instruction_joystick_msg = \
-    """
+        """
     --Comands--
     buttons on joystick handle on the right : take off / land
     joystick handle trigger                 : recrash (allow drone to fly after crash)
@@ -80,14 +81,14 @@ class ArdroneTeleopControlNode(Node):
                 ('max_lin_speed', 0.3),
                 ('max_ang_speed', 1.0)
             ])
-        
+
         self.work_mode = self.get_parameter('work_mode').value
         self.use_joystick = self.get_parameter('use_joystick').value
         self.max_lin_speed = self.get_parameter('max_lin_speed').value
         self.max_ang_speed = self.get_parameter('max_ang_speed').value
 
         self.get_logger().info(f"{self.work_mode}, {self.use_joystick}, {self.max_lin_speed}, {self.max_ang_speed}")
-        
+
         self.settings = self.saveTerminalSettings()
 
         self.service_client = self.create_client(
@@ -97,7 +98,7 @@ class ArdroneTeleopControlNode(Node):
         if (self.work_mode == 0):
             TwistMsg = geometry_msgs.msg.Twist
             self.twist_msg = TwistMsg()
-            self.cmd_twist_publisher = self.create_publisher(TwistMsg, 'ardrone_control_cmd_twist', 10)   
+            self.cmd_twist_publisher = self.create_publisher(TwistMsg, 'ardrone_control_cmd_twist', 10)
             print('MODE 0 : Twist control')
             if self.use_joystick:
                 print(self.instruction_joystick_msg)
@@ -111,14 +112,12 @@ class ArdroneTeleopControlNode(Node):
 
         self.future: Future = None
         self.joy = joystick.LogitechJoistick()
-        self.checkedJoy = False  
+        self.checkedJoy = False
 
-   
-    
     def send_cmd_command(self, cmd_msg):
         request = Command.Request()
         request.command = cmd_msg
-        
+
         if self.future is not None and not self.future.done():
             self.future.cancel()  # Cancel the future. The callback will be called with Future.result == None.
             self.get_logger().info("Service Future canceled. The Node took too long to process the service call.")
@@ -161,7 +160,7 @@ class ArdroneTeleopControlNode(Node):
             print("Keyboard start.")
             print(self.instruction_keyboard_msg)
             return False
-        
+
     def joystick_publish_command(self):
         if self.joy.cmd_takeoff:
             self.joy.cmd_takeoff = 0
@@ -203,7 +202,7 @@ class ArdroneTeleopControlNode(Node):
     def keyboard_publish_command(self):
         key = self.getKey(self.settings)
         if key == '\x1b':
-            # Если escape последовательность, то считать еще 2 символа 
+            # Если escape последовательность, то считать еще 2 символа
             # Но будет некорректно работать, если был нажата клавиша Escape (будет ждать нажатия еще 2 кнопок)
             key += sys.stdin.read(2)
         # print(repr(key))
@@ -238,6 +237,7 @@ class ArdroneTeleopControlNode(Node):
             if (key == '\x03'):
                 raise KeyboardInterrupt
 
+
 def main(args=None):
     try:
         rclpy.init(args=args)
@@ -271,7 +271,7 @@ def main(args=None):
         elif control_node.work_mode == 1:
             pwm_array = [int(0), int(0), int(0), int(0)]
             control_node.cmd_pwm_publisher.publish(Int32MultiArray(data=pwm_array))
-        control_node.restoreTerminalSettings(control_node.settings)   
+        control_node.restoreTerminalSettings(control_node.settings)
 
     except KeyboardInterrupt:
         pass
@@ -279,6 +279,7 @@ def main(args=None):
     #     print(e)
     finally:
         rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()

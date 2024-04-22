@@ -419,6 +419,7 @@ class StructureTestCase(unittest.TestCase):
                          (1, 0, 0, 0, 0, 0))
         self.assertRaises(TypeError, lambda: Z(1, 2, 3, 4, 5, 6, 7))
 
+
 '''
 class PointerMemberTestCase(unittest.TestCase):
 

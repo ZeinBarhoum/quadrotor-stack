@@ -96,6 +96,7 @@ class FTRIM(ATCommand):
     Flat trims - Tells the drone it is lying horizontally
     '''
 
+
 class MTRIM(ATCommand):
 
     '''
@@ -105,6 +106,7 @@ class MTRIM(ATCommand):
     pitch = parameters.Float('drone orientation pitch, [-1...1]')
     roll = parameters.Float('drone orientation roll, [-1...1]')
     yaw = parameters.Float('drone orientation yaw, [-1...1]')
+
 
 class CONFIG(ATCommand):
 

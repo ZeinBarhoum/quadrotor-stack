@@ -1,11 +1,11 @@
 from pyardrone.video import VideoClient
 import cv2
 
-import logging 
+import logging
 
-logging.basicConfig(level= logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG)
 
-video_client = VideoClient(host= "192.168.1.1", video_port= 5555)
+video_client = VideoClient(host="192.168.1.1", video_port=5555)
 video_client.connect()
 video_client.video_ready.wait()
 
@@ -16,5 +16,3 @@ try:
             break
 finally:
     video_client.close()
-
-

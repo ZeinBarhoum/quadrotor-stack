@@ -1,11 +1,11 @@
-import rclpy 
-from rclpy.node import Node 
+import rclpy
+from rclpy.node import Node
 
 from std_msgs.msg import String
 from sensor_msgs.msg import Image
-from cv_bridge import CvBridge 
+from cv_bridge import CvBridge
 import cv2
- 
+
 
 class VideoSubscriber(Node):
 
@@ -21,7 +21,7 @@ class VideoSubscriber(Node):
             'ardrone_video_frames',
             self.listener_video_callback,
             10)
-        self.video_subscription # prevent unused variable warning
+        self.video_subscription  # prevent unused variable warning
 
         # self.navdata_subscription = self.create_subscription(
         #     String,
@@ -30,17 +30,15 @@ class VideoSubscriber(Node):
         #     10)
         # self.navdata_subscription # prevent unused variable warning
 
-
     def listener_video_callback(self, data):
         current_frame = self.br.imgmsg_to_cv2(data)
         cv2.imshow("AR.Drone camera", current_frame)     # Display image
         cv2.waitKey(1)
 
-
     def listener_navdata_callback(self, data):
         print(data.data)
         print("_______")
-        
+
 
 def main(args=None):
     try:
@@ -56,7 +54,7 @@ def main(args=None):
     finally:
         video_subscriber.destroy_node()
         rclpy.shutdown()
-   
+
 
 if __name__ == '__main__':
     main()
