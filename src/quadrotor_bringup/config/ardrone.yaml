@@ -1,8 +1,8 @@
 DFBCController:
   KP_XYZ: [10.0, 10.0, 10.0]  # For position
   KD_XYZ: [6.0, 6.0, 6.0]  # For position
-  KP_RPY: [150, 150, 30.0]  # For roll, pitch and yaw
-  KD_RPY: [20, 20, 8.0]  # For roll, pitch and yaw
+  KP_RPY: [50, 0, 30.0]  # For roll, pitch and yaw
+  KD_RPY: [1000, 0, 8.0]  # For roll, pitch and yaw
   Weights: [0.001, 10, 10, 0.1]
   quadrotor_description: ardrone2  # quadrotor name (for config file)
   state_topic: quadrotor_state

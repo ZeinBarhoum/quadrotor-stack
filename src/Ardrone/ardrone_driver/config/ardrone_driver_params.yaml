@@ -6,6 +6,7 @@ ardrone_driver_node:
         # 'demo' is need for working NAV data
         # ***'metadata' and 'vision_detect' always included in 'demo'***
         # navdata_options: "{'demo': True,'time': True,'raw_measures': True,'pressure_raw': True,'magneto': True,'euler_angles': True,'pwm': True}"
-        navdata_options: "{'demo': True}"
+        # navdata_options: "{'demo': True}"
+        navdata_options: "{'demo': True , 'raw_measures': True}"
         # navdata_options: "{'demo': False}"
         # full availible NAV data options you can see in documantation for pyardrone

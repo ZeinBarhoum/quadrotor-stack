@@ -228,9 +228,12 @@ class QuadrotorDFBC(Node):
         Weights = np.array(self.Weights)
 
         error_position = reference_position - actual_position
+        # print(f"{error_position=}")
         error_velocity = reference_velocity - actual_velocity
+        # print(f"{error_velocity=}")
         error_orientation = reference_orientation_euler - actual_orientation_euler
         error_angular_velocity = reference_angular_velocity - actual_angular_velocity
+        print(f"{error_angular_velocity=}")
 
         desired_acceleration = reference_linear_acceleration + np.multiply(KP_XYZ, error_position) + np.multiply(KD_XYZ, error_velocity)
         desired_acceleration[2] += self.G
@@ -249,6 +252,7 @@ class QuadrotorDFBC(Node):
 
         error_rotation = -0.5*(desired_Rb.transpose() @ actual_Rb - actual_Rb.transpose() @ desired_Rb)
         error_rotation = np.array([error_rotation[2, 1], error_rotation[0, 2], error_rotation[1, 0]])
+        print(f"{error_rotation=}")
         # error_rotation[0] = np.clip(error_rotation[0], -1, 1)
         # error_rotation[1] = np.clip(error_rotation[1], -1, 1)
         # self.get_logger().info(f'{error_rotation=}')
@@ -292,6 +296,7 @@ class QuadrotorDFBC(Node):
                                                            ).reshape(-1, 1)).flatten(), bounds=(140**2, self.MAX_RPM**2)).x
         # self.get_logger().info(f"{rotor_speeds_squared}")
         rotor_speeds = np.sqrt(rotor_speeds_squared)
+        print(rotor_speeds)
         # actual_thrust = self.KF * np.sum(rotor_speeds_squared)
         # actual_torques = np.array([self.ARM * self.KF * (rotor_speeds_squared[0] - rotor_speeds_squared[2]),
         #                            self.ARM * self.KF * (rotor_speeds_squared[1] - rotor_speeds_squared[3]),

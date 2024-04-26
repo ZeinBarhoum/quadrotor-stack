@@ -1,5 +1,4 @@
-from pyardrone.utils.structure import numpy
-from quadrotor_interfaces.msg import State, StateData, RotorCommand
+from quadrotor_interfaces.msg import State
 from ardrone_interfaces.msg import NAVDataDemo
 from rclpy.logging import rclpy
 from scipy.spatial.transform import Rotation
@@ -14,21 +13,21 @@ class DataMapper(Node):
     def __init__(self):
         super().__init__("data_mapper_node", parameter_overrides=[])
 
-        # sub_demo = self.create_subscription(NAVDataDemo,
-        #                                     'ardrone_navdata_Demo',
-        #                                     self.callback,
-        #                                     10
-        #                                     )
+        sub_demo = self.create_subscription(NAVDataDemo,
+                                            'ardrone_navdata_Demo',
+                                            self.callback,
+                                            10
+                                            )
         sub_rb = self.create_subscription(RigidBodies,
                                           "/rigid_bodies",
                                           self.rb_callback,
                                           10)
-        self.pub = self.create_publisher(State,
-                                         'quadrotor_state',
-                                         10)
-        self.pub2 = self.create_publisher(PoseStamped,
-                                          'quadrotor_pose',
-                                          10)
+        self.pub_state = self.create_publisher(State,
+                                               'quadrotor_state',
+                                               10)
+        self.pub_pose = self.create_publisher(PoseStamped,
+                                              'quadrotor_pose',
+                                              10)
         self.position = np.array([0.0, 0.0, 0.0])
         self.prev_position = np.array([0.0, 0.0, 0.0])
         self.orientation = np.array([0.0, 0.0, 0.0, 1.0])
@@ -86,8 +85,8 @@ class DataMapper(Node):
         pose.pose = data.state.pose
         pose.header.frame_id = 'map'
 
-        self.pub.publish(data)
-        self.pub2.publish(pose)
+        self.pub_state.publish(data)
+        self.pub_pose.publish(pose)
 
     def callback(self, msg: NAVDataDemo):
 
@@ -118,8 +117,8 @@ class DataMapper(Node):
         pose.pose = data.state.pose
         pose.header.frame_id = 'map'
 
-        self.pub.publish(data)
-        self.pub2.publish(pose)
+        self.pub_state.publish(data)
+        self.pub_pose.publish(pose)
 
 
 if __name__ == '__main__':
