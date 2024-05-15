@@ -12,21 +12,26 @@ The system modules and their interactions are shown in the following graph:
 
 ![Simulation System Diagram](/media/system_simulation.svg)
 
-In real life, the simulation node would be replaced with multiple nodes, namely the quadrotor_command node, quadrotor_motion node and quadrotor_state_estimation node. The first one is responsible for communicating with the quadrotor, giving it the rotor commands and receiving images and IMU data. The quadrotor_motion node communicated with the motion-capture system (if exists). Finally, the quadrotor_state_estimation is responsible for estimating and publishing the current state of the quadrotor. The following diagram present the real-life system.
-![Real System Diagram](/media/system_real.svg)
-
 ## Implemented Modules and Functionalities
 
 - [x] Simulation: quadrotor_simulation
-  - [x] Pybullet: quadrotor_pybullet
-- [ ] Tracking: quadrotor_control
-  - [x] PID: quadrotor_pid
+  - [x] Pybullet - for rigid body dynamics simulation
+  - [x] IMU sensor simulation
+  - [x] Camera sensor simulation
+  - [x] Wind disturbance simulation
+  - [x] Learned residual disturbance simulation
+  - [x] AirSim for realistic camera simulation
+- [x] Tracking: quadrotor_control
+  - [x] PID
   - [x] DFBC
-- [ ] Path Planning : quadrotor_path_finding
-  - [x] RRT : quadrotor_rrt
-- [ ] Trajectory Generation : quadrotor_trajectory_generation
-  - [x] 3rd order polynomials (no optimization) - quadrotor_poly_optimizer
+  - [x] RL
+- [x] Path Planning : quadrotor_path_finding
+  - [x] RRT
+- [x] Trajectory Generation : quadrotor_trajectory_generation
+  - [x] 3rd order polynomials (no optimization)
   - [x] Higher order polynomials (with optimization)
+- [x] Utilities:
+  - [x] Dashboard
 
 ## Installation
 
@@ -45,8 +50,7 @@ Next, navigate to your preferable folder and download the repository
 ```bash
 cd /path/to/work/folder
 mkdir quadrotor_ws && cd quadrotor_ws
-#git clone https://github.com/ZeinBarhoum/quadrotor-plan-control.git #when it becomes public
-git clone git@github.com:ZeinBarhoum/quadrotor-plan-control.git
+git clone https://github.com/ZeinBarhoum/quadrotor-stack.git
 ```
 
 Install dependencies:
@@ -87,9 +91,9 @@ ros2 launch quadrotor_bringup quadrotor_full.launch.py
 From here you can command the system using three different mechanisms:
 
 1. Direct position control (step): publish to `quadrotor_reference` topic
-2. Trajectory tracking control: publish a polynomial to the `quadrotor_polynomial_trajectory` topic.
-3. Waypoint tracking: publish set of waypoints to the `quadrotor_waypoints` topic.
-4. Path planning: publish a map to the `quadrotor_map` topic and then a target position to the `quadrotor_plan_command` to automatically collision-free path.
+1. Trajectory tracking control: publish a polynomial to the `quadrotor_polynomial_trajectory` topic.
+1. Waypoint tracking: publish set of waypoints to the `quadrotor_waypoints` topic.
+1. Path planning: publish a map to the `quadrotor_map` topic and then a target position to the `quadrotor_plan_command` to automatically collision-free path.
 
 More detailed usage is discussed below. For information about packages, nodes and parameters, check the wiki!
 
@@ -97,11 +101,13 @@ More detailed usage is discussed below. For information about packages, nodes an
 
 #### Nodes
 
-The simulation package (`quadrotor_simulation`) contains 3 types of nodes:
+The simulation package (`quadrotor_simulation`) contains the following types of nodes:
 
 - Physics Node: `quadrotor_pybullet_physics`, responsible for taking the input (rotor speeds) and calculating the external forces/torques applied on the quadrotor (nominal, aerodynamic and residuals) and then integrate over time to get the quadrotor state (pose + twist) at every time.
 - Camera/Scene Node: `quadrotor_pybullet_camera`, responsible for taking the pose of the quadrotor at every time and visualize the quadrotor with this pose in the environment (scene environment can be different from physics environment), in addition, this scene is responsible simulating a Camera by calculating the projection of the scene on the image plane.
 - IMU Node: `quadrotor_imu`, responsible for simulating an IMU sensor by inducing noises with specific covariance and so on.
+- AirSim Node: `quadrotor_airsim`, responsible for publishing the quadrotor state to AirSim simulator which in turns provide realistic images.
+- Wind Disturbance Node: `quadrotor_wind`, responsible for publishing wind velocity to be used by the physics node to calculate aerodynamic forces.
 
 To start the physics simulation with default parameters:
 
@@ -214,7 +220,6 @@ ros2 topic pub /quadrotor_plan_command geometry_msgs/msg/Point "{x : 5.0, y : 5.
 ```
 
 The planner make use of the Occupancy Map published to the `quadrotor_map` topic, if no map is published, it assumes a 10x10x10 empty map.
-
 
 ## Modularity
 
