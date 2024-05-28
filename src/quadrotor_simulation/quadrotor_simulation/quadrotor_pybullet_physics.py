@@ -134,7 +134,7 @@ class QuadrotorPybulletPhysics(Node):
         self.get_logger().info(
             f'QuadrotorPybulletPhysics node initialized at {self.start_time.seconds_nanoseconds()}. Frequency: {self.simulation_step_frequency} Hz, Sequential Mode: {self.sequential_mode}')
     def reset(self, msg: Empty):
-        p.resetBasePositionAndOrientation(self.quadrotor_id, [0, 0, 0.25], [0,0,0,1], physicsClientId=self.physicsClient)
+        p.resetBasePositionAndOrientation(self.quadrotor_id, [5.0, 0, 1.0], [0,0,0,1], physicsClientId=self.physicsClient)
         p.resetBaseVelocity(self.quadrotor_id, [0,0,0], [0,0,0], physicsClientId=self.physicsClient)
         self.initialize_data()
 

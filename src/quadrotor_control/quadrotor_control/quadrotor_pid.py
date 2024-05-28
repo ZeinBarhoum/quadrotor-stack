@@ -217,14 +217,18 @@ class QuadrotorPID(Node):
         self.G = 9.81
         self.KF = quadrotor_params['KF']
         self.KM = quadrotor_params['KM']
-        self.ARM = quadrotor_params['ARM']
+        # self.ARM = quadrotor_params['ARM']
+        self.ARM_X = quadrotor_params['ARM_X']
+        self.ARM_Y = quadrotor_params['ARM_Y']
+        self.ARM_Z = quadrotor_params['ARM_Z']
+        self.ROTOR_DIRS = quadrotor_params['ROTOR_DIRS']
         self.M = quadrotor_params['M']
         self.T2W = quadrotor_params['T2W']
         self.W = self.G * self.M
         self.HOVER_RPM = math.sqrt(self.W / (4 * self.KF))
         self.MAX_THRUST = self.T2W * self.W
         self.MAX_RPM = math.sqrt(self.MAX_THRUST / (4 * self.KF))
-        self.MAX_TORQUE_XY = self.ARM * self.KF * self.MAX_RPM ** 2
+        self.MAX_TORQUE_XY = self.ARM_X * self.KF * self.MAX_RPM ** 2
         self.MAX_TORQUE_Z = 2 * self.KM * self.MAX_RPM ** 2
 
     def initialize_errors(self):
@@ -332,23 +336,27 @@ class QuadrotorPID(Node):
             np.ndarray: The desired rotor speeds.
         """
         # self.get_logger().info(f'{thrust=:.2f} {torques}')
+        # A = np.array([[self.KF, self.KF, self.KF, self.KF],
+        #               [0, self.ARM*self.KF, 0, -self.ARM*self.KF],
+        #               [-self.ARM*self.KF, 0, self.ARM*self.KF, 0],
+        #               [self.KM, -self.KM, self.KM, -self.KM]])
+        # arm_angle = math.pi / 4
+        # A = np.array([[self.KF, self.KF, self.KF, self.KF],
+        #               self.KF*self.ARM*np.array([math.cos(arm_angle), math.sin(arm_angle), -math.cos(arm_angle), -math.sin(arm_angle)]),
+        #               self.KF*self.ARM*np.array([-math.sin(arm_angle), math.cos(arm_angle), math.sin(arm_angle), -math.cos(arm_angle)]),
+        #               [-self.KM, self.KM, -self.KM, self.KM]])
         A = np.array([[self.KF, self.KF, self.KF, self.KF],
-                      [0, self.ARM*self.KF, 0, -self.ARM*self.KF],
-                      [-self.ARM*self.KF, 0, self.ARM*self.KF, 0],
-                      [self.KM, -self.KM, self.KM, -self.KM]])
-        arm_angle = math.pi / 4
-        A = np.array([[self.KF, self.KF, self.KF, self.KF],
-                      self.KF*self.ARM*np.array([math.cos(arm_angle), math.sin(arm_angle), -math.cos(arm_angle), -math.sin(arm_angle)]),
-                      self.KF*self.ARM*np.array([-math.sin(arm_angle), math.cos(arm_angle), math.sin(arm_angle), -math.cos(arm_angle)]),
-                      [-self.KM, self.KM, -self.KM, self.KM]])
+                      self.KF*self.ARM_Y*np.array([-1, 1, 1, -1]),
+                      self.KF*self.ARM_X*np.array([-1, -1, 1, 1]),
+                      [-self.ROTOR_DIRS[0]*self.KM, -self.ROTOR_DIRS[1]*self.KM, -self.ROTOR_DIRS[2]*self.KM, -self.ROTOR_DIRS[3]*self.KM]])
 
         rotor_speeds_squared = np.matmul(np.linalg.inv(A), np.array([thrust, torques[0], torques[1], torques[2]]))
         rotor_speeds_squared = np.clip(rotor_speeds_squared, 0, self.MAX_RPM**2)
         rotor_speeds = np.sqrt(rotor_speeds_squared)
-        actual_thrust = self.KF * np.sum(rotor_speeds_squared)
-        actual_torques = np.array([self.ARM * self.KF * (rotor_speeds_squared[0] - rotor_speeds_squared[2]),
-                                   self.ARM * self.KF * (rotor_speeds_squared[1] - rotor_speeds_squared[3]),
-                                   self.KM * (rotor_speeds_squared[0] - rotor_speeds_squared[1] + rotor_speeds_squared[2] - rotor_speeds_squared[3])])
+        # actual_thrust = self.KF * np.sum(rotor_speeds_squared)
+        # actual_torques = np.array([self.ARM * self.KF * (rotor_speeds_squared[0] - rotor_speeds_squared[2]),
+        #                            self.ARM * self.KF * (rotor_speeds_squared[1] - rotor_speeds_squared[3]),
+        #                            self.KM * (rotor_speeds_squared[0] - rotor_speeds_squared[1] + rotor_speeds_squared[2] - rotor_speeds_squared[3])])
         rotor_speeds = rotor_speeds.astype(np.float32)
         return rotor_speeds
 

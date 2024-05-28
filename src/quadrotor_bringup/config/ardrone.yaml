@@ -1,9 +1,9 @@
 DFBCController:
-  KP_XYZ: [10.0, 10.0, 10.0]  # For position
+  KP_XYZ: [10.0, 10.0, 25.0]  # For position
   KD_XYZ: [6.0, 6.0, 6.0]  # For position
-  KP_RPY: [50, 0, 30.0]  # For roll, pitch and yaw
-  KD_RPY: [1000, 0, 8.0]  # For roll, pitch and yaw
-  Weights: [0.001, 10, 10, 0.1]
+  KP_RPY: [150, 150, 10.0]  # For roll, pitch and yaw
+  KD_RPY: [20, 20, 8.0]  # For roll, pitch and yaw
+  Weights: [1.0, 1.0, 1.0, 1.0]
   quadrotor_description: ardrone2  # quadrotor name (for config file)
   state_topic: quadrotor_state
   reference_topic: quadrotor_reference
@@ -12,16 +12,14 @@ DFBCController:
 
 PolyTrajOptimizer:
   time_allocation: distance_proportional  # distance_proportional, constant or optimization
-  segment_time: 0.1  # segment time in seconds for constant time allocation
-  avg_velocity: 0.1 # average velocity in m/s for distance proportional time allocation
+  avg_velocity: 1.0  # average velocity in m/s for distance proportional time allocation
   quadrotor_description: ardrone2  # quadrotor description file name (without extension)
   one_segment: false  # if true, the trajectory will be a single segment
   high_order_constraints: 2  # number of constraints for the high order derivatives (velocity = 1 and so on)
-  optimize: false
+  optimize: true
   added_poly_order: 1
   waypoints_topic: quadrotor_waypoints
   trajectory_topic: quadrotor_polynomial_trajectory
-  map_topic: quadrotor_map
 
 QuadrotorPathVisualizer:
   refresh_rate: 10

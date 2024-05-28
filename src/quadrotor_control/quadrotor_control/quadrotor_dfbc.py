@@ -1,6 +1,6 @@
 """ A ROS2 node that implements a Differential Flattness Based Controller for a quadrotor. """
 import rclpy
-from rclpy.node import Node
+from rclpy.node import Node, ParameterDescriptor
 from rosidl_runtime_py.convert import message_to_ordereddict
 
 from quadrotor_interfaces.msg import State, ReferenceState, RotorCommand
@@ -15,7 +15,6 @@ import os
 from ament_index_python.packages import get_package_share_directory
 import yaml
 
-from typing import Union, List, Tuple
 
 # For colored traceback
 try:
@@ -36,19 +35,19 @@ class QuadrotorDFBC(Node):
 
     def __init__(self):
         """ Initialize the node's parameters, subscribers, publishers and timers."""
-        super().__init__('quadrotor_dfbc_node')
+        super().__init__('quadrotor_dfbc_node', parameter_overrides=[])
 
         # Declare the parameters:
-        self.declare_parameters(parameters=[('KP_XYZ', [10.0, 10.0, 10.0]),
-                                            ('KD_XYZ', [5.0, 5.0, 5.0]),
-                                            ('KP_RPY', [125.0, 125.0, 10.0]),
-                                            ('KD_RPY', [20.0, 20.0, 10.0]),
-                                            ('Weights', [1.0, 1.0, 1.0, 1.0]),
-                                            ('quadrotor_description', 'cf2x'),
-                                            ('state_topic', 'quadrotor_state'),
-                                            ('reference_topic', 'quadrotor_reference'),
-                                            ('rotor_speeds_topic', 'quadrotor_rotor_speeds'),
-                                            ('command_publish_frequency', DEFAULT_FREQUENCY),
+        self.declare_parameters(parameters=[('KP_XYZ', [10.0, 10.0, 10.0], ParameterDescriptor()),
+                                            ('KD_XYZ', [5.0, 5.0, 5.0], ParameterDescriptor()),
+                                            ('KP_RPY', [125.0, 125.0, 10.0], ParameterDescriptor()),
+                                            ('KD_RPY', [20.0, 20.0, 10.0], ParameterDescriptor()),
+                                            ('Weights', [1.0, 1.0, 1.0, 1.0], ParameterDescriptor()),
+                                            ('quadrotor_description', 'cf2x', ParameterDescriptor()),
+                                            ('state_topic', 'quadrotor_state', ParameterDescriptor()),
+                                            ('reference_topic', 'quadrotor_reference', ParameterDescriptor()),
+                                            ('rotor_speeds_topic', 'quadrotor_rotor_speeds', ParameterDescriptor()),
+                                            ('command_publish_frequency', DEFAULT_FREQUENCY, ParameterDescriptor()),
                                             ],
                                 namespace='')
         # Get the parameters:
@@ -120,8 +119,10 @@ class QuadrotorDFBC(Node):
         self.T2W = quadrotor_params['T2W']
         self.W = self.G * self.M
         self.HOVER_RPM = math.sqrt(self.W / (4 * self.KF))
-        self.MAX_THRUST = self.T2W * self.W
-        self.MAX_RPM = math.sqrt(self.MAX_THRUST / (4 * self.KF))
+        self.MAX_THRUST = 1.5 * self.W
+        # self.MAX_RPM = math.sqrt(self.MAX_THRUST / (4 * self.KF))
+        self.MAX_RPM = quadrotor_params['MAX_RPM']
+        self.MIN_RPM = quadrotor_params['MIN_RPM']
         # self.MAX_TORQUE_XY = self.ARM * self.KF * self.MAX_RPM ** 2
         # self.MAX_TORQUE_Z = 2 * self.KM * self.MAX_RPM ** 2
         self.ROTOR_DIRS = quadrotor_params['ROTOR_DIRS']
@@ -149,6 +150,10 @@ class QuadrotorDFBC(Node):
         self.reference_state['current_state']['pose']['position']['x'] = 0
         self.reference_state['current_state']['pose']['position']['y'] = 0
         self.reference_state['current_state']['pose']['position']['z'] = 0
+        self.reference_state['current_state']['pose']['orientation']['x'] = 0
+        self.reference_state['current_state']['pose']['orientation']['y'] = 0
+        self.reference_state['current_state']['pose']['orientation']['z'] = 0
+        self.reference_state['current_state']['pose']['orientation']['w'] = 1
         self.command = RotorCommand()
         self.command.rotor_speeds = np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32)
 
@@ -228,43 +233,57 @@ class QuadrotorDFBC(Node):
         Weights = np.array(self.Weights)
 
         error_position = reference_position - actual_position
-        # print(f"{error_position=}")
+        print(f"{error_position=}")
+        # error_position *= 0.0
         error_velocity = reference_velocity - actual_velocity
         # print(f"{error_velocity=}")
+        # error_velocity*=0
+        # print(f"{error_velocity=}")
         error_orientation = reference_orientation_euler - actual_orientation_euler
-        error_angular_velocity = reference_angular_velocity - actual_angular_velocity
-        print(f"{error_angular_velocity=}")
+        # print(error_orientation)
+        # error_angular_velocity = reference_angular_velocity - actual_angular_velocity
+        # print(f"{error_angular_velocity=}")
 
         desired_acceleration = reference_linear_acceleration + np.multiply(KP_XYZ, error_position) + np.multiply(KD_XYZ, error_velocity)
         desired_acceleration[2] += self.G
         desired_force = self.M * desired_acceleration
         desired_thrust = np.dot(desired_force, Rotation.from_quat(actual_orientation).as_matrix()[:, 2])
         # desired_thrust = np.clip(desired_thrust, 0.0, self.MAX_THRUST)
+        # print(f"{desired_force=}")
 
         desired_zb = desired_force / np.linalg.norm(desired_force)
         desired_xc = np.array([math.cos(reference_orientation_euler[2]), math.sin(reference_orientation_euler[2]), 0])
+        # print(f"{np.linalg.norm(np.cross(desired_zb, desired_xc))=}")
         desired_yb = np.cross(desired_zb, desired_xc) / np.linalg.norm(np.cross(desired_zb, desired_xc))
         desired_xb = np.cross(desired_yb, desired_zb)
 
         desired_Rb = np.vstack([desired_xb, desired_yb, desired_zb]).transpose()
+        # print(f"{desired_Rb=}")
         # desired_Rb = Rotation.from_euler('xyz', [0, 20, 0], degrees=True).as_matrix()
         actual_Rb = Rotation.from_quat(actual_orientation).as_matrix()
+        # print(f"{actual_Rb=}")
 
         error_rotation = -0.5*(desired_Rb.transpose() @ actual_Rb - actual_Rb.transpose() @ desired_Rb)
         error_rotation = np.array([error_rotation[2, 1], error_rotation[0, 2], error_rotation[1, 0]])
-        print(f"{error_rotation=}")
-        # error_rotation[0] = np.clip(error_rotation[0], -1, 1)
-        # error_rotation[1] = np.clip(error_rotation[1], -1, 1)
+        # error_rotation*=0
+        # print(f"{error_rotation=}")
+        error_rotation[0] = np.clip(error_rotation[0], -1, 1)
+        error_rotation[1] = np.clip(error_rotation[1], -1, 1)
         # self.get_logger().info(f'{error_rotation=}')
         # self.get_logger().info(f'{Rotation.from_matrix(actual_Rb).as_euler("xyz", degrees=True)}')
 
         error_angular_velocity = reference_angular_velocity - actual_angular_velocity
+        # print(f"{error_angular_velocity=}")
+        # print(error_angular_velocity)
+        # error_angular_velocity*=0
 
         desired_ang_acceleration = np.multiply(KP_RPY, error_rotation) + np.multiply(KD_RPY, error_angular_velocity)
         desired_torques = self.J @ desired_ang_acceleration + np.cross(actual_angular_velocity, self.J @ actual_angular_velocity)
 
         self.command.header.stamp = self.get_clock().now().to_msg()
+        desired_thrust = np.clip(desired_thrust, 0, self.MAX_THRUST)
         self.command.rotor_speeds = self.calculate_rotor_speeds(desired_thrust, desired_torques, Weights)
+        # input()
 
     def calculate_rotor_speeds(self, thrust: float, torques: np.ndarray, Weights) -> np.ndarray:
         """ Claculate the rotor speeds using the thrust and torques. 
@@ -289,18 +308,22 @@ class QuadrotorDFBC(Node):
                       [-self.ROTOR_DIRS[0]*self.KM, -self.ROTOR_DIRS[1]*self.KM, -self.ROTOR_DIRS[2]*self.KM, -self.ROTOR_DIRS[3]*self.KM]])
 
         # rotor_speeds_squared = np.matmul(np.linalg.inv(A), np.array([thrust, torques[0], torques[1], torques[2]]))
-        # rotor_speeds_squared = np.clip(rotor_speeds_squared, 0, self.MAX_RPM**2)
+        # rotor_speeds_squared = np.clip(rotor_speeds_squared, self.MIN_RPM**2, self.MAX_RPM**2)
         W = np.diag(np.sqrt(Weights))
-        # self.get_logger().info(f'{W=}')
+        # # self.get_logger().info(f'{W=}')
         rotor_speeds_squared = lsq_linear(W@A, (W@np.array([thrust, torques[0], torques[1], torques[2]]
-                                                           ).reshape(-1, 1)).flatten(), bounds=(140**2, self.MAX_RPM**2)).x
+                                                           ).reshape(-1, 1)).flatten(), bounds=(self.MIN_RPM**2, self.MAX_RPM**2)).x
         # self.get_logger().info(f"{rotor_speeds_squared}")
         rotor_speeds = np.sqrt(rotor_speeds_squared)
-        print(rotor_speeds)
-        # actual_thrust = self.KF * np.sum(rotor_speeds_squared)
-        # actual_torques = np.array([self.ARM * self.KF * (rotor_speeds_squared[0] - rotor_speeds_squared[2]),
-        #                            self.ARM * self.KF * (rotor_speeds_squared[1] - rotor_speeds_squared[3]),
-        #                            self.KM * (rotor_speeds_squared[0] - rotor_speeds_squared[1] + rotor_speeds_squared[2] - rotor_speeds_squared[3])])
+        # print(rotor_speeds)
+        actual_thrust_torques = A@rotor_speeds_squared
+        actual_thrust = actual_thrust_torques[0]
+        actual_torques = actual_thrust_torques[1:]
+        
+        desird_thrust = thrust 
+        desird_torques = torques
+        # print(f"{desird_thrust=}, {desird_torques=}")
+        # print(f"{actual_thrust=}, {actual_torques=}")
         rotor_speeds = rotor_speeds.astype(np.float32)
         return rotor_speeds
 
