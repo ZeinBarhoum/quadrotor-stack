@@ -1,6 +1,0 @@
-ardrone_teleop_control_node:
-    ros__parameters:
-        work_mode: 0            # 0 - teleop twist, 1 - teleop pwm
-        use_joystick: True      # switcher between keyboard and joystick
-        max_lin_speed: 0.3      # online chaging by slider when use joystick
-        max_ang_speed: 1.0

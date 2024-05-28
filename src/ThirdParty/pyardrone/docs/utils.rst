@@ -1,2 +1,0 @@
-.. automodule:: pyardrone.utils
-    :members:
