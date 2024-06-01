@@ -1,4 +1,4 @@
-from geometry_msgs.msg import PoseStamped, TwistStamped
+from geometry_msgs.msg import Point, PoseStamped, TwistStamped, PointStamped
 from numpy import sign
 import rclpy
 from rclpy.node import Node
@@ -39,7 +39,7 @@ class QuadrotorArDrone(Node):
                                                     )
         self.sub_sync.registerCallback(self.callback_sync)
         # self.sub_imu.registerCallback(self.callback_imu)
-        # self.sub_opti.registerCallback(self.callback_mocap)
+        self.sub_opti.registerCallback(self.callback_mocap)
 
         self.pub_state = self.create_publisher(State, 'quadrotor_state', 10)
         self.pub_pose = self.create_publisher(PoseStamped, 'quadrotor_pose', 10)
@@ -48,6 +48,7 @@ class QuadrotorArDrone(Node):
         self.pub_opti_odom = self.create_publisher(
             Odometry, 'fuse/odometry', 10)
         self.pub_imu = self.create_publisher(Imu, 'fuse/imu', 10)
+        self.pub_opti_point = self.create_publisher(PointStamped, 'mocap',10)
 
         self.last_time = None
         self.last_position = [0.0, 0.0, 0.0]
@@ -73,18 +74,27 @@ class QuadrotorArDrone(Node):
     #     self.pub_imu.publish(msg)
     #
     def callback_mocap(self, opti: RigidBodies):
-        rb: RigidBody = opti.rigidbodies[0]
-        # msg = Odometry()
+        # rb: RigidBody = opti.rigidbodies[0]
+        # # msg = Odometry()
+        # # msg.header.stamp = self.get_clock().now().to_msg()
+        # # msg.header.frame_id = 'odom'
+        # # msg.child_frame_id = 'base_link'
+        # # msg.pose.pose = rb.pose
+        # # self.pub_opti_odom.publish(msg)
+        # msg = PoseStamped()
         # msg.header.stamp = self.get_clock().now().to_msg()
         # msg.header.frame_id = 'odom'
-        # msg.child_frame_id = 'base_link'
-        # msg.pose.pose = rb.pose
-        # self.pub_opti_odom.publish(msg)
-        msg = PoseStamped()
-        msg.header.stamp = self.get_clock().now().to_msg()
-        msg.header.frame_id = 'odom'
-        msg.pose = rb.pose
-        self.pub_pose.publish(msg)
+        # msg.pose = rb.pose
+        # self.pub_pose.publish(msg)
+
+        rb: RigidBody = opti.rigidbodies[0]
+        position = [rb.pose.position.x, rb.pose.position.y, rb.pose.position.z]
+
+        mocap = PointStamped()
+        mocap.header.stamp = self.get_clock().now().to_msg()
+        mocap.header.frame_id = 'odom'
+        mocap.point = Point(x= position[0], y= position[1], z= position[2])
+        self.pub_opti_point.publish(mocap)
 
     def callback_sync(self, imu: Imu, opti: RigidBodies):
         imu_quat = [imu.orientation.x, imu.orientation.y,
@@ -141,6 +151,7 @@ class QuadrotorArDrone(Node):
         twist_s = TwistStamped()
         twist_s.header.frame_id = 'odom'
         twist_s.twist = state.state.twist
+
 
         self.pub_state.publish(state)
         self.pub_pose.publish(pose_s)

@@ -1,5 +1,5 @@
 ARDRONE2_PARAMS:
-  KF: 10.168e-6
+  KF: 8.0e-6
   KM: 30.504e-8
   M: 0.505
   MIN_RPM: 140 
