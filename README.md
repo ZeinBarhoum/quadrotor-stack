@@ -12,6 +12,8 @@ The system modules and their interactions are shown in the following graph:
 
 ![Simulation System Diagram](/media/system_simulation.svg)
 
+<video src="media/videos/sim.mp4" width="480" height="270" controls></video>
+
 ## Implemented Modules and Functionalities
 
 - [x] Simulation: quadrotor_simulation
