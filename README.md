@@ -1,8 +1,8 @@
-# Quadrotor Trajectory Planning and Control
+# Quadrotor Stack
 
 ## Overview
 
-A Ros2-based modular system for to facilitate research and development of quadrotor trajectory planning, optimization and tracking.
+A Ros2-based modular system for to facilitate research and development of quadrotor simulation, trajectory planning, path optimization and motion tracking.
 
 There are multiple packages in this repository, each representing a module in the system, this includes simulation, path planning, trajectory generation, trajectory tracking and vision-based mapping.
 
@@ -12,7 +12,13 @@ The system modules and their interactions are shown in the following graph:
 
 ![Simulation System Diagram](/media/system_simulation.svg)
 
-<video src="media/videos/sim.mp4" width="480" height="270" controls></video>
+
+https://github.com/user-attachments/assets/3753184a-e952-41e0-8263-7b80bdc7f5b7
+
+
+https://github.com/user-attachments/assets/6e6e7c3f-a776-4cd2-bbd9-54ad5c995014
+
+
 
 ## Implemented Modules and Functionalities
 
