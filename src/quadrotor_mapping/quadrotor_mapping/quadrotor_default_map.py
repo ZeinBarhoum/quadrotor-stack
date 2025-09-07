@@ -10,21 +10,21 @@ class QuadrotorDefaultMap(Node):
     def __init__(self):
         super().__init__('quadrotor_default_map')
         self.publisher_map = self.create_publisher(OccupancyGrid3D, 'quadrotor_map', 10)
-        
+
         res = 0.1
-        x_max = 15 #m 
+        x_max = 15  # m
         x_max = int(x_max/res) * 2
 
-        y_max = 15 #m 
+        y_max = 15  # m
         y_max = int(y_max/res) * 2
 
-        z_max = 15 #m
+        z_max = 15  # m
         z_max = int(z_max/res)
 
         voxel_map = np.zeros((x_max, y_max, z_max))
         # occupancy_map[20:80, 40:60, 20:80] = 1
         # occupancy_map[40:60, 60:80, 20:80] = 1
-        voxel_map[:, :, 0:int(0.8/res)] = 1 #minimum 0.8 m above ground
+        voxel_map[:, :, 0:int(0.8/res)] = 1  # minimum 0.8 m above ground
 
         self.voxel_map = voxel_map
 
